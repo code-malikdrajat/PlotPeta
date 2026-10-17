@@ -745,7 +745,7 @@ $('btnSaveTokenSettings').onclick = async () => {
 
 async function loadPendingTopups() {
   const { data, error } = await sb.from('topups')
-    .select('*, profiles(nama, email)')
+    .select('*, profiles!topups_user_id_fkey(nama, email)')
     .eq('status', 'menunggu')
     .order('created_at', { ascending: true });
 
