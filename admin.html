@@ -186,17 +186,10 @@ tr:hover td { background: var(--bg-card); }
 
     <div id="loginAlert" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:14px;background:var(--danger-subtle);color:var(--danger);border:1px solid rgba(239,68,68,0.3)"></div>
 
-    <form onsubmit="handleAdminLogin(event)" style="display:flex;flex-direction:column;gap:12px;text-align:left">
-      <div>
-        <label class="form-label">Email Administrator</label>
-        <input type="email" id="admEmail" required placeholder="admin@email.com" autocomplete="username">
-      </div>
-      <div>
-        <label class="form-label">Kata Sandi</label>
-        <input type="password" id="admPassword" required placeholder="Kata sandi" autocomplete="current-password">
-      </div>
-      <button type="submit" class="btn pri" id="btnAdmSubmit" style="width:100%;padding:10px;justify-content:center;margin-top:6px">Masuk Administrator</button>
-    </form>
+    <div style="display:flex;flex-direction:column;gap:12px;text-align:left">
+      <button type="button" class="btn pri" id="btnAdmGoogle" style="width:100%;padding:10px;justify-content:center">Masuk dengan Google</button>
+      <div style="font-size:11.5px;color:var(--text-muted);text-align:center">Hanya akun Google yang sudah ditetapkan sebagai administrator yang dapat masuk.</div>
+    </div>
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
       <a href="index.html" style="color:var(--text-dim);font-size:12px;text-decoration:none">&larr; Kembali ke Aplikasi Utama</a>
     </div>
@@ -474,13 +467,16 @@ let currentQrisUrl = '';
 let selectedUserIdForKoreksi = null;
 
 const fRp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fDate = d => d ? new Date(d).toLocaleString('id-ID', { dateStyle:'short', timeStyle:'short' }) : '-';
 
 // 1. ISOLATED AUTH GATE
 async function checkAdminSession() {
+  const qs = new URLSearchParams(window.location.search), hs = new URLSearchParams(window.location.hash.substring(1));
+  const oauthErr = qs.get('error_description') || hs.get('error_description');
   const { data: { session } } = await sb.auth.getSession();
   if(!session || !session.user){
-    showLoginScreen();
+    showLoginScreen(oauthErr ? 'Gagal masuk dengan Google: ' + oauthErr.replace(/\+/g, ' ') : '');
     return;
   }
   
@@ -494,6 +490,7 @@ async function checkAdminSession() {
   }
 
   currentAdminUser = session.user;
+  if(window.location.hash || window.location.search) history.replaceState(null, '', window.location.pathname);
   showDashboard(profile);
 }
 
@@ -520,33 +517,25 @@ function showDashboard(profile){
   loadAllTopups();
 }
 
-// Handle Admin Login
-async function handleAdminLogin(e){
-  e.preventDefault();
-  const email = $('admEmail').value.trim();
-  const password = $('admPassword').value;
-  $('btnAdmSubmit').disabled = true;
-  $('btnAdmSubmit').textContent = 'Memverifikasi...';
-
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  $('btnAdmSubmit').disabled = false;
-  $('btnAdmSubmit').textContent = 'Masuk Administrator';
-
+// Login administrator hanya lewat Google
+async function handleAdminGoogleLogin(){
+  const btn = $('btnAdmGoogle');
+  btn.disabled = true;
+  btn.textContent = 'Mengalihkan ke Google...';
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + window.location.pathname,
+      queryParams: { prompt: 'select_account' }
+    }
+  });
   if(error){
+    btn.disabled = false;
+    btn.textContent = 'Masuk dengan Google';
     showLoginScreen('Gagal masuk: ' + error.message);
-    return;
-  }
-
-  // Verifikasi is_admin
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', data.user.id).single();
-  if(!profile || !profile.is_admin){
-    await sb.auth.signOut();
-    showLoginScreen('Akses Ditolak: Akun Anda tidak memiliki hak administrator.');
-  } else {
-    currentAdminUser = data.user;
-    showDashboard(profile);
   }
 }
+$('btnAdmGoogle').onclick = handleAdminGoogleLogin;
 
 $('btnAdminLogout').onclick = async () => {
   await sb.auth.signOut();
@@ -756,7 +745,7 @@ async function loadPendingTopups() {
     tb.innerHTML = `
       <tr>
         <td colspan="7" style="text-align:center;padding:18px;color:#dc2626">
-          Gagal memuat permintaan top-up: ${error.message}
+          Gagal memuat permintaan top-up: ${esc(error.message)}
         </td>
       </tr>`;
     return;
@@ -776,17 +765,17 @@ async function loadPendingTopups() {
   tb.innerHTML = data.map(t => `
     <tr>
       <td class="mono">${fDate(t.created_at)}</td>
-      <td><b>${t.profiles?.nama || '-'}</b><br><span class="mono" style="font-size:11px;color:var(--text-dim)">${t.profiles?.email || '-'}</span></td>
+      <td><b>${esc(t.profiles?.nama || '-')}</b><br><span class="mono" style="font-size:11px;color:var(--text-dim)">${esc(t.profiles?.email || '-')}</span></td>
       <td>${t.jumlah_token} Token</td>
       <td class="mono" style="font-weight:700;color:var(--accent)">${fRp(t.nominal)}</td>
-      <td>${t.metode.toUpperCase()}</td>
+      <td>${esc(String(t.metode || '').toUpperCase())}</td>
       <td>
-        ${t.bukti_url ? `<button class="btn" style="padding:4px 8px;font-size:11px" onclick="previewBukti('${t.bukti_url}')">Lihat Bukti Foto</button>` : '<span style="color:var(--danger)">Tidak ada</span>'}
+        ${t.bukti_url ? `<button class="btn" style="padding:4px 8px;font-size:11px" data-act="bukti" data-path="${esc(t.bukti_url)}">Lihat Bukti Foto</button>` : '<span style="color:var(--danger)">Tidak ada</span>'}
       </td>
       <td>
         <div style="display:flex;gap:6px">
-          <button class="btn suc" style="padding:4px 8px;font-size:11px" onclick="approveTopup('${t.id}', '${t.profiles?.nama || 'Pengguna'}', ${t.jumlah_token})">Setujui</button>
-          <button class="btn dan" style="padding:4px 8px;font-size:11px" onclick="rejectTopup('${t.id}')">Tolak</button>
+          <button class="btn suc" style="padding:4px 8px;font-size:11px" data-act="approve" data-id="${esc(t.id)}" data-nama="${esc(t.profiles?.nama || 'Pengguna')}" data-jml="${Number(t.jumlah_token) || 0}">Setujui</button>
+          <button class="btn dan" style="padding:4px 8px;font-size:11px" data-act="reject" data-id="${esc(t.id)}">Tolak</button>
         </div>
       </td>
     </tr>
@@ -801,9 +790,9 @@ async function previewBukti(path) {
 
   const { data, error } = await sb.storage.from('bukti-transfer').createSignedUrl(path, 600);
   if(error || !data){
-    c.innerHTML = '<span style="color:var(--danger)">Gagal memuat foto bukti: ' + (error?.message || 'File tidak ditemukan') + '</span>';
+    c.innerHTML = '<span style="color:var(--danger)">Gagal memuat foto bukti: ' + esc(error?.message || 'File tidak ditemukan') + '</span>';
   } else {
-    c.innerHTML = `<img src="${data.signedUrl}" style="max-width:100%;max-height:480px;object-fit:contain;border-radius:10px;border:1px solid var(--border)"><br><a href="${data.signedUrl}" target="_blank" class="btn" style="margin-top:10px;display:inline-block">Buka Ukuran Asli</a>`;
+    c.innerHTML = `<img src="${esc(data.signedUrl)}" style="max-width:100%;max-height:480px;object-fit:contain;border-radius:10px;border:1px solid var(--border)"><br><a href="${esc(data.signedUrl)}" target="_blank" class="btn" style="margin-top:10px;display:inline-block">Buka Ukuran Asli</a>`;
   }
 }
 
@@ -863,14 +852,14 @@ async function loadUsers() {
     const exp = expMap[u.id] ? fDate(expMap[u.id]) : '-';
     return `
       <tr>
-        <td><b>${u.nama || '-'}</b></td>
-        <td class="mono">${u.email}</td>
+        <td><b>${esc(u.nama || '-')}</b></td>
+        <td class="mono">${esc(u.email)}</td>
         <td>${u.is_admin ? '<span class="badge rej">Admin</span>' : '<span class="badge" style="background:var(--border)">User</span>'}</td>
         <td class="mono" style="font-weight:700;color:var(--accent)">${bal} Token</td>
         <td class="mono" style="font-size:11.5px">${exp}</td>
         <td class="mono" style="font-size:11.5px">${fDate(u.created_at)}</td>
         <td>
-          <button class="btn" style="padding:4px 8px;font-size:11px" onclick="openKoreksiModal('${u.id}', '${u.nama || u.email}')">Koreksi Token</button>
+          <button class="btn" style="padding:4px 8px;font-size:11px" data-act="koreksi" data-id="${esc(u.id)}" data-nama="${esc(u.nama || u.email)}">Koreksi Token</button>
         </td>
       </tr>
     `;
@@ -895,48 +884,13 @@ $('btnSubmitKoreksi').onclick = async () => {
     return;
   }
 
-  if(qty > 0){
-    const expDate = new Date();
-    expDate.setDate(expDate.getDate() + hari);
-    const { data: batch, error } = await sb.from('token_batches').insert({
-      user_id: selectedUserIdForKoreksi,
-      asal: 'koreksi',
-      jumlah_awal: qty,
-      sisa: qty,
-      kedaluwarsa_pada: expDate.toISOString()
-    }).select().single();
-
-    if(error){ alert('Gagal: ' + error.message); return; }
-
-    await sb.from('token_ledger').insert({
-      user_id: selectedUserIdForKoreksi,
-      batch_id: batch.id,
-      jenis: 'koreksi',
-      jumlah: qty,
-      catatan: catatan
-    });
-  } else {
-    const need = Math.abs(qty);
-    const { data: batches } = await sb.from('token_batches')
-      .select('*')
-      .eq('user_id', selectedUserIdForKoreksi)
-      .gt('sisa', 0)
-      .order('kedaluwarsa_pada', { ascending: true });
-
-    let remainingToDeduct = need;
-    for(const b of (batches || [])){
-      if(remainingToDeduct <= 0) break;
-      const dec = Math.min(b.sisa, remainingToDeduct);
-      await sb.from('token_batches').update({ sisa: b.sisa - dec }).eq('id', b.id);
-      await sb.from('token_ledger').insert({
-        user_id: selectedUserIdForKoreksi,
-        batch_id: b.id,
-        jenis: 'koreksi',
-        jumlah: -dec,
-        catatan: catatan
-      });
-      remainingToDeduct -= dec;
-    }
+  if(!selectedUserIdForKoreksi){ alert('Pengguna belum dipilih.'); return; }
+  const { data: res, error } = await sb.rpc('admin_koreksi_token', {
+    p_user_id: selectedUserIdForKoreksi, p_jumlah: qty, p_hari: hari, p_catatan: catatan
+  });
+  if(error || !res || !res.success){
+    alert('Gagal: ' + (error?.message || res?.message || 'tidak diketahui'));
+    return;
   }
 
   alert('Koreksi token berhasil disimpan.');
@@ -965,17 +919,28 @@ async function loadAllTopups() {
     return `
       <tr>
         <td class="mono" style="font-size:11.5px">${fDate(t.created_at)}</td>
-        <td><b>${t.profiles?.nama || '-'}</b><br><span class="mono" style="font-size:11px;color:var(--text-dim)">${t.profiles?.email || '-'}</span></td>
+        <td><b>${esc(t.profiles?.nama || '-')}</b><br><span class="mono" style="font-size:11px;color:var(--text-dim)">${esc(t.profiles?.email || '-')}</span></td>
         <td>${t.jumlah_token} Token</td>
         <td class="mono">${fRp(t.nominal)}</td>
-        <td>${t.metode.toUpperCase()}</td>
+        <td>${esc(String(t.metode || '').toUpperCase())}</td>
         <td>${stBadge}</td>
-        <td>${t.decider?.nama || '-'}</td>
-        <td style="font-size:11.5px;color:var(--text-muted)">${t.catatan || '-'}</td>
+        <td>${esc(t.decider?.nama || '-')}</td>
+        <td style="font-size:11.5px;color:var(--text-muted)">${esc(t.catatan || '-')}</td>
       </tr>
     `;
   }).join('');
 }
+
+// Tombol di dalam tabel memakai atribut data-*, tanpa kode di dalam HTML
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if(!b) return;
+  const a = b.dataset.act;
+  if(a === 'bukti') previewBukti(b.dataset.path);
+  else if(a === 'approve') approveTopup(b.dataset.id, b.dataset.nama, Number(b.dataset.jml));
+  else if(a === 'reject') rejectTopup(b.dataset.id);
+  else if(a === 'koreksi') openKoreksiModal(b.dataset.id, b.dataset.nama);
+});
 
 // Inisialisasi
 checkAdminSession();
