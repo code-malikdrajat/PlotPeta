@@ -1489,17 +1489,18 @@ textarea {
       <span>Lanjutkan dengan Google</span>
     </button>
 
-    <div class="auth-divider">
-      <span>atau dengan email</span>
-    </div>
-
-    <div class="tab-nav">
-      <button class="tab-btn active" id="tabBtnLogin" onclick="switchAuthTab('login')">Masuk</button>
-      <button class="tab-btn" id="tabBtnRegister" onclick="switchAuthTab('register')">Daftar Akun</button>
-      <button class="tab-btn" id="tabBtnForgot" onclick="switchAuthTab('forgot')">Lupa Sandi</button>
-    </div>
-
+    <p style="margin:12px 0 0;text-align:center;color:var(--text-muted);font-size:12px">
+      Masuk atau buat akun PlotPeta dengan akun Google Anda.
+    </p>
     <div id="authAlert" class="form-alert"></div>
+    <style>
+      #modalAuth .auth-divider,
+      #modalAuth .tab-nav,
+      #modalAuth #formLogin,
+      #modalAuth #formRegister,
+      #modalAuth #formForgot { display:none !important; }
+      #modalAuth .btn-google { width:100%; margin-top:8px; }
+    </style>
 
     <!-- Form Login -->
     <form id="formLogin" onsubmit="handleLogin(event)">
@@ -2589,9 +2590,10 @@ let currentUniqueCode = Math.floor(100 + Math.random() * 899);
 // Auth Modal
 function openAuthModal(tab = 'login'){
   $('modalAuth').classList.add('open');
-  switchAuthTab(tab);
   $('authAlert').className = 'form-alert';
   $('authAlert').textContent = '';
+  $('authAlert').style.display = 'block';
+  $('authModalTitle').textContent = 'Lanjutkan ke PlotPeta';
 }
 function closeAuthModal(){ $('modalAuth').classList.remove('open'); }
 $('btnOpenAuth').onclick = () => openAuthModal('login');
