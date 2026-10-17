@@ -975,6 +975,75 @@ textarea {
   color: var(--accent);
 }
 
+/* Payment & QRIS Display in Topup Modal */
+.pay-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.pay-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+}
+.pay-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-input);
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+}
+.pay-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+.btn-copy {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-copy:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.qris-display-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+  margin-bottom: 12px;
+}
+.qris-display-img {
+  max-width: 180px;
+  max-height: 180px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  transition: transform 0.2s ease;
+}
+.qris-display-img:hover {
+  transform: scale(1.03);
+}
+
 @media (max-width: 900px) {
   #bar { padding: 6px 10px; gap: 6px; }
   .brand-badge { display: none; }
@@ -1175,9 +1244,6 @@ textarea {
         <button class="dropdown-item" onclick="openLedgerModal()">
           <span>📜</span><span>Riwayat Token</span>
         </button>
-        <a href="admin.html" class="dropdown-item" id="adminLink" style="display:none">
-          <span>⚡</span><span>Admin Panel</span>
-        </a>
         <div style="height:1px;background:var(--border);margin:3px 0"></div>
         <button class="dropdown-item" style="color:var(--danger)" onclick="logout()">
           <span>🚪</span><span>Keluar (Logout)</span>
@@ -1521,7 +1587,7 @@ textarea {
 
 <!-- 3. Modal Top-Up Token (Pembayaran Manual QRIS / Transfer) -->
 <div class="modal-overlay" id="modalTopup">
-  <div class="modal-card" style="max-width:520px">
+  <div class="modal-card" style="max-width:540px">
     <div class="modal-head">
       <h3 class="modal-title">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
@@ -1538,27 +1604,78 @@ textarea {
           <div class="mu" style="font-size:12px;margin-top:2px">1 Token = 1 Download DXF AutoCAD</div>
         </div>
         <div style="text-align:right">
-          <div style="font-size:16px;font-weight:700;color:var(--accent)" id="topupNominalDisplay">Rp 100.000</div>
+          <div style="font-size:17px;font-weight:700;color:var(--accent)" id="topupNominalDisplay">Rp 100.000</div>
           <div class="brand-badge" style="background:var(--warning-subtle);color:var(--warning);border-color:rgba(245,158,11,0.3)">Termasuk Kode Unik</div>
         </div>
       </div>
     </div>
 
-    <!-- Rekening Petunjuk -->
-    <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12px;margin-bottom:14px;line-height:1.6" id="rekInfoBox">
-      <b>Petunjuk Pembayaran Transfer:</b><br>
-      Bank: <b>BCA</b> &bull; No. Rek: <b class="mono" style="color:var(--accent)">123-456-7890</b><br>
-      Atas Nama: <b>PlotPeta Official</b><br>
-      Mohon transfer sesuai nominal persis di atas agar verifikasi cepat.
+    <!-- Foto QRIS Resmi (Tampil jika Admin mengunggah QRIS) -->
+    <div id="userQrisSection" class="qris-display-box" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-weight:700;font-size:13px;margin-bottom:10px">
+        <span>📱 Pembayaran QRIS Resmi</span>
+        <span class="brand-badge" style="background:var(--success-subtle);color:var(--success);border-color:rgba(16,185,129,0.3)">Bebas Biaya Admin</span>
+      </div>
+      <div>
+        <img id="userQrisImg" class="qris-display-img" alt="QRIS PlotPeta" title="Klik untuk memperbesar QRIS" onclick="$('modalZoomQris').classList.add('open')">
+      </div>
+      <div style="margin-top:8px">
+        <button type="button" class="btn" style="padding:4px 10px;font-size:11px" onclick="$('modalZoomQris').classList.add('open')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+          <span>Klik untuk Perbesar QRIS</span>
+        </button>
+      </div>
+      <div class="mu" style="font-size:11px;margin-top:8px">
+        Mendukung BCA, Mandiri, BRI, BNI, GoPay, OVO, DANA, ShopeePay, LinkAja & seluruh aplikasi perbankan.
+      </div>
+    </div>
+
+    <!-- Informasi Rekening Bank & E-Wallet -->
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+      <!-- Card Bank Transfer -->
+      <div class="pay-card" id="userBankCard">
+        <div class="pay-card-head">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span>🏦 Transfer Bank</span>
+            <span class="mono" style="font-weight:700;color:var(--text-main)" id="userBankName">BCA</span>
+          </div>
+          <span class="mu" style="font-size:11px">Atas Nama: <b id="userBankAn" style="color:var(--text-main)">-</b></span>
+        </div>
+        <div class="pay-row">
+          <span class="pay-num" id="userBankNorek">-</span>
+          <button type="button" class="btn-copy" id="btnCopyBankNorek">Salin No. Rek</button>
+        </div>
+      </div>
+
+      <!-- Card E-Wallet -->
+      <div class="pay-card" id="userEwalletCard" style="display:none">
+        <div class="pay-card-head">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span>👛 Dompet Digital (E-Wallet)</span>
+            <span class="mono" style="font-weight:700;color:var(--text-main)" id="userEwalletName">-</span>
+          </div>
+          <span class="mu" style="font-size:11px">Atas Nama: <b id="userEwalletAn" style="color:var(--text-main)">-</b></span>
+        </div>
+        <div class="pay-row">
+          <span class="pay-num" id="userEwalletNomor">-</span>
+          <button type="button" class="btn-copy" id="btnCopyEwalletNomor">Salin Nomor</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Petunjuk Penting -->
+    <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11.5px;margin-bottom:14px;color:var(--text-muted);line-height:1.5">
+      💡 <b>Petunjuk:</b> Mohon transfer sesuai nominal persis di atas (termasuk 3 digit kode unik) agar admin dapat memverifikasi pembayaran Anda lebih cepat.
     </div>
 
     <!-- Form Upload Bukti -->
     <form onsubmit="handleTopupSubmit(event)">
       <div class="form-group">
-        <label class="form-label">Metode Pembayaran</label>
+        <label class="form-label">Metode Pembayaran yang Digunakan</label>
         <select id="topupMetode">
-          <option value="transfer_bca">Transfer Bank (BCA)</option>
-          <option value="qris">QRIS / Dompet Digital (GoPay/OVO/Dana)</option>
+          <option value="qris">QRIS (Semua Bank & Dompet Digital)</option>
+          <option value="transfer_bank">Transfer Rekening Bank</option>
+          <option value="ewallet">Dompet Digital (E-Wallet)</option>
           <option value="transfer_bank_lain">Transfer Bank Lain</option>
         </select>
       </div>
@@ -1569,8 +1686,8 @@ textarea {
       </div>
 
       <div class="form-group">
-        <label class="form-label">Catatan Tambahan (Opsional)</label>
-        <input type="text" id="topupCatatan" placeholder="Contoh: Transfer dari rekening an Budi">
+        <label class="form-label">Catatan Tambahan (Nama Pengirim / No. Rek Asal)</label>
+        <input type="text" id="topupCatatan" placeholder="Contoh: Transfer an Budi Santoso">
       </div>
 
       <div id="topupAlert" class="form-alert"></div>
@@ -1585,6 +1702,21 @@ textarea {
         <div class="mu">Belum ada riwayat.</div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Modal Zoom QRIS untuk Pengguna -->
+<div class="modal-overlay" id="modalZoomQris">
+  <div class="modal-card" style="max-width:380px;text-align:center">
+    <div class="modal-head">
+      <h3 class="modal-title" style="font-size:14px">QRIS Resmi PlotPeta</h3>
+      <button class="modal-close" onclick="$('modalZoomQris').classList.remove('open')">&times;</button>
+    </div>
+    <div style="padding:10px">
+      <img id="userQrisZoomImg" style="width:100%;max-width:300px;border-radius:12px;border:1px solid var(--border);box-shadow:var(--shadow-md)" alt="QRIS Zoom">
+      <p class="mu" style="font-size:11.5px;margin-top:10px">Scan kode QR di atas menggunakan aplikasi M-Banking atau E-Wallet Anda.</p>
+    </div>
+    <button type="button" class="btn" style="width:100%" onclick="$('modalZoomQris').classList.remove('open')">Tutup</button>
   </div>
 </div>
 
@@ -2814,9 +2946,42 @@ function openTopupModal(){
   $('modalTopup').classList.add('open');
   $('topupAlert').className = 'form-alert';
   $('topupAlert').textContent = '';
+  loadPublicPaymentInfo();
   loadUserTopupHistory();
 }
 $('btnTopupPill').onclick = openTopupModal;
+
+async function loadPublicPaymentInfo(){
+  if(!sb) return;
+  const { data, error } = await sb.from('payment_settings').select('value').eq('key', 'main').maybeSingle();
+  if(error){
+    console.error('Informasi pembayaran tidak dapat dimuat:', error.message);
+    return;
+  }
+  const r = data?.value || {};
+  $('userBankName').textContent = r.bank_name || r.bank || 'Belum diatur';
+  $('userBankNorek').textContent = r.bank_norek || r.nomor || '-';
+  $('userBankAn').textContent = r.bank_an || r.atas_nama || '-';
+  $('userBankCard').style.display = (r.bank_name || r.bank || r.bank_norek || r.nomor) ? '' : 'none';
+  $('userEwalletName').textContent = r.ewallet_name || '-';
+  $('userEwalletNomor').textContent = r.ewallet_nomor || '-';
+  $('userEwalletAn').textContent = r.ewallet_an || '-';
+  $('userEwalletCard').style.display = (r.ewallet_name || r.ewallet_nomor) ? '' : 'none';
+  const hasQris = Boolean(r.qris_url);
+  $('userQrisSection').style.display = hasQris ? '' : 'none';
+  if(hasQris){
+    $('userQrisImg').src = r.qris_url;
+    $('userQrisZoomImg').src = r.qris_url;
+  } else {
+    $('userQrisImg').removeAttribute('src');
+    $('userQrisZoomImg').removeAttribute('src');
+  }
+  $('btnCopyBankNorek').disabled = !(r.bank_norek || r.nomor);
+  $('btnCopyEwalletNomor').disabled = !r.ewallet_nomor;
+}
+
+$('btnCopyBankNorek').onclick = async () => { const value = $('userBankNorek').textContent.trim(); if(value && value !== '-') { try { await navigator.clipboard.writeText(value); alert('Nomor rekening disalin.'); } catch { alert('Tidak dapat menyalin otomatis. Silakan salin nomor rekening secara manual.'); } } };
+$('btnCopyEwalletNomor').onclick = async () => { const value = $('userEwalletNomor').textContent.trim(); if(value && value !== '-') { try { await navigator.clipboard.writeText(value); alert('Nomor dompet digital disalin.'); } catch { alert('Tidak dapat menyalin otomatis. Silakan salin nomor secara manual.'); } } };
 
 async function handleTopupSubmit(e){
   e.preventDefault();
@@ -2988,6 +3153,17 @@ if(sb){
   sb.auth.getSession().then(({ data: { session } }) => {
     updateAuthState(session);
   });
+
+  // Tangkap error jika redirect OAuth gagal dari Supabase
+  const hashParams = new URLSearchParams(window.location.hash.substring(1));
+  const queryParams = new URLSearchParams(window.location.search);
+  const authErr = hashParams.get('error_description') || queryParams.get('error_description');
+  if(authErr){
+    setTimeout(() => {
+      alert('Gagal autentikasi Google: ' + decodeURIComponent(authErr).replace(/\+/g, ' '));
+      history.replaceState(null, '', window.location.pathname);
+    }, 400);
+  }
 }
 
 // Initial Setup
