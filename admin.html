@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Admin Dashboard &bull; PlotPeta</title>
+<title>Admin Portal &bull; PlotPeta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
-  --bg-app: #0c0f17;
-  --bg-panel: #131824;
-  --bg-card: #182030;
-  --bg-input: #0f1420;
-  --border: #232d3f;
+  --bg-app: #090c13;
+  --bg-panel: #111622;
+  --bg-card: #161e2e;
+  --bg-input: #0d121c;
+  --border: #212c3f;
   --border-focus: #0ea5e9;
   --text-main: #f1f5f9;
   --text-muted: #94a3b8;
@@ -47,20 +47,114 @@
 }
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; background: var(--bg-app); color: var(--text-main); font-family: var(--font-sans); font-size: 13.5px; }
+
+/* Login Screen (Isolated) */
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: radial-gradient(circle at top, rgba(14, 165, 233, 0.08), transparent 70%), var(--bg-app);
+}
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+  text-align: center;
+}
+.login-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ef4444, #f59e0b);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+
+/* Header */
 .header { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; background: var(--bg-panel); border-bottom: 1px solid var(--border); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--text-main); text-decoration: none; }
-.brand-badge { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--danger-subtle); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); text-transform: uppercase; }
+.brand-badge { font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: var(--danger-subtle); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Layout */
 .container { max-width: 1200px; margin: 24px auto; padding: 0 20px; display: flex; flex-direction: column; gap: 24px; }
-.card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
-.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
-.card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin: 0; }
+.card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 9px; margin: 0; }
 .card-title svg { color: var(--accent); }
-.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); transition: all 0.15s ease; text-decoration: none; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); transition: all 0.15s ease; text-decoration: none; }
 .btn:hover { background: var(--border); }
 .btn.pri { background: var(--accent); color: #fff; border-color: var(--accent); }
 .btn.pri:hover { background: var(--accent-hover); }
 .btn.suc { background: var(--success); color: #fff; border-color: var(--success); }
 .btn.dan { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+/* Form inputs */
+input, select, textarea { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; color: var(--text-main); font-family: inherit; width: 100%; transition: border-color 0.15s ease; }
+input:focus, textarea:focus { border-color: var(--border-focus); outline: none; box-shadow: 0 0 0 3px var(--accent-subtle); }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+
+/* QRIS Management Box */
+.qris-panel {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--bg-input);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 10px;
+}
+.qris-preview-box {
+  width: 130px;
+  height: 130px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+.qris-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #ffffff;
+}
+.qris-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+  font-size: 11px;
+  text-align: center;
+  padding: 10px;
+}
+.qris-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+/* Tables */
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px; }
 th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
@@ -70,169 +164,294 @@ tr:hover td { background: var(--bg-card); }
 .badge.wait { background: var(--warning-subtle); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
 .badge.app { background: var(--success-subtle); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
 .badge.rej { background: var(--danger-subtle); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
-input, select, textarea { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; color: var(--text-main); font-family: inherit; width: 100%; }
-input:focus, textarea:focus { border-color: var(--border-focus); outline: none; box-shadow: 0 0 0 3px var(--accent-subtle); }
-.grid-settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
-.setting-item { display: flex; flex-direction: column; gap: 6px; }
-.setting-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 .mono { font-family: var(--font-mono); }
-/* Modal */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+
+/* Google sign-in button khusus admin */
+.btn-google-admin {
+  width: 100%; padding: 10px 14px; background: #fff; color: #1f2937;
+  border: 1px solid #d1d5db; border-radius: 9px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  cursor: pointer; font-size: 13px; transition: background .15s ease;
+}
+.btn-google-admin:hover { background: #f8fafc; }
+.btn-google-admin:disabled { opacity: .65; cursor: wait; }
+.auth-divider-admin { display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--text-muted); font-size:11px; }
+.auth-divider-admin::before, .auth-divider-admin::after { content:""; height:1px; flex:1; background:var(--border); }
+
+/* Modals */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
 .modal-overlay.open { display: flex; }
-.modal-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 520px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); padding: 22px; position: relative; }
-.modal-close { position: absolute; top: 16px; right: 16px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; }
-.preview-img { max-width: 100%; max-height: 480px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); margin: 12px 0; }
+.modal-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 520px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); padding: 22px; position: relative; }
+.modal-close { position: absolute; top: 16px; right: 16px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div style="display:flex;align-items:center;gap:12px">
-    <a href="index.html" class="brand">
-      <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#0ea5e9,#10b981);display:flex;align-items:center;justify-content:center;color:#fff">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon></svg>
-      </div>
-      <span>PlotPeta</span>
-    </a>
-    <span class="brand-badge">Admin Panel</span>
-  </div>
-  <div style="display:flex;align-items:center;gap:10px">
-    <span id="adminEmail" class="mono" style="font-size:12px;color:var(--text-muted)">Memeriksa sesi...</span>
-    <a href="index.html" class="btn">Kembali ke Aplikasi</a>
-    <button id="btnLogout" class="btn dan" style="padding:6px 10px">Keluar</button>
-  </div>
-</div>
+<!-- ==================== SCREEN 1: DEDICATED ADMIN LOGIN ==================== -->
+<div id="adminLoginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+    </div>
+    <h2 style="margin:0 0 6px;font-size:18px">PlotPeta Admin Portal</h2>
+    <p style="margin:0 0 20px;font-size:12.5px;color:var(--text-muted)">Area Khusus Administrator &bull; Akses Terbatas</p>
 
-<div class="container" id="adminContent" style="display:none">
-  <!-- Section 1: Permintaan Top-up Menunggu -->
-  <div class="card">
-    <div class="card-head">
-      <h2 class="card-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-        <span>Permintaan Top-Up Menunggu Verifikasi</span>
-      </h2>
-      <button class="btn" onclick="loadPendingTopups()">Refresh</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Waktu</th>
-            <th>Pengguna</th>
-            <th>Paket</th>
-            <th>Nominal Bayar</th>
-            <th>Metode</th>
-            <th>Bukti Bayar</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody id="tblPending">
-          <tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Memuat data...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+    <div id="loginAlert" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:14px;background:var(--danger-subtle);color:var(--danger);border:1px solid rgba(239,68,68,0.3)"></div>
 
-  <!-- Section 2: Pengaturan Global -->
-  <div class="card">
-    <div class="card-head">
-      <h2 class="card-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-        <span>Pengaturan Global (Settings)</span>
-      </h2>
-      <button class="btn pri" id="btnSaveSettings">Simpan Perubahan</button>
-    </div>
-    <div class="grid-settings">
-      <div class="setting-item">
-        <label class="setting-label">Masa Berlaku Token (Hari)</label>
-        <input type="number" id="setMasaHari" min="1" max="365" value="30">
-        <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: 30 hari sejak diterima</span>
+    <form onsubmit="handleAdminLogin(event)" style="display:flex;flex-direction:column;gap:12px;text-align:left">
+      <div>
+        <label class="form-label">Email Administrator</label>
+        <input type="email" id="admEmail" required placeholder="admin@email.com" autocomplete="username">
       </div>
-      <div class="setting-item">
-        <label class="setting-label">Bonus Token Pendaftaran Baru</label>
-        <input type="number" id="setTokenGratis" min="0" max="10" value="3">
-        <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: 3 token saat daftar</span>
+      <div>
+        <label class="form-label">Kata Sandi</label>
+        <input type="password" id="admPassword" required placeholder="Kata sandi" autocomplete="current-password">
       </div>
-      <div class="setting-item">
-        <label class="setting-label">Harga Paket 50 Token (Rp)</label>
-        <input type="number" id="setHargaPaket" min="10000" step="1000" value="100000">
-        <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: Rp 100.000</span>
-      </div>
-      <div class="setting-item" style="grid-column: 1 / -1">
-        <label class="setting-label">Informasi Rekening & QRIS (JSON / Teks Petunjuk)</label>
-        <textarea id="setRekening" rows="3" style="font-family:var(--font-mono);font-size:12px"></textarea>
-      </div>
-    </div>
-  </div>
-
-  <!-- Section 3: Daftar Pengguna & Saldo Token -->
-  <div class="card">
-    <div class="card-head">
-      <h2 class="card-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-        <span>Daftar Pengguna & Saldo Token</span>
-      </h2>
-      <button class="btn" onclick="loadUsers()">Refresh</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Pengguna</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Token Aktif</th>
-            <th>Kedaluwarsa Terdekat</th>
-            <th>Terdaftar</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody id="tblUsers">
-          <tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Memuat data pengguna...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Section 4: Riwayat Top-up -->
-  <div class="card">
-    <div class="card-head">
-      <h2 class="card-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-        <span>Riwayat Seluruh Transaksi Top-Up</span>
-      </h2>
-      <button class="btn" onclick="loadAllTopups()">Refresh</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Waktu</th>
-            <th>Pengguna</th>
-            <th>Token</th>
-            <th>Nominal</th>
-            <th>Metode</th>
-            <th>Status</th>
-            <th>Diputuskan Oleh</th>
-            <th>Catatan</th>
-          </tr>
-        </thead>
-        <tbody id="tblAllTopups">
-          <tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Memuat riwayat...</td></tr>
-        </tbody>
-      </table>
+      <button type="submit" class="btn pri" id="btnAdmSubmit" style="width:100%;padding:10px;justify-content:center;margin-top:6px">Masuk Administrator</button>
+    </form>
+    <div class="auth-divider-admin">ATAU</div>
+    <button type="button" class="btn-google-admin" id="btnAdminGoogle" onclick="handleAdminGoogleLogin()">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 3.01 13.22l7.98 6.19C12.88 13.72 18.01 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.74 7.18l7.65 5.93c4.47-4.13 7.13-10.2 7.13-17.58z"/><path fill="#FBBC05" d="M10.99 28.59A14.4 14.4 0 0 1 10.22 24c0-1.59.27-3.13.76-4.59L3.01 13.22A23.9 23.9 0 0 0 0 24c0 3.86.92 7.5 3.01 10.78l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.9-5.87l-7.65-5.93c-2.12 1.42-4.84 2.26-8.25 2.26-5.99 0-11.12-4.22-13.01-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      <span>Lanjutkan dengan Google</span>
+    </button>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <a href="index.html" style="color:var(--text-dim);font-size:12px;text-decoration:none">&larr; Kembali ke Aplikasi Utama</a>
     </div>
   </div>
 </div>
 
-<!-- Modal Preview Bukti Bayar -->
-<div class="modal-overlay" id="modalBukti">
+<!-- ==================== SCREEN 2: ADMIN DASHBOARD ==================== -->
+<div id="adminDashboard" style="display:none;flex-direction:column;min-height:100vh">
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="brand">
+        <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#0ea5e9,#10b981);display:flex;align-items:center;justify-content:center;color:#fff">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon></svg>
+        </div>
+        <span>PlotPeta</span>
+      </div>
+      <span class="brand-badge">Admin Dashboard</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span id="adminSessionLabel" class="mono" style="font-size:12px;color:var(--text-muted)"></span>
+      <button id="btnAdminLogout" class="btn dan" style="padding:6px 12px">Keluar</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Section 1: Permintaan Top-up Menunggu -->
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span>Permintaan Top-Up Menunggu Verifikasi</span>
+        </h2>
+        <button class="btn" onclick="loadPendingTopups()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>Pengguna</th>
+              <th>Paket</th>
+              <th>Nominal Bayar</th>
+              <th>Metode</th>
+              <th>Bukti Bayar</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblPending">
+            <tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 2: Informasi Pembayaran & Kelola QRIS Interaktif -->
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          <span>Informasi Pembayaran & Kelola Foto QRIS</span>
+        </h2>
+        <button class="btn pri" id="btnSavePaymentSettings">Simpan Info Pembayaran</button>
+      </div>
+
+      <!-- Form Rekening Bank & E-Wallet -->
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Nama Bank (Transfer)</label>
+          <input type="text" id="bankName" placeholder="Contoh: BCA / Mandiri / BNI">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nomor Rekening</label>
+          <input type="text" id="bankNorek" class="mono" placeholder="Contoh: 123-456-7890">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Atas Nama Rekening</label>
+          <input type="text" id="bankAn" placeholder="Contoh: PlotPeta Official">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nama Dompet Digital (E-Wallet)</label>
+          <input type="text" id="ewalletName" placeholder="Contoh: GoPay / OVO / Dana">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nomor Akun / HP E-Wallet</label>
+          <input type="text" id="ewalletNomor" class="mono" placeholder="Contoh: 0812-3456-7890">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Atas Nama E-Wallet</label>
+          <input type="text" id="ewalletAn" placeholder="Contoh: PlotPeta Official">
+        </div>
+      </div>
+
+      <!-- Kelola QRIS Interaktif (Upload, Preview, Ganti, Hapus) -->
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+        <label class="form-label" style="font-size:13px;font-weight:700">Foto QRIS Aktif (Akan Ditampilkan ke Pengguna)</label>
+        
+        <div class="qris-panel">
+          <!-- Thumbnail preview box -->
+          <div class="qris-preview-box" id="qrisThumbBox">
+            <div id="qrisEmptyView" class="qris-empty">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              <span>Belum ada foto QRIS</span>
+            </div>
+            <img id="qrisImgView" class="qris-preview-img" style="display:none" alt="QRIS Aktif">
+          </div>
+
+          <!-- Controls -->
+          <div class="qris-controls">
+            <div id="qrisEmptyControls">
+              <button class="btn pri" onclick="$('qrisFileInput').click()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                <span>Upload Foto QRIS Baru</span>
+              </button>
+              <div class="mono" style="font-size:11px;color:var(--text-dim);margin-top:6px">Format JPG atau PNG (maks 2 MB).</div>
+            </div>
+
+            <div id="qrisActiveControls" style="display:none">
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn" onclick="previewQrisFull()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  <span>Tinjau / Preview</span>
+                </button>
+                <button class="btn" onclick="$('qrisFileInput').click()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                  <span>Ganti Foto QRIS</span>
+                </button>
+                <button class="btn dan" onclick="deleteQris()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <span>Hapus QRIS</span>
+                </button>
+              </div>
+              <div class="mono" style="font-size:11px;color:var(--success);margin-top:6px">&#10003; Foto QRIS aktif terpasang</div>
+            </div>
+
+            <input type="file" id="qrisFileInput" accept="image/png,image/jpeg,image/jpg" hidden onchange="handleQrisUpload(event)">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Pengaturan Token & Paket -->
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <span>Pengaturan Token & Paket</span>
+        </h2>
+        <button class="btn pri" id="btnSaveTokenSettings">Simpan Aturan Token</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Masa Berlaku Token (Hari)</label>
+          <input type="number" id="setMasaHari" min="1" max="365" value="30">
+          <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: 30 hari sejak diterima</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bonus Token Pendaftaran Baru</label>
+          <input type="number" id="setTokenGratis" min="0" max="10" value="3">
+          <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: 3 token saat daftar</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Harga Paket 50 Token (Rp)</label>
+          <input type="number" id="setHargaPaket" min="10000" step="1000" value="100000">
+          <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: Rp 100.000</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Daftar Pengguna & Saldo Token -->
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <span>Daftar Pengguna & Saldo Token</span>
+        </h2>
+        <button class="btn" onclick="loadUsers()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pengguna</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Token Aktif</th>
+              <th>Kedaluwarsa Terdekat</th>
+              <th>Terdaftar</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblUsers">
+            <tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Memuat data pengguna...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 5: Riwayat Top-up -->
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <span>Riwayat Seluruh Transaksi Top-Up</span>
+        </h2>
+        <button class="btn" onclick="loadAllTopups()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>Pengguna</th>
+              <th>Token</th>
+              <th>Nominal</th>
+              <th>Metode</th>
+              <th>Status</th>
+              <th>Diputuskan Oleh</th>
+              <th>Catatan</th>
+            </tr>
+          </thead>
+          <tbody id="tblAllTopups">
+            <tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Memuat riwayat...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Preview Bukti Bayar / QRIS -->
+<div class="modal-overlay" id="modalPreview">
   <div class="modal-box">
-    <button class="modal-close" onclick="$('modalBukti').classList.remove('open')">&times;</button>
-    <h3 style="margin-top:0">Bukti Pembayaran</h3>
-    <div id="buktiContainer" style="text-align:center">Memuat bukti...</div>
+    <button class="modal-close" onclick="$('modalPreview').classList.remove('open')">&times;</button>
+    <h3 style="margin-top:0" id="previewTitle">Tinjau Gambar</h3>
+    <div id="previewContent" style="text-align:center">Memuat...</div>
     <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
-      <button class="btn" onclick="$('modalBukti').classList.remove('open')">Tutup</button>
+      <button class="btn" onclick="$('modalPreview').classList.remove('open')">Tutup</button>
     </div>
   </div>
 </div>
@@ -245,15 +464,15 @@ input:focus, textarea:focus { border-color: var(--border-focus); outline: none; 
     <p class="mono" id="koreksiUserInfo" style="font-size:12px;color:var(--accent)"></p>
     <div style="display:flex;flex-direction:column;gap:12px">
       <div>
-        <label class="setting-label">Jumlah Token (+ untuk tambah, - untuk kurangi)</label>
+        <label class="form-label">Jumlah Token (+ untuk tambah, - untuk kurangi)</label>
         <input type="number" id="koreksiJumlah" placeholder="Misal: 10 atau -5">
       </div>
       <div>
-        <label class="setting-label">Masa Berlaku (Hari dari sekarang)</label>
+        <label class="form-label">Masa Berlaku (Hari dari sekarang)</label>
         <input type="number" id="koreksiHari" value="30">
       </div>
       <div>
-        <label class="setting-label">Alasan / Catatan</label>
+        <label class="form-label">Alasan / Catatan</label>
         <input type="text" id="koreksiCatatan" placeholder="Contoh: Kompensasi kendala sistem">
       </div>
       <button class="btn pri" id="btnSubmitKoreksi" style="margin-top:8px">Simpan Koreksi</button>
@@ -267,43 +486,297 @@ const SUPABASE_URL = 'https://fqkqoqphqosacatqnwqj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_UwScoKPnmBFGgPy-A2nNag_JSeT1caZ';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let currentUser = null;
-let currentProfile = null;
+let currentAdminUser = null;
+let currentQrisUrl = '';
 let selectedUserIdForKoreksi = null;
 
-// Format Rupiah
 const fRp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
 const fDate = d => d ? new Date(d).toLocaleString('id-ID', { dateStyle:'short', timeStyle:'short' }) : '-';
 
-// Cek Auth & Status Admin
-async function checkAuth() {
+// 1. ISOLATED AUTH GATE
+async function checkAdminSession() {
   const { data: { session } } = await sb.auth.getSession();
   if(!session || !session.user){
-    alert('Akses khusus admin. Silakan masuk terlebih dahulu.');
-    window.location.href = 'index.html';
+    showLoginScreen();
     return;
   }
-  currentUser = session.user;
   
-  // Ambil profil
-  const { data: profile, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  // Verifikasi status is_admin di database
+  const { data: profile, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
   if(error || !profile || !profile.is_admin){
-    alert('Akses Ditolak: Akun Anda (' + currentUser.email + ') bukan akun administrator.');
-    window.location.href = 'index.html';
+    // Jika bukan admin, sign out dan tolak akses
+    await sb.auth.signOut();
+    showLoginScreen('Akses Ditolak: Akun (' + session.user.email + ') bukan akun administrator.');
     return;
   }
-  currentProfile = profile;
-  $('adminEmail').textContent = profile.nama + ' (' + currentUser.email + ')';
-  $('adminContent').style.display = 'flex';
 
-  // Load Semua Data
+  currentAdminUser = session.user;
+  showDashboard(profile);
+}
+
+function showLoginScreen(errMsg = ''){
+  $('adminLoginScreen').style.display = 'flex';
+  $('adminDashboard').style.display = 'none';
+  if(errMsg){
+    $('loginAlert').style.display = 'block';
+    $('loginAlert').textContent = errMsg;
+  } else {
+    $('loginAlert').style.display = 'none';
+  }
+}
+
+function showDashboard(profile){
+  $('adminLoginScreen').style.display = 'none';
+  $('adminDashboard').style.display = 'flex';
+  $('adminSessionLabel').textContent = (profile.nama || 'Admin') + ' (' + currentAdminUser.email + ')';
+
+  // Load all dashboard sections
   loadPendingTopups();
-  loadSettings();
+  loadAllSettings();
   loadUsers();
   loadAllTopups();
 }
 
-// 1. Load Permintaan Topup Menunggu
+// Handle Admin Login
+async function handleAdminLogin(e){
+  e.preventDefault();
+  const email = $('admEmail').value.trim();
+  const password = $('admPassword').value;
+  $('btnAdmSubmit').disabled = true;
+  $('btnAdmSubmit').textContent = 'Memverifikasi...';
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  $('btnAdmSubmit').disabled = false;
+  $('btnAdmSubmit').textContent = 'Masuk Administrator';
+
+  if(error){
+    showLoginScreen('Gagal masuk: ' + error.message);
+    return;
+  }
+
+  // Verifikasi is_admin
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', data.user.id).single();
+  if(!profile || !profile.is_admin){
+    await sb.auth.signOut();
+    showLoginScreen('Akses Ditolak: Akun Anda tidak memiliki hak administrator.');
+  } else {
+    currentAdminUser = data.user;
+    showDashboard(profile);
+  }
+}
+
+// Login Google untuk admin. Supabase akan mengembalikan pengguna ke halaman ini,
+// lalu checkAdminSession() tetap memeriksa profiles.is_admin sebelum dashboard dibuka.
+async function handleAdminGoogleLogin(){
+  const btn = $('btnAdminGoogle');
+  btn.disabled = true;
+  btn.querySelector('span').textContent = 'Menghubungkan ke Google...';
+  const redirectTo = window.location.origin + window.location.pathname;
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo }
+  });
+  if(error){
+    btn.disabled = false;
+    btn.querySelector('span').textContent = 'Lanjutkan dengan Google';
+    showLoginScreen('Login Google gagal: ' + error.message + '. Pastikan provider Google dan URL redirect sudah diatur di Supabase.');
+  }
+}
+
+$('btnAdminLogout').onclick = async () => {
+  await sb.auth.signOut();
+  window.location.reload();
+};
+
+// 2. KELOLA INFORMASI PEMBAYARAN & QRIS INTERAKTIF
+async function loadAllSettings() {
+  const [{ data: settings, error: settingsError }, { data: payment, error: paymentError }] = await Promise.all([
+    sb.from('settings').select('key,value'),
+    sb.from('payment_settings').select('value').eq('key', 'main').maybeSingle()
+  ]);
+
+  if(settingsError) console.error('Gagal memuat pengaturan internal:', settingsError.message);
+  (settings || []).forEach(s => {
+    if(s.key === 'masa_berlaku_token_hari') $('setMasaHari').value = s.value;
+    if(s.key === 'token_gratis_daftar') $('setTokenGratis').value = s.value;
+    if(s.key === 'harga_paket_50') $('setHargaPaket').value = s.value;
+  });
+
+  if(paymentError) {
+    console.error('Gagal memuat informasi pembayaran:', paymentError.message);
+    alert('Informasi pembayaran belum dapat dimuat. Pastikan SQL pembaruan PlotPeta sudah dijalankan di Supabase.');
+    return;
+  }
+  const r = payment?.value || {};
+  $('bankName').value = r.bank_name || r.bank || '';
+  $('bankNorek').value = r.bank_norek || r.nomor || '';
+  $('bankAn').value = r.bank_an || r.atas_nama || '';
+  $('ewalletName').value = r.ewallet_name || '';
+  $('ewalletNomor').value = r.ewallet_nomor || '';
+  $('ewalletAn').value = r.ewallet_an || '';
+  currentQrisUrl = r.qris_url || '';
+  currentQrisPath = r.qris_path || pathFromQrisUrl(currentQrisUrl);
+  updateQrisUI();
+}
+
+function pathFromQrisUrl(url){
+  const marker = '/storage/v1/object/public/qris/';
+  const at = (url || '').indexOf(marker);
+  return at >= 0 ? decodeURIComponent(url.slice(at + marker.length).split('?')[0]) : '';
+}
+
+function updateQrisUI(){
+  if(currentQrisUrl){
+    $('qrisEmptyView').style.display = 'none';
+    $('qrisImgView').style.display = 'block';
+    $('qrisImgView').src = currentQrisUrl;
+    $('qrisEmptyControls').style.display = 'none';
+    $('qrisActiveControls').style.display = 'block';
+  } else {
+    $('qrisEmptyView').style.display = 'flex';
+    $('qrisImgView').style.display = 'none';
+    $('qrisImgView').removeAttribute('src');
+    $('qrisEmptyControls').style.display = 'block';
+    $('qrisActiveControls').style.display = 'none';
+  }
+}
+
+// QRIS disimpan di bucket publik khusus; bukti transfer tetap berada di bucket privat.
+let currentQrisPath = '';
+async function handleQrisUpload(e){
+  const input = e.target;
+  const file = input.files?.[0];
+  if(!file) return;
+  input.value = '';
+  if(!['image/png','image/jpeg'].includes(file.type)){
+    alert('Format QRIS harus JPG atau PNG.'); return;
+  }
+  if(file.size > 2 * 1024 * 1024){
+    alert('Ukuran foto QRIS maksimal 2 MB.'); return;
+  }
+  const oldUrl = currentQrisUrl;
+  const oldPath = currentQrisPath;
+  const ext = file.type === 'image/png' ? 'png' : 'jpg';
+  const newPath = `official/${Date.now()}_${crypto.randomUUID()}.${ext}`;
+  const button = document.querySelector('#qrisActiveControls button');
+  try {
+    input.disabled = true;
+    const { error: uploadError } = await sb.storage.from('qris').upload(newPath, file, {
+      cacheControl: '3600', upsert: false, contentType: file.type
+    });
+    if(uploadError) throw uploadError;
+    const { data: publicData } = sb.storage.from('qris').getPublicUrl(newPath);
+    const newUrl = publicData?.publicUrl;
+    if(!newUrl) throw new Error('URL foto QRIS tidak berhasil dibuat.');
+
+    currentQrisUrl = newUrl;
+    currentQrisPath = newPath;
+    const saved = await savePaymentInfo({ quiet: true });
+    if(!saved){
+      currentQrisUrl = oldUrl; currentQrisPath = oldPath;
+      await sb.storage.from('qris').remove([newPath]);
+      updateQrisUI();
+      return;
+    }
+    updateQrisUI();
+    // Hapus file lama hanya setelah URL baru tersimpan dengan sukses.
+    if(oldPath && oldPath !== newPath) {
+      const { error: removeError } = await sb.storage.from('qris').remove([oldPath]);
+      if(removeError) console.warn('QRIS lama tersimpan tetapi file lama gagal dibersihkan:', removeError.message);
+    }
+    alert(oldUrl ? 'Foto QRIS berhasil diganti.' : 'Foto QRIS berhasil diunggah.');
+  } catch(err) {
+    currentQrisUrl = oldUrl; currentQrisPath = oldPath;
+    updateQrisUI();
+    alert('Upload QRIS gagal: ' + (err.message || 'Kesalahan tidak diketahui.'));
+  } finally {
+    input.disabled = false;
+  }
+}
+
+function previewQrisFull(){
+  if(!currentQrisUrl) return;
+  $('previewTitle').textContent = 'Tinjau Foto QRIS';
+  $('previewContent').replaceChildren();
+  const img = document.createElement('img');
+  img.src = currentQrisUrl; img.alt = 'Preview QRIS aktif';
+  img.style.cssText = 'max-width:100%;max-height:480px;object-fit:contain;border-radius:10px;border:1px solid var(--border)';
+  const link = document.createElement('a');
+  link.href = currentQrisUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
+  link.className = 'btn'; link.style.marginTop = '10px'; link.textContent = 'Buka Ukuran Penuh';
+  $('previewContent').append(img, document.createElement('br'), link);
+  $('modalPreview').classList.add('open');
+}
+
+async function deleteQris(){
+  if(!currentQrisUrl) return;
+  if(!confirm('Hapus foto QRIS aktif? Pengguna tidak akan melihat QRIS saat isi ulang token.')) return;
+  const oldUrl = currentQrisUrl;
+  const oldPath = currentQrisPath;
+  currentQrisUrl = ''; currentQrisPath = '';
+  const saved = await savePaymentInfo({ quiet: true });
+  if(!saved){
+    currentQrisUrl = oldUrl; currentQrisPath = oldPath; updateQrisUI();
+    alert('QRIS tidak dihapus karena perubahan gagal disimpan.');
+    return;
+  }
+  updateQrisUI();
+  if(oldPath){
+    const { error } = await sb.storage.from('qris').remove([oldPath]);
+    if(error) console.warn('URL QRIS telah dihapus dari pengaturan, tetapi file lama gagal dibersihkan:', error.message);
+  }
+  alert('Foto QRIS berhasil dihapus.');
+}
+
+async function savePaymentInfo({ quiet = false } = {}){
+  const rekObj = {
+    bank_name: $('bankName').value.trim(),
+    bank_norek: $('bankNorek').value.trim(),
+    bank_an: $('bankAn').value.trim(),
+    ewallet_name: $('ewalletName').value.trim(),
+    ewallet_nomor: $('ewalletNomor').value.trim(),
+    ewallet_an: $('ewalletAn').value.trim(),
+    qris_url: currentQrisUrl,
+    qris_path: currentQrisPath
+  };
+  const { error } = await sb.from('payment_settings').upsert({
+    key: 'main', value: rekObj, updated_at: new Date().toISOString()
+  }, { onConflict: 'key' });
+  if(error){
+    console.error('Gagal menyimpan info pembayaran:', error.message);
+    if(!quiet) alert('Gagal menyimpan info pembayaran: ' + error.message);
+    return false;
+  }
+  return true;
+}
+
+$('btnSavePaymentSettings').onclick = async () => {
+  const button = $('btnSavePaymentSettings');
+  button.disabled = true;
+  const saved = await savePaymentInfo();
+  button.disabled = false;
+  if(saved) alert('Informasi rekening, dompet digital, dan QRIS berhasil disimpan.');
+};
+
+$('btnSaveTokenSettings').onclick = async () => {
+  const masa = parseInt($('setMasaHari').value);
+  const gratis = parseInt($('setTokenGratis').value);
+  const harga = parseInt($('setHargaPaket').value);
+
+  if(!Number.isInteger(masa) || masa < 1 || !Number.isInteger(gratis) || gratis < 0 || !Number.isInteger(harga) || harga < 1){
+    alert('Periksa kembali nilai pengaturan token. Masa berlaku dan harga harus lebih dari 0; token gratis tidak boleh negatif.');
+    return;
+  }
+  const { error } = await sb.from('settings').upsert([
+    { key: 'masa_berlaku_token_hari', value: masa },
+    { key: 'token_gratis_daftar', value: gratis },
+    { key: 'harga_paket_50', value: harga }
+  ]);
+  if(error) alert('Gagal menyimpan pengaturan token: ' + error.message);
+  else alert('Pengaturan aturan token berhasil disimpan!');
+};
+
+// 3. LOAD PERMINTAAN TOP-UP MENUNGGU
 async function loadPendingTopups() {
   const { data, error } = await sb.from('topups')
     .select('*, profiles(nama, email)')
@@ -324,7 +797,7 @@ async function loadPendingTopups() {
       <td class="mono" style="font-weight:700;color:var(--accent)">${fRp(t.nominal)}</td>
       <td>${t.metode.toUpperCase()}</td>
       <td>
-        ${t.bukti_url ? `<button class="btn" style="padding:4px 8px;font-size:11px" onclick="previewBukti('${t.bukti_url}')">Lihat Foto</button>` : '<span style="color:var(--danger)">Tidak ada</span>'}
+        ${t.bukti_url ? `<button class="btn" style="padding:4px 8px;font-size:11px" onclick="previewBukti('${t.bukti_url}')">Lihat Bukti Foto</button>` : '<span style="color:var(--danger)">Tidak ada</span>'}
       </td>
       <td>
         <div style="display:flex;gap:6px">
@@ -336,21 +809,20 @@ async function loadPendingTopups() {
   `).join('');
 }
 
-// Preview Foto Bukti
 async function previewBukti(path) {
-  const c = $('buktiContainer');
+  const c = $('previewContent');
+  $('previewTitle').textContent = 'Bukti Pembayaran Pengguna';
   c.innerHTML = 'Membuat tautan privat...';
-  $('modalBukti').classList.add('open');
+  $('modalPreview').classList.add('open');
 
   const { data, error } = await sb.storage.from('bukti-transfer').createSignedUrl(path, 600);
   if(error || !data){
     c.innerHTML = '<span style="color:var(--danger)">Gagal memuat foto bukti: ' + (error?.message || 'File tidak ditemukan') + '</span>';
   } else {
-    c.innerHTML = `<img src="${data.signedUrl}" class="preview-img"><br><a href="${data.signedUrl}" target="_blank" class="btn" style="margin-top:6px;display:inline-block">Buka Ukuran Asli</a>`;
+    c.innerHTML = `<img src="${data.signedUrl}" style="max-width:100%;max-height:480px;object-fit:contain;border-radius:10px;border:1px solid var(--border)"><br><a href="${data.signedUrl}" target="_blank" class="btn" style="margin-top:10px;display:inline-block">Buka Ukuran Asli</a>`;
   }
 }
 
-// Approve Topup
 async function approveTopup(id, nama, token) {
   if(!confirm(`Setujui top-up ${token} token untuk ${nama}? Token akan langsung ditambahkan ke saldo pengguna.`)) return;
   const { data, error } = await sb.rpc('admin_approve_topup', { p_topup_id: id });
@@ -364,9 +836,8 @@ async function approveTopup(id, nama, token) {
   }
 }
 
-// Reject Topup
 async function rejectTopup(id) {
-  const catatan = prompt('Masukkan alasan penolakan (akan ditampilkan ke pengguna):', 'Bukti transfer tidak sesuai atau dana belum masuk');
+  const catatan = prompt('Masukkan alasan penolakan:', 'Bukti transfer tidak sesuai atau dana belum masuk');
   if(catatan === null) return;
   const { data, error } = await sb.rpc('admin_reject_topup', { p_topup_id: id, p_catatan: catatan });
   if(error || (data && !data.success)){
@@ -378,42 +849,7 @@ async function rejectTopup(id) {
   }
 }
 
-// 2. Load Settings
-async function loadSettings() {
-  const { data, error } = await sb.from('settings').select('*');
-  if(data){
-    data.forEach(s => {
-      if(s.key === 'masa_berlaku_token_hari') $('setMasaHari').value = s.value;
-      if(s.key === 'token_gratis_daftar') $('setTokenGratis').value = s.value;
-      if(s.key === 'harga_paket_50') $('setHargaPaket').value = s.value;
-      if(s.key === 'rekening_info') $('setRekening').value = JSON.stringify(s.value, null, 2);
-    });
-  }
-}
-
-// Save Settings
-$('btnSaveSettings').onclick = async () => {
-  const masa = parseInt($('setMasaHari').value);
-  const gratis = parseInt($('setTokenGratis').value);
-  const harga = parseInt($('setHargaPaket').value);
-  let rek = null;
-  try {
-    rek = JSON.parse($('setRekening').value);
-  } catch(e) {
-    alert('Format JSON pada Informasi Rekening tidak valid.');
-    return;
-  }
-
-  await sb.from('settings').upsert([
-    { key: 'masa_berlaku_token_hari', value: masa },
-    { key: 'token_gratis_daftar', value: gratis },
-    { key: 'harga_paket_50', value: harga },
-    { key: 'rekening_info', value: rek }
-  ]);
-  alert('Pengaturan berhasil disimpan!');
-};
-
-// 3. Load Users & Balances
+// 4. DAFTAR PENGGUNA & SALDO TOKEN
 async function loadUsers() {
   const { data: users, error } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
   const tb = $('tblUsers');
@@ -422,7 +858,6 @@ async function loadUsers() {
     return;
   }
 
-  // Ambil token batches aktif untuk tiap user
   const { data: batches } = await sb.from('token_batches')
     .select('user_id, sisa, kedaluwarsa_pada')
     .gt('sisa', 0)
@@ -458,7 +893,6 @@ async function loadUsers() {
   }).join('');
 }
 
-// Modal Koreksi Token Manual
 function openKoreksiModal(userId, name) {
   selectedUserIdForKoreksi = userId;
   $('koreksiUserInfo').textContent = 'User: ' + name;
@@ -478,7 +912,6 @@ $('btnSubmitKoreksi').onclick = async () => {
   }
 
   if(qty > 0){
-    // Tambah batch baru
     const expDate = new Date();
     expDate.setDate(expDate.getDate() + hari);
     const { data: batch, error } = await sb.from('token_batches').insert({
@@ -499,7 +932,6 @@ $('btnSubmitKoreksi').onclick = async () => {
       catatan: catatan
     });
   } else {
-    // Kurangi token (ambil batch aktif terlama)
     const need = Math.abs(qty);
     const { data: batches } = await sb.from('token_batches')
       .select('*')
@@ -528,7 +960,7 @@ $('btnSubmitKoreksi').onclick = async () => {
   loadUsers();
 };
 
-// 4. Load All Topups
+// 5. RIWAYAT SELURUH TOP-UP
 async function loadAllTopups() {
   const { data, error } = await sb.from('topups')
     .select('*, profiles(nama, email), decider:profiles!topups_diputuskan_oleh_fkey(nama)')
@@ -561,14 +993,8 @@ async function loadAllTopups() {
   }).join('');
 }
 
-// Logout
-$('btnLogout').onclick = async () => {
-  await sb.auth.signOut();
-  window.location.href = 'index.html';
-};
-
 // Inisialisasi
-checkAuth();
+checkAdminSession();
 </script>
 </body>
 </html>
