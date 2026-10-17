@@ -1,0 +1,2867 @@
+<!doctype html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PlotPeta &bull; Digitasi Peta Bidang Tanah ke DXF AutoCAD</title>
+<meta name="description" content="PlotPeta: Digitasi peta bidang tanah, kalibrasi koordinat, deteksi garis otomatis, dan ekspor ke DXF AutoCAD">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Supabase JS Client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg-app: #0c0f17;
+  --bg-panel: #131824;
+  --bg-card: #182030;
+  --bg-input: #0f1420;
+  --border: #232d3f;
+  --border-subtle: #1c2433;
+  --border-focus: #0ea5e9;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  
+  --accent: #0ea5e9;
+  --accent-hover: #0284c7;
+  --accent-active: #0369a1;
+  --accent-glow: rgba(14, 165, 233, 0.35);
+  --accent-subtle: rgba(14, 165, 233, 0.12);
+  --on-accent: #ffffff;
+  
+  --success: #10b981;
+  --success-subtle: rgba(16, 185, 129, 0.14);
+  --warning: #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.14);
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --danger-subtle: rgba(239, 68, 68, 0.14);
+  
+  --canvas-bg: #07090e;
+  --grid-pattern: radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px -2px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 30px -4px rgba(0, 0, 0, 0.6);
+  
+  /* Backward-compatible variables */
+  --bg: var(--bg-app);
+  --pn: var(--bg-panel);
+  --tx: var(--text-main);
+  --mu: var(--text-muted);
+  --bd: var(--border);
+  --ac: var(--accent);
+  --on: var(--on-accent);
+  --cv: var(--canvas-bg);
+  
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+[data-theme="light"] {
+  --bg-app: #f1f5f9;
+  --bg-panel: #ffffff;
+  --bg-card: #f8fafc;
+  --bg-input: #ffffff;
+  --border: #e2e8f0;
+  --border-subtle: #edf2f7;
+  --border-focus: #0284c7;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-active: #075985;
+  --accent-glow: rgba(2, 132, 199, 0.25);
+  --accent-subtle: rgba(2, 132, 199, 0.1);
+  --on-accent: #ffffff;
+  
+  --canvas-bg: #cbd5e1;
+  --grid-pattern: radial-gradient(circle, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 14px -2px rgba(0, 0, 0, 0.09);
+  --shadow-lg: 0 12px 28px -4px rgba(0, 0, 0, 0.14);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-main);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==================== TOP NAVIGATION BAR ==================== */
+#bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  z-index: 20;
+  flex-wrap: wrap;
+}
+
+.bar-left, .bar-center, .bar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Brand Logo */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 6px;
+  text-decoration: none;
+  color: var(--text-main);
+}
+.brand-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0ea5e9, #10b981);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+.brand-name {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.3px;
+  background: linear-gradient(90deg, var(--text-main), var(--text-muted));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.brand-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Divider */
+.bar-div {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  margin: 0 3px;
+}
+
+/* Segmented Toolbars & Buttons */
+.tool-group {
+  display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+button, .btn, select, input {
+  font: inherit;
+  color: var(--text-main);
+}
+
+button, .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  user-select: none;
+}
+
+button svg, .btn svg {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+button:hover, .btn:hover {
+  background: var(--border-subtle);
+  border-color: var(--text-dim);
+  color: var(--text-main);
+}
+
+button:active, .btn:active {
+  transform: translateY(1px);
+}
+
+/* Tool Buttons Active State */
+button[data-tool] {
+  padding: 6px 10px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+button[data-tool]:hover {
+  background: var(--border-subtle);
+  color: var(--text-main);
+}
+button[data-tool].on {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+  font-weight: 600;
+}
+button[data-tool].on svg {
+  stroke: #ffffff;
+}
+
+/* Primary Action Buttons */
+button.pri, .btn.pri {
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: var(--on-accent);
+  border-color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 2px 10px var(--accent-glow);
+}
+button.pri:hover, .btn.pri:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 14px var(--accent-glow);
+}
+
+/* Danger / Delete button */
+button.danger {
+  background: var(--danger-subtle);
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+button.danger:hover {
+  background: var(--danger);
+  color: #ffffff;
+  border-color: var(--danger);
+}
+
+/* Token Pill Badge in Navbar */
+.token-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 4px 6px 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.token-icon {
+  font-size: 14px;
+}
+.token-val {
+  color: #f59e0b;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+}
+.token-add-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease;
+}
+.token-add-btn:hover {
+  transform: scale(1.15);
+}
+
+/* User Menu Dropdown */
+.user-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.user-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Shortcut badge in buttons */
+kbd {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  opacity: 0.8;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  line-height: 1;
+}
+
+/* Snap Toggle Switch */
+.switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  user-select: none;
+  transition: all 0.15s ease;
+}
+.switch-label:hover {
+  color: var(--text-main);
+  border-color: var(--text-dim);
+}
+.switch-label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 28px;
+  height: 16px;
+  background: var(--border);
+  border-radius: 20px;
+  position: relative;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.switch-label input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.2s ease;
+}
+.switch-label input[type="checkbox"]:checked {
+  background: var(--accent);
+}
+.switch-label input[type="checkbox"]:checked::after {
+  transform: translateX(12px);
+}
+
+/* Inputs & Form Controls */
+input, textarea, select {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-size: 12.5px;
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+/* Range sliders */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border);
+  height: 5px;
+  border-radius: 5px;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  margin: 6px 0;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* ==================== MAIN WORKSPACE LAYOUT ==================== */
+#main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+
+#wrap {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+  background-color: var(--canvas-bg);
+  background-image: var(--grid-pattern);
+  background-size: 28px 28px;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  touch-action: none;
+}
+
+/* Empty State / Dropzone */
+.dropzone-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+  padding: 24px;
+}
+.dropzone-box {
+  background: var(--bg-panel);
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  padding: 36px 44px;
+  text-align: center;
+  max-width: 440px;
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  transition: all 0.2s ease;
+}
+#wrap.dragover .dropzone-box {
+  border-color: var(--accent);
+  background: var(--bg-card);
+  transform: scale(1.02);
+}
+.dropzone-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.dropzone-title {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--text-main);
+}
+.dropzone-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+.badge-group {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 14px;
+}
+.fmt-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+/* Floating Status Bar */
+#st {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 9999px;
+  padding: 6px 14px;
+  font-size: 11.5px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-main);
+  box-shadow: var(--shadow-md);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+  user-select: none;
+  pointer-events: none;
+  max-width: calc(100% - 140px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  flex-shrink: 0;
+}
+
+/* Floating Zoom Controls */
+.canvas-controls {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 12px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+}
+.canvas-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.canvas-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-main);
+}
+.canvas-btn:active {
+  transform: scale(0.95);
+}
+
+/* ==================== SIDEBAR ==================== */
+#side {
+  width: 330px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.15);
+  z-index: 15;
+}
+
+#side::-webkit-scrollbar { width: 6px; }
+#side::-webkit-scrollbar-track { background: transparent; }
+#side::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+
+.box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  transition: border-color 0.15s ease;
+}
+.box:focus-within {
+  border-color: var(--border-focus);
+}
+
+.box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+h3 svg { color: var(--accent); }
+
+.mu {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.g2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.hide { display: none !important; }
+
+/* Calibration Point Rows */
+.cr {
+  display: grid;
+  grid-template-columns: 32px 1fr 1fr 64px;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+.cr b {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-radius: 5px;
+  padding: 3px 0;
+  text-align: center;
+  display: block;
+}
+.cr input {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 4px 7px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+}
+.cr input:focus { background: var(--bg-card); }
+.cr span {
+  font-size: 10.5px;
+  font-weight: 500;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#calres {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+}
+#calres:empty { display: none; }
+
+#pMsg, #dMsg {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+textarea {
+  width: 100%;
+  height: 90px;
+  box-sizing: border-box;
+  background: var(--bg-input);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 8px;
+  resize: vertical;
+}
+
+.slider-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.slider-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.shortcut-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 6px;
+}
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ==================== SAAS MODALS ==================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+.modal-overlay.open {
+  display: flex;
+}
+.modal-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.6);
+  padding: 24px;
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.modal-close {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+.modal-close:hover { color: var(--text-main); }
+
+.tab-nav {
+  display: flex;
+  gap: 6px;
+  background: var(--bg-card);
+  padding: 4px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.tab-btn {
+  flex: 1;
+  text-align: center;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+.tab-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.form-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.form-alert {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin-bottom: 12px;
+  display: none;
+}
+.form-alert.error {
+  display: block;
+  background: var(--danger-subtle);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.form-alert.success {
+  display: block;
+  background: var(--success-subtle);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* User Dropdown Menu */
+.dropdown-wrap {
+  position: relative;
+  display: inline-block;
+}
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 180px;
+  box-shadow: var(--shadow-lg);
+  display: none;
+  z-index: 50;
+}
+.dropdown-wrap.open .dropdown-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--text-main);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  width: 100%;
+  text-align: left;
+}
+.dropdown-item:hover {
+  background: var(--bg-card);
+  color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  #bar { padding: 6px 10px; gap: 6px; }
+  .brand-badge { display: none; }
+  #main { flex-direction: column; }
+  #side { width: auto; height: 44%; border-left: 0; border-top: 1px solid var(--border); }
+  .tool-group { overflow-x: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- ==================== TOP NAVIGATION BAR ==================== -->
+<div id="bar">
+  <!-- Brand & File Operations -->
+  <div class="bar-left">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon>
+          <line x1="9" y1="3" x2="9" y2="18"></line>
+          <line x1="15" y1="6" x2="15" y2="21"></line>
+        </svg>
+      </div>
+      <span class="brand-name">PlotPeta</span>
+      <span class="brand-badge">AutoCAD DXF</span>
+    </div>
+
+    <label class="btn pri" title="Buka gambar peta (JPG, PNG, TIFF)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+        <polyline points="21 15 16 10 5 21"></polyline>
+      </svg>
+      <span>Buka peta</span>
+      <input id="file" type="file" accept=".jpg,.jpeg,.png,.tif,.tiff,image/*" hidden>
+    </label>
+
+    <div class="bar-div"></div>
+
+    <label class="btn" title="Buka berkas proyek lokal (.json)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>Buka lokal</span>
+      <input id="op" type="file" accept=".json" hidden>
+    </label>
+
+    <button id="sp" title="Simpan proyek ke laptop Anda (gratis, tanpa token)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+        <polyline points="7 3 7 8 15 8"></polyline>
+      </svg>
+      <span>Simpan lokal</span>
+    </button>
+  </div>
+
+  <!-- CAD Digitizing Tools -->
+  <div class="bar-center">
+    <div class="tool-group">
+      <button data-tool="pan" title="Geser tampilan peta (atau drag layar)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
+          <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
+          <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+        </svg>
+        <span>Geser</span>
+      </button>
+
+      <button data-tool="cal" title="Langkah 1: Kalibrasi 4 titik grid peta">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="22" y1="12" x2="18" y2="12"></line>
+          <line x1="6" y1="12" x2="2" y2="12"></line>
+          <line x1="12" y1="6" x2="12" y2="2"></line>
+          <line x1="12" y1="22" x2="12" y2="18"></line>
+        </svg>
+        <span>1. Kalibrasi</span>
+      </button>
+
+      <button data-tool="P" title="Digitasi garis penuh (solid line)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="19" x2="20" y2="5"></line>
+          <circle cx="4" cy="19" r="2.5" fill="currentColor"></circle>
+          <circle cx="20" cy="5" r="2.5" fill="currentColor"></circle>
+        </svg>
+        <span>Garis penuh</span>
+      </button>
+
+      <button data-tool="D" title="Digitasi garis putus-putus (dashed line)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="19" x2="20" y2="5" stroke-dasharray="3 3"></line>
+        </svg>
+        <span>Garis putus</span>
+      </button>
+
+      <button data-tool="T" title="Tambahkan teks nomor hak dan surat ukur">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4 7 4 4 20 4 20 7"></polyline>
+          <line x1="9" y1="20" x2="15" y2="20"></line>
+          <line x1="12" y1="4" x2="12" y2="20"></line>
+        </svg>
+        <span>Teks bidang</span>
+      </button>
+
+      <button data-tool="M" title="Geser titik simpul / vertex">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="5 9 2 12 5 15"></polyline>
+          <polyline points="9 5 12 2 15 5"></polyline>
+          <polyline points="15 19 12 22 9 19"></polyline>
+          <polyline points="19 9 22 12 19 15"></polyline>
+          <line x1="2" y1="12" x2="22" y2="12"></line>
+          <line x1="12" y1="2" x2="12" y2="22"></line>
+        </svg>
+        <span>Geser titik</span>
+      </button>
+
+      <button data-tool="A" title="Deteksi garis otomatis menggunakan AI/Computer Vision">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+        </svg>
+        <span>Deteksi otomatis</span>
+      </button>
+
+      <button data-tool="E" title="Hapus segmen garis atau teks">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        <span>Hapus</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Actions, Cloud, Token & Profile -->
+  <div class="bar-right">
+    <button id="fin" title="Selesai menggambar satu rangkaian garis (Enter)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      <span>Selesai</span>
+      <kbd>Enter</kbd>
+    </button>
+
+    <button id="undo" title="Batalkan aksi terakhir (Backspace / Ctrl+Z)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>
+      <span>Undo</span>
+      <kbd>Z</kbd>
+    </button>
+
+    <label class="switch-label" title="Snap otomatis ke titik terdekat">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"></path><path d="M7 10a5 5 0 0 1 10 0"></path></svg>
+      <span>Snap</span>
+      <input id="snap" type="checkbox" checked>
+    </label>
+
+    <!-- Token Pill Badge (Logged In) -->
+    <div class="token-pill" id="tokenPill" style="display:none" title="Saldo token Anda (1 download DXF = 1 token)">
+      <span class="token-icon">🪙</span>
+      <span class="token-val" id="tokenCount">0</span>
+      <span style="font-size:11px;color:var(--text-muted)">Token</span>
+      <button class="token-add-btn" id="btnTopupPill" title="Isi ulang token">+</button>
+    </div>
+
+    <!-- Cloud Projects Button (Logged In) -->
+    <button id="btnCloudProjects" class="btn" style="display:none" title="Buka & Simpan Proyek di Cloud Supabase">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>
+      <span>Cloud</span>
+    </button>
+
+    <!-- Primary Export DXF (Uses 1 Token) -->
+    <button class="pri" id="exp" title="Simpan DXF AutoCAD (Memotong 1 token)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      <span>Simpan DXF</span>
+    </button>
+
+    <!-- Auth / User Profile Button -->
+    <button id="btnOpenAuth" class="btn" style="display:inline-flex" title="Masuk atau Buat Akun">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+      <span>Masuk</span>
+    </button>
+
+    <!-- Dropdown Menu for Logged In User -->
+    <div class="dropdown-wrap" id="userMenuWrap" style="display:none">
+      <div class="user-menu-btn" id="userMenuBtn">
+        <div class="user-avatar" id="userAvatar">U</div>
+        <span id="userName" style="font-size:12px;font-weight:600">Pengguna</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </div>
+      <div class="dropdown-menu" id="userDropdown">
+        <div style="padding:6px 10px;font-size:11px;color:var(--text-muted);border-bottom:1px solid var(--border)" id="userEmail">user@email.com</div>
+        <button class="dropdown-item" onclick="openTopupModal()">
+          <span>💳</span><span>Isi Ulang Token</span>
+        </button>
+        <button class="dropdown-item" onclick="openLedgerModal()">
+          <span>📜</span><span>Riwayat Token</span>
+        </button>
+        <a href="admin.html" class="dropdown-item" id="adminLink" style="display:none">
+          <span>⚡</span><span>Admin Panel</span>
+        </a>
+        <div style="height:1px;background:var(--border);margin:3px 0"></div>
+        <button class="dropdown-item" style="color:var(--danger)" onclick="logout()">
+          <span>🚪</span><span>Keluar (Logout)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Theme Switcher -->
+    <button id="themeToggle" class="btn" title="Ganti Mode Gelap / Terang" style="padding:6px 8px">
+      <svg id="themeIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- ==================== MAIN WORKSPACE ==================== -->
+<div id="main">
+  <!-- Canvas Viewport -->
+  <div id="wrap">
+    <canvas id="cv"></canvas>
+
+    <!-- Empty State / Dropzone -->
+    <div id="dropzone" class="dropzone-overlay">
+      <div class="dropzone-box">
+        <div class="dropzone-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+        </div>
+        <h2 class="dropzone-title">Buka Peta Bidang Tanah</h2>
+        <p class="dropzone-sub">Tarik & lepas file gambar peta ke area ini, atau klik tombol di bawah untuk memilih file dari komputer.</p>
+        <button class="btn pri" onclick="$('file').click()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <span>Pilih Berkas Peta</span>
+        </button>
+        <div class="badge-group">
+          <span class="fmt-badge">JPG / JPEG</span>
+          <span class="fmt-badge">PNG</span>
+          <span class="fmt-badge">TIFF / TIF</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Status & Coordinates Badge -->
+    <div id="st">
+      <span class="status-dot"></span>
+      <span>Buka file peta untuk mulai</span>
+    </div>
+
+    <!-- Floating Zoom Controls -->
+    <div class="canvas-controls">
+      <button class="canvas-btn" id="btnZoomIn" title="Perbesar (Zoom In)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+      </button>
+      <button class="canvas-btn" id="btnZoomOut" title="Perkecil (Zoom Out)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+      </button>
+      <button class="canvas-btn" id="btnZoomFit" title="Sesuaikan Tampilan (Fit)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Sidebar Panel -->
+  <div id="side">
+    <!-- Box 1: Kalibrasi 4 Titik -->
+    <div class="box">
+      <div class="box-header">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg>
+          <span>Kalibrasi 4 Titik</span>
+        </h3>
+        <span class="brand-badge" style="background:var(--warning-subtle);color:var(--warning);border-color:rgba(245,158,11,0.3)">Langkah 1</span>
+      </div>
+      <div class="mu">Pilih tool <b>Kalibrasi</b>, klik 4 titik silang grid di pojok-pojok peta (zoom dulu), lalu isi koordinat aslinya.</div>
+      <div id="crs"></div>
+      <div class="g2">
+        <button class="pri" id="apply">Terapkan</button>
+        <button id="creset">Ulang titik</button>
+      </div>
+      <div id="calres"></div>
+    </div>
+
+    <!-- Box 2: Teks Bidang Terpilih -->
+    <div class="box">
+      <div class="box-header">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+          <span>Teks Bidang</span>
+        </h3>
+      </div>
+      <div class="mu" id="tmsg">Pilih tool <b>Teks bidang</b>, lalu klik di dalam bidang tanah untuk mengisi teks.</div>
+      <div id="tform" class="hide">
+        <input id="tno" placeholder="Nomor hak (misal: M.317)" style="margin-top:6px">
+        <input id="tsu" placeholder="Surat Ukur (misal: SU.3997/1982)" style="margin-top:6px">
+        <button id="tdel" class="danger" style="margin-top:6px;width:100%">Hapus teks ini</button>
+      </div>
+      <label class="mu" style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+        <span>Tinggi teks (satuan peta)</span>
+        <input id="th" value="5" style="width:70px;text-align:center">
+      </label>
+      <div class="mu" id="cnt" style="margin-top:6px;font-weight:500"></div>
+    </div>
+
+    <!-- Box 3: Poligon Bidang -->
+    <div class="box">
+      <div class="box-header">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+          <span>Poligon Bidang</span>
+        </h3>
+      </div>
+      <div class="mu">Dibuat otomatis dari ruang tertutup di jaringan garis. Buat ulang jika garis diubah.</div>
+      <label class="mu" style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+        <span>Toleransi sambung (px)</span>
+        <input id="pTol" value="8" style="width:70px;text-align:center">
+      </label>
+      <div class="g2">
+        <button class="pri" id="pMk">Buat poligon</button>
+        <button id="pDel">Hapus poligon</button>
+      </div>
+      <div class="mu" id="pMsg"></div>
+    </div>
+
+    <!-- Box 4: Nama Layer DXF -->
+    <div class="box">
+      <div class="box-header">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+          <span>Nama Layer DXF</span>
+        </h3>
+      </div>
+      <div class="g2">
+        <label class="mu">Garis penuh<input id="lP" value="020100" style="margin-top:3px"></label>
+        <label class="mu">Garis putus<input id="lD" value="020300" style="margin-top:3px"></label>
+        <label class="mu">Nomor M<input id="lM" value="080203" style="margin-top:3px"></label>
+        <label class="mu">Su<input id="lSu" value="080202" style="margin-top:3px"></label>
+      </div>
+      <label class="mu" style="display:block;margin-top:8px">
+        Poligon bidang
+        <input id="lPoly" value="BIDANG K4 ER" style="margin-top:3px;width:100%">
+      </label>
+    </div>
+
+    <!-- Box 5: Deteksi Otomatis -->
+    <div class="box">
+      <div class="box-header">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
+          <span>Deteksi Otomatis</span>
+        </h3>
+      </div>
+      <div class="mu">Pilih <b>Deteksi otomatis</b>, lalu tarik kotak pada bagian peta. Garis kandidat akan tampil oranye.</div>
+      
+      <div class="slider-row">
+        <span>Kepekaan</span>
+        <span class="slider-val" id="val_dT">40</span>
+      </div>
+      <input id="dT" type="range" min="15" max="90" value="40" style="width:100%">
+
+      <div class="slider-row">
+        <span>Panjang minimum</span>
+        <span class="slider-val" id="val_dL">120 px</span>
+      </div>
+      <input id="dL" type="range" min="40" max="600" value="120" style="width:100%">
+
+      <div class="slider-row">
+        <span>Celah putus-putus</span>
+        <span class="slider-val" id="val_dG">50 px</span>
+      </div>
+      <input id="dG" type="range" min="10" max="120" value="50" style="width:100%">
+
+      <div class="g2">
+        <button class="pri" id="dOk">Terima semua</button>
+        <button id="dNo">Buang</button>
+      </div>
+      <button id="dAll" style="margin-top:8px;width:100%">Deteksi seluruh peta</button>
+      <div class="mu" id="dMsg"></div>
+    </div>
+
+    <!-- Box 6: Cadangan Teks DXF (Fallback) -->
+    <div id="outbox" class="box hide">
+      <div class="box-header">
+        <h3>Cadangan Teks DXF</h3>
+      </div>
+      <textarea id="out" readonly></textarea>
+      <div class="mu" id="outmsg" style="margin-top:6px"></div>
+    </div>
+
+    <!-- Shortcut Legend -->
+    <div class="box" style="background:var(--bg-panel);border-style:dashed">
+      <div class="box-header">
+        <h3 style="font-size:12px;color:var(--text-muted)">Pintasan & Navigasi</h3>
+      </div>
+      <div class="shortcut-list">
+        <div class="shortcut-item"><kbd>Klik</kbd> <span>Titik garis</span></div>
+        <div class="shortcut-item"><kbd>Enter</kbd> <span>Selesai garis</span></div>
+        <div class="shortcut-item"><kbd>Scroll</kbd> <span>Zoom peta</span></div>
+        <div class="shortcut-item"><kbd>Drag</kbd> <span>Geser layar</span></div>
+        <div class="shortcut-item"><kbd>Ctrl+Z</kbd> <span>Batalkan (Undo)</span></div>
+        <div class="shortcut-item"><kbd>Esc</kbd> <span>Batal gambar</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SAAS MODALS ==================== -->
+
+<!-- 1. Modal Auth (Masuk / Daftar / Lupa Sandi) -->
+<div class="modal-overlay" id="modalAuth">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 class="modal-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <span id="authModalTitle">Masuk ke PlotPeta</span>
+      </h3>
+      <button class="modal-close" onclick="closeAuthModal()">&times;</button>
+    </div>
+
+    <div class="tab-nav">
+      <button class="tab-btn active" id="tabBtnLogin" onclick="switchAuthTab('login')">Masuk</button>
+      <button class="tab-btn" id="tabBtnRegister" onclick="switchAuthTab('register')">Daftar Akun</button>
+      <button class="tab-btn" id="tabBtnForgot" onclick="switchAuthTab('forgot')">Lupa Sandi</button>
+    </div>
+
+    <div id="authAlert" class="form-alert"></div>
+
+    <!-- Form Login -->
+    <form id="formLogin" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" id="loginEmail" required placeholder="nama@email.com" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Kata Sandi</label>
+        <input type="password" id="loginPassword" required placeholder="Minimal 6 karakter" autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn pri" id="btnLoginSubmit" style="width:100%;margin-top:10px;padding:9px">Masuk</button>
+    </form>
+
+    <!-- Form Register -->
+    <form id="formRegister" style="display:none" onsubmit="handleRegister(event)">
+      <div class="form-group">
+        <label class="form-label">Nama Lengkap</label>
+        <input type="text" id="regNama" required placeholder="Nama Anda">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" id="regEmail" required placeholder="nama@email.com" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Kata Sandi Baru</label>
+        <input type="password" id="regPassword" required minlength="6" placeholder="Minimal 6 karakter" autocomplete="new-password">
+      </div>
+      <div style="background:var(--success-subtle);color:var(--success);padding:8px 10px;border-radius:8px;font-size:11.5px;margin-bottom:12px;border:1px solid rgba(16,185,129,0.3)">
+        🎁 <b>Bonus Uji Coba:</b> Dapatkan 3 token gratis langsung saat mendaftar akun baru!
+      </div>
+      <button type="submit" class="btn pri" id="btnRegSubmit" style="width:100%;padding:9px">Daftar & Klaim 3 Token</button>
+    </form>
+
+    <!-- Form Forgot -->
+    <form id="formForgot" style="display:none" onsubmit="handleForgot(event)">
+      <div class="form-group">
+        <label class="form-label">Email Akun Anda</label>
+        <input type="email" id="forgotEmail" required placeholder="nama@email.com">
+      </div>
+      <p class="mu" style="margin:6px 0 14px">Tautan untuk reset kata sandi akan dikirimkan ke email Anda.</p>
+      <button type="submit" class="btn pri" id="btnForgotSubmit" style="width:100%;padding:9px">Kirim Link Reset</button>
+    </form>
+  </div>
+</div>
+
+<!-- 2. Modal Cloud Projects (Simpan & Buka dari Supabase Cloud) -->
+<div class="modal-overlay" id="modalCloud">
+  <div class="modal-card" style="max-width:540px">
+    <div class="modal-head">
+      <h3 class="modal-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>
+        <span>Proyek Cloud PlotPeta</span>
+      </h3>
+      <button class="modal-close" onclick="$('modalCloud').classList.remove('open')">&times;</button>
+    </div>
+
+    <div class="tab-nav">
+      <button class="tab-btn active" id="tabBtnCloudList" onclick="switchCloudTab('list')">Daftar Proyek Cloud</button>
+      <button class="tab-btn" id="tabBtnCloudSave" onclick="switchCloudTab('save')">Simpan Proyek Ini</button>
+    </div>
+
+    <!-- Tab 1: Daftar Proyek Cloud -->
+    <div id="tabCloudList">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span class="mu" id="cloudProjectCount">Memuat proyek...</span>
+        <button class="btn" style="padding:4px 8px;font-size:11px" onclick="loadCloudProjects()">Refresh</button>
+      </div>
+      <div id="cloudProjectsList" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto">
+        <div class="mu" style="text-align:center;padding:24px">Memuat data proyek cloud...</div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Simpan Proyek Saat Ini -->
+    <div id="tabCloudSave" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Nama Proyek</label>
+        <input type="text" id="cloudSaveName" placeholder="Contoh: Bidang Tanah Blok A - Desa Sukamaju">
+      </div>
+      <p class="mu">Data garis, teks bidang, dan kalibrasi 4 titik akan tersimpan aman di akun cloud Anda. File gambar peta tetap berada di laptop Anda.</p>
+      <button class="btn pri" id="btnSaveToCloud" style="width:100%;margin-top:10px;padding:9px" onclick="saveCurrentToCloud()">Simpan ke Cloud</button>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Modal Top-Up Token (Pembayaran Manual QRIS / Transfer) -->
+<div class="modal-overlay" id="modalTopup">
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-head">
+      <h3 class="modal-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <span>Isi Ulang Token PlotPeta</span>
+      </h3>
+      <button class="modal-close" onclick="$('modalTopup').classList.remove('open')">&times;</button>
+    </div>
+
+    <!-- Info Paket -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <b style="font-size:15px;color:var(--text-main)">Paket 50 Token DXF</b>
+          <div class="mu" style="font-size:12px;margin-top:2px">1 Token = 1 Download DXF AutoCAD</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:16px;font-weight:700;color:var(--accent)" id="topupNominalDisplay">Rp 100.000</div>
+          <div class="brand-badge" style="background:var(--warning-subtle);color:var(--warning);border-color:rgba(245,158,11,0.3)">Termasuk Kode Unik</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rekening Petunjuk -->
+    <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12px;margin-bottom:14px;line-height:1.6" id="rekInfoBox">
+      <b>Petunjuk Pembayaran Transfer:</b><br>
+      Bank: <b>BCA</b> &bull; No. Rek: <b class="mono" style="color:var(--accent)">123-456-7890</b><br>
+      Atas Nama: <b>PlotPeta Official</b><br>
+      Mohon transfer sesuai nominal persis di atas agar verifikasi cepat.
+    </div>
+
+    <!-- Form Upload Bukti -->
+    <form onsubmit="handleTopupSubmit(event)">
+      <div class="form-group">
+        <label class="form-label">Metode Pembayaran</label>
+        <select id="topupMetode">
+          <option value="transfer_bca">Transfer Bank (BCA)</option>
+          <option value="qris">QRIS / Dompet Digital (GoPay/OVO/Dana)</option>
+          <option value="transfer_bank_lain">Transfer Bank Lain</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Unggah Foto Bukti Transfer / Resi (JPG / PNG, maks 2 MB)</label>
+        <input type="file" id="topupBuktiFile" accept="image/jpeg,image/png,image/jpg" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Catatan Tambahan (Opsional)</label>
+        <input type="text" id="topupCatatan" placeholder="Contoh: Transfer dari rekening an Budi">
+      </div>
+
+      <div id="topupAlert" class="form-alert"></div>
+
+      <button type="submit" class="btn pri" id="btnSubmitTopup" style="width:100%;margin-top:8px;padding:9px">Kirim Konfirmasi Pembayaran</button>
+    </form>
+
+    <!-- Riwayat Topup Pengguna -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <h4 style="margin:0 0 8px;font-size:12.5px">Riwayat Permintaan Isi Ulang Anda</h4>
+      <div id="userTopupHistory" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;font-size:12px">
+        <div class="mu">Belum ada riwayat.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 4. Modal Token Ledger History -->
+<div class="modal-overlay" id="modalLedger">
+  <div class="modal-card" style="max-width:540px">
+    <div class="modal-head">
+      <h3 class="modal-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        <span>Riwayat Pemakaian & Saldo Token</span>
+      </h3>
+      <button class="modal-close" onclick="$('modalLedger').classList.remove('open')">&times;</button>
+    </div>
+    <div id="ledgerList" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;font-size:12px">
+      <div class="mu" style="text-align:center;padding:20px">Memuat riwayat token...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d');
+const LN={get P(){return $('lP').value.trim()||'020100'},get D(){return $('lD').value.trim()||'020300'}};
+let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=-1,mouse=null,drag=null,dirty=false,hist=[];
+let cal={pts:[],ok:false,M:null};
+let cand=[],box=null,mv=null,polys=[],gaps=[];
+const W=()=>cv.clientWidth,H=()=>cv.clientHeight,d1=()=>devicePixelRatio||1;
+function resize(){const r=$('wrap').getBoundingClientRect(),d=d1();cv.width=r.width*d;cv.height=r.height*d;cv.style.width=r.width+'px';cv.style.height=r.height+'px';draw()}
+addEventListener('resize',resize);
+const toS=p=>[p[0]*V.s+V.x,p[1]*V.s+V.y],toI=p=>[(p[0]-V.x)/V.s,(p[1]-V.y)/V.s];
+const fitV=()=>{V.s=Math.min(W()/iw,H()/ih);V.x=(W()-iw*V.s)/2;V.y=(H()-ih*V.s)/2};
+const num=s=>{s=String(s).trim();s=/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)?s.replace(/\./g,'').replace(',','.'):s.replace(',','.');return parseFloat(s)};
+const f2=n=>n.toLocaleString('id-ID',{maximumFractionDigits:2,minimumFractionDigits:2});
+const toReal=p=>{if(!cal.ok)return null;const m=cal.M;return[m[0]*p[0]+m[1]*p[1]+m[2],m[3]*p[0]+m[4]*p[1]+m[5]]};
+function snapshot(){hist.push(JSON.stringify({lines,texts}));if(hist.length>100)hist.shift();dirty=true}
+function undo(){if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;selT=-1;tform()}stat();draw()}
+
+function updateDropzone(){
+  const dz=$('dropzone');
+  if(dz) dz.style.display = img ? 'none' : 'flex';
+}
+
+function loadImg(src){
+  const im=new Image();
+  im.onload=()=>{
+    img=im;
+    iw=im.naturalWidth;
+    ih=im.naturalHeight;
+    fitV();
+    draw();
+    updateDropzone();
+    $('st').innerHTML='<span class="status-dot"></span><span>'+iw+' &times; '+ih+' px</span>';
+  };
+  im.src=src;
+}
+
+$('file').onchange=e=>{
+  const f=e.target.files[0];
+  if(!f)return;
+  if(!(/\.tiff?$/i.test(f.name)||f.type==='image/tiff')){
+    const r=new FileReader();
+    r.onload=()=>loadImg(r.result);
+    r.readAsDataURL(f);
+    return;
+  }
+  $('st').innerHTML='<span class="status-dot" style="background:#f59e0b"></span><span>Membaca TIF...</span>';
+  const run=()=>f.arrayBuffer().then(buf=>{
+    try{
+      const ifd=UTIF.decode(buf);
+      UTIF.decodeImage(buf,ifd[0]);
+      const w=ifd[0].width,h=ifd[0].height,c=document.createElement('canvas');
+      c.width=w;c.height=h;
+      c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(UTIF.toRGBA8(ifd[0])),w,h),0,0);
+      img=c;iw=w;ih=h;
+      fitV();
+      draw();
+      updateDropzone();
+      $('st').innerHTML='<span class="status-dot"></span><span>'+w+' &times; '+h+' px</span>';
+    }catch(x){
+      $('st').innerHTML='<span class="status-dot" style="background:#ef4444"></span><span>TIF gagal dibaca. Simpan peta sebagai JPG/PNG.</span>';
+    }
+  });
+  if(window.UTIF)run();
+  else{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/utif/3.1.0/UTIF.min.js';
+    s.onload=run;
+    s.onerror=()=>{$('st').innerHTML='<span class="status-dot" style="background:#ef4444"></span><span>Pembaca TIF tidak termuat. Simpan peta sebagai JPG/PNG.</span>';};
+    document.head.appendChild(s);
+  }
+};
+
+function setTool(t){
+  if(cur.length&&(t==='P'||t==='D'))finish();
+  else cur=[];
+  tool=t;
+  document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
+  cv.style.cursor=t==='pan'?'grab':'crosshair';
+  draw();
+}
+document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+
+function snapPt(p){
+  if(!$('snap').checked)return p;
+  const sp=toS(p);
+  let best=null,bd=10;
+  const all=[...cur];
+  lines.forEach(l=>all.push(...l.pts));
+  for(const q of all){
+    const s=toS(q),d=Math.hypot(s[0]-sp[0],s[1]-sp[1]);
+    if(d<bd){bd=d;best=q}
+  }
+  return best?best.slice():p;
+}
+function finish(){if(cur.length>=2){snapshot();lines.push({k:tool==='D'?'D':'P',pts:cur})}cur=[];stat();draw()}
+function distSeg(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy;let t=L?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L:0;t=Math.max(0,Math.min(1,t));return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy)}
+function click(sp){
+  if(!img)return;
+  const p=toI(sp);
+  if(tool==='cal'){if(cal.pts.length<4){cal.pts.push(p);crs()}draw();return}
+  if(tool==='P'||tool==='D'){const q=snapPt(p);cur.push(q);if(cur.length>=3&&q[0]===cur[0][0]&&q[1]===cur[0][1]&&cur.length-1>0)finish();draw();return}
+  if(tool==='T'){snapshot();texts.push({p,no:'',su:''});selT=texts.length-1;tform(true);stat();draw();return}
+  if(tool==='E'){
+    let hit=-1;
+    texts.forEach((t,i)=>{const s=toS(t.p);if(Math.hypot(s[0]-sp[0],s[1]-sp[1])<14)hit=i});
+    if(hit>=0){
+      snapshot();texts.splice(hit,1);selT=-1;tform();
+    }else{
+      let bi=-1,bs=-1,bd=8;
+      lines.forEach((l,i)=>{for(let j=0;j<l.pts.length-1;j++){const a=toS(l.pts[j]),b=toS(l.pts[j+1]),d=distSeg(sp,a,b);if(d<bd){bd=d;bi=i;bs=j}}});
+      if(bi>=0){
+        snapshot();
+        const l=lines[bi],A=l.pts.slice(0,bs+1),B=l.pts.slice(bs+1);
+        lines.splice(bi,1);
+        if(A.length>1)lines.push({k:l.k,pts:A});
+        if(B.length>1)lines.push({k:l.k,pts:B});
+      }
+    }
+    stat();draw();return;
+  }
+  if(tool==='pan'){
+    let hit=-1;
+    texts.forEach((t,i)=>{const s=toS(t.p);if(Math.hypot(s[0]-sp[0],s[1]-sp[1])<14)hit=i});
+    selT=hit;tform();draw();
+  }
+}
+$('fin').onclick=finish;
+$('undo').onclick=undo;
+
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);
+  const sp=[e.offsetX,e.offsetY];
+  if(e.button===0&&img){
+    if(tool==='M'){const h=findV(sp);if(h){snapshot();mv=h;return}}
+    if(tool==='A'){box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
+  }
+  drag={x:e.offsetX,y:e.offsetY,ox:V.x,oy:V.y,moved:false,btn:e.button};
+});
+cv.addEventListener('pointermove',e=>{
+  mouse=[e.offsetX,e.offsetY];
+  if(mv){movePt(mouse);draw();return}
+  if(box){box.x1=e.offsetX;box.y1=e.offsetY;draw();return}
+  if(drag){
+    const dx=e.offsetX-drag.x,dy=e.offsetY-drag.y;
+    if(Math.hypot(dx,dy)>4||drag.btn!==0||tool==='pan')drag.moved=true;
+    if(drag.moved){V.x=drag.ox+dx;V.y=drag.oy+dy}
+  }
+  if(img){
+    const p=toI(mouse),r=toReal(p);
+    const dotClr = r ? '#10b981' : '#f59e0b';
+    const txt = r ? 'X: '+f2(r[0])+'   Y: '+f2(r[1]) : 'px: '+Math.round(p[0])+', '+Math.round(p[1])+' (belum dikalibrasi)';
+    $('st').innerHTML='<span class="status-dot" style="background:'+dotClr+';box-shadow:0 0 8px '+dotClr+'"></span><span>'+txt+'</span>';
+  }
+  draw();
+});
+cv.addEventListener('pointerup',e=>{
+  if(mv){mv=null;stat();draw();return}
+  if(box){
+    const b=box,a=toI([Math.min(b.x0,b.x1),Math.min(b.y0,b.y1)]),z=toI([Math.max(b.x0,b.x1),Math.max(b.y0,b.y1)]);
+    box=null;
+    const x=Math.max(0,a[0]),y=Math.max(0,a[1]);
+    runDet({x,y,w:Math.min(iw,z[0])-x,h:Math.min(ih,z[1])-y});
+    draw();return;
+  }
+  if(drag&&!drag.moved&&drag.btn===0)click([e.offsetX,e.offsetY]);
+  drag=null;
+});
+cv.addEventListener('dblclick',()=>{if((tool==='P'||tool==='D')&&cur.length){cur.pop();finish()}});
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  if(!img)return;
+  const k=e.deltaY<0?1.2:1/1.2,p=toI([e.offsetX,e.offsetY]);
+  V.s=Math.min(Math.max(V.s*k,.02),60);
+  V.x=e.offsetX-p[0]*V.s;
+  V.y=e.offsetY-p[1]*V.s;
+  draw();
+},{passive:false});
+addEventListener('keydown',e=>{
+  if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  if(e.key==='Enter')finish();
+  else if(e.key==='Escape'){cur=[];draw()}
+  else if(e.key==='Backspace'||(e.key==='z'&&(e.ctrlKey||e.metaKey))){e.preventDefault();undo()}
+});
+addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+
+function crs(){
+  const c=$('crs');
+  const old=[...c.querySelectorAll('input')].map(i=>i.value);
+  c.innerHTML='';
+  for(let i=0;i<4;i++){
+    const r=document.createElement('div');
+    r.className='cr';
+    const isOk = !!cal.pts[i];
+    const statusTxt = isOk ? '<span style="color:var(--success)">&#10003; Titik OK</span>' : '<span style="color:var(--text-dim)">&bull; Klik peta</span>';
+    r.innerHTML='<b>P'+(i+1)+'</b><input id="cx'+i+'" placeholder="X" spellcheck="false"><input id="cy'+i+'" placeholder="Y" spellcheck="false"><span id="cs'+i+'" class="mu">'+(isOk?statusTxt:'&bull; Belum')+'</span>';
+    c.appendChild(r);
+  }
+  [...c.querySelectorAll('input')].forEach((n,i)=>n.value=old[i]||'');
+}
+$('creset').onclick=()=>{cal.pts=[];cal.ok=false;$('calres').textContent='';crs();draw()};
+function solve3(A,b){
+  const n=3,M=A.map((r,i)=>[...r,b[i]]);
+  for(let i=0;i<n;i++){
+    let m=i;
+    for(let k=i+1;k<n;k++)if(Math.abs(M[k][i])>Math.abs(M[m][i]))m=k;
+    [M[i],M[m]]=[M[m],M[i]];
+    if(Math.abs(M[i][i])<1e-12)return null;
+    for(let k=i+1;k<n;k++){
+      const f=M[k][i]/M[i][i];
+      for(let j=i;j<=n;j++)M[k][j]-=f*M[i][j];
+    }
+  }
+  const x=[0,0,0];
+  for(let i=n-1;i>=0;i--){
+    let s=M[i][n];
+    for(let j=i+1;j<n;j++)s-=M[i][j]*x[j];
+    x[i]=s/M[i][i];
+  }
+  return x;
+}
+function fitCal(){
+  const vals=[];
+  for(let i=0;i<4;i++){vals.push([num($('cx'+i).value),num($('cy'+i).value)])}
+  if(cal.pts.length<4||vals.flat().some(isNaN)){
+    $('calres').textContent='Perlu 4 titik di peta dan 4 pasang koordinat.';
+    return;
+  }
+  const N=[[0,0,0],[0,0,0],[0,0,0]],rx=[0,0,0],ry=[0,0,0];
+  cal.pts.forEach((p,i)=>{
+    const a=[p[0],p[1],1];
+    for(let r=0;r<3;r++){
+      for(let c=0;c<3;c++)N[r][c]+=a[r]*a[c];
+      rx[r]+=a[r]*vals[i][0];
+      ry[r]+=a[r]*vals[i][1];
+    }
+  });
+  const cx=solve3(N,rx),cy=solve3(N,ry);
+  if(!cx||!cy){
+    $('calres').textContent='Titik terlalu sejajar atau berimpit. Pilih titik yang tersebar.';
+    return;
+  }
+  cal.M=[...cx,...cy];
+  cal.ok=true;
+  let mx=0;
+  cal.pts.forEach((p,i)=>{
+    const r=toReal(p),e=Math.hypot(r[0]-vals[i][0],r[1]-vals[i][1]);
+    mx=Math.max(mx,e);
+    $('cs'+i).innerHTML='<span style="color:var(--success)">sel. '+f2(e)+'</span>';
+  });
+  const det=Math.abs(cx[0]*cy[1]-cx[1]*cy[0]);
+  $('calres').textContent='Kalibrasi berhasil. 1 px = '+Math.sqrt(det).toFixed(4)+' satuan. Selisih terbesar '+f2(mx)+' (makin kecil makin baik).';
+  dirty=true;
+}
+$('apply').onclick=fitCal;
+
+function tform(foc){
+  const t=texts[selT];
+  $('tform').classList.toggle('hide',!t);
+  $('tmsg').classList.toggle('hide',!!t);
+  if(t){
+    $('tno').value=t.no;
+    $('tsu').value=t.su;
+    if(foc)$('tno').focus();
+  }
+}
+$('tno').oninput=e=>{if(texts[selT]){texts[selT].no=e.target.value;dirty=true;draw()}};
+$('tsu').oninput=e=>{if(texts[selT]){texts[selT].su=e.target.value;dirty=true;draw()}};
+$('tdel').onclick=()=>{if(selT>=0){snapshot();texts.splice(selT,1);selT=-1;tform();stat();draw()}};
+const stat=()=>$('cnt').textContent=lines.length+' rangkaian garis, '+texts.length+' teks';
+
+function draw(){
+  const d=d1();
+  ctx.setTransform(d,0,0,d,0,0);
+  ctx.clearRect(0,0,W(),H());
+  if(!img)return;
+  ctx.drawImage(img,V.x,V.y,iw*V.s,ih*V.s);
+  const path=pts=>{
+    ctx.beginPath();
+    pts.forEach((p,i)=>{const s=toS(p);i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1])});
+  };
+  lines.forEach(l=>{
+    path(l.pts);
+    ctx.strokeStyle=l.k==='D'?'#2a62d6':'#d62a2a';
+    ctx.lineWidth=1.8;
+    ctx.setLineDash(l.k==='D'?[7,5]:[]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  texts.forEach((t,i)=>{
+    const s=toS(t.p);
+    ctx.textAlign='center';
+    ctx.font='bold 12px "Plus Jakarta Sans", system-ui, sans-serif';
+    ctx.lineWidth=3;
+    ctx.strokeStyle='#fff';
+    ctx.fillStyle=i===selT?'#0ea5e9':'#111';
+    ctx.strokeText(t.no||'(no)',s[0],s[1]);
+    ctx.fillText(t.no||'(no)',s[0],s[1]);
+    ctx.font='11px "Plus Jakarta Sans", system-ui, sans-serif';
+    if(t.su){
+      ctx.strokeText(t.su,s[0],s[1]+13);
+      ctx.fillText(t.su,s[0],s[1]+13);
+    }
+    ctx.fillStyle='#0ea5e9';
+    ctx.fillRect(s[0]-2,s[1]-2,4,4);
+  });
+  if(cur.length){
+    path(cur);
+    ctx.strokeStyle='#0ea5e9';
+    ctx.lineWidth=2;
+    ctx.stroke();
+    if(mouse&&(tool==='P'||tool==='D')){
+      const l=toS(cur[cur.length-1]);
+      ctx.setLineDash([5,4]);
+      ctx.beginPath();
+      ctx.moveTo(l[0],l[1]);
+      ctx.lineTo(mouse[0],mouse[1]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    cur.forEach((p,i)=>{
+      const s=toS(p);
+      ctx.fillStyle=i?'#0ea5e9':'#ef4444';
+      ctx.beginPath();
+      ctx.arc(s[0],s[1],i?3.5:5.5,0,7);
+      ctx.fill();
+    });
+  }
+  if(mouse&&(tool==='P'||tool==='D')){
+    const q=snapPt(toI(mouse)),s=toS(q);
+    ctx.strokeStyle='#10b981';
+    ctx.lineWidth=1.8;
+    ctx.beginPath();
+    ctx.arc(s[0],s[1],6,0,7);
+    ctx.stroke();
+  }
+  polys.forEach(pg=>{
+    path(pg);
+    ctx.closePath();
+    ctx.fillStyle='rgba(14,165,233,.14)';
+    ctx.fill();
+    ctx.strokeStyle='rgba(14,165,233,.75)';
+    ctx.lineWidth=1.2;
+    ctx.stroke();
+  });
+  gaps.forEach(p=>{
+    const s=toS(p);
+    ctx.strokeStyle='#ef4444';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.arc(s[0],s[1],8,0,7);
+    ctx.stroke();
+  });
+  cand.forEach(c=>{
+    path(c.pts);
+    ctx.strokeStyle='#f59e0b';
+    ctx.lineWidth=2;
+    ctx.setLineDash(c.k==='D'?[7,5]:[]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  if(tool==='M')lines.forEach(l=>l.pts.forEach(p=>{
+    const s=toS(p);
+    ctx.strokeStyle='#0ea5e9';
+    ctx.fillStyle='#fff';
+    ctx.lineWidth=1.5;
+    ctx.fillRect(s[0]-3.5,s[1]-3.5,7,7);
+    ctx.strokeRect(s[0]-3.5,s[1]-3.5,7,7);
+  }));
+  if(box){
+    ctx.setLineDash([6,4]);
+    ctx.strokeStyle='#0ea5e9';
+    ctx.lineWidth=1.6;
+    ctx.strokeRect(box.x0,box.y0,box.x1-box.x0,box.y1-box.y0);
+    ctx.setLineDash([]);
+  }
+  cal.pts.forEach((p,i)=>{
+    const s=toS(p);
+    ctx.strokeStyle='#ec4899';
+    ctx.lineWidth=2.2;
+    ctx.beginPath();
+    ctx.moveTo(s[0]-10,s[1]);
+    ctx.lineTo(s[0]+10,s[1]);
+    ctx.moveTo(s[0],s[1]-10);
+    ctx.lineTo(s[0]+10,s[1]);
+    ctx.stroke();
+    ctx.fillStyle='#ec4899';
+    ctx.font='bold 12px "JetBrains Mono", monospace';
+    ctx.textAlign='left';
+    ctx.fillText('P'+(i+1),s[0]+10,s[1]-8);
+  });
+}
+
+function dxf(){
+  const L=[],g=(c,v)=>L.push(c,v),n=x=>x.toFixed(3),h=num($('th').value)||5;
+  g(0,'SECTION');g(2,'HEADER');g(9,'$ACADVER');g(1,'AC1009');g(0,'ENDSEC');
+  g(0,'SECTION');g(2,'TABLES');g(0,'TABLE');g(2,'LTYPE');g(70,2);
+  g(0,'LTYPE');g(2,'CONTINUOUS');g(70,0);g(3,'Solid line');g(72,65);g(73,0);g(40,0);
+  g(0,'LTYPE');g(2,'DASHED');g(70,0);g(3,'Dashed');g(72,65);g(73,2);g(40,9);g(49,6);g(49,-3);
+  g(0,'ENDTAB');
+  const CL={'020100':255,'020300':7,'080202':7,'080203':7,'BIDANG K4 ER':2};
+  const lM=$('lM').value.trim()||'080203',lS=$('lSu').value.trim()||'080202',lPo=$('lPoly').value.trim()||'BIDANG K4 ER';
+  const ls=[[LN.P,'CONTINUOUS'],[LN.D,'DASHED'],[lS,'CONTINUOUS'],[lM,'CONTINUOUS'],[lPo,'CONTINUOUS']].filter((a,i,A)=>A.findIndex(b=>b[0]===a[0])===i);
+  g(0,'TABLE');g(2,'LAYER');g(70,ls.length);
+  ls.forEach(([a,t])=>{g(0,'LAYER');g(2,a);g(70,0);g(62,CL[a]||7);g(6,t)});
+  g(0,'ENDTAB');g(0,'ENDSEC');
+  g(0,'SECTION');g(2,'ENTITIES');
+  lines.forEach(l=>{
+    const ly=LN[l.k];
+    g(0,'POLYLINE');g(8,ly);g(66,1);g(70,0);g(10,0);g(20,0);g(30,0);
+    l.pts.forEach(p=>{const r=toReal(p);g(0,'VERTEX');g(8,ly);g(10,n(r[0]));g(20,n(r[1]));g(30,0)});
+    g(0,'SEQEND');g(8,ly);
+  });
+  polys.forEach(pg=>{
+    g(0,'POLYLINE');g(8,lPo);g(66,1);g(70,1);g(10,0);g(20,0);g(30,0);
+    pg.forEach(p=>{const r=toReal(p);g(0,'VERTEX');g(8,lPo);g(10,n(r[0]));g(20,n(r[1]));g(30,0)});
+    g(0,'SEQEND');g(8,lPo);
+  });
+  const tx=(ly,s,x,y)=>{g(0,'TEXT');g(8,ly);g(10,n(x));g(20,n(y));g(30,0);g(40,h);g(1,s);g(72,1);g(73,2);g(11,n(x));g(21,n(y));g(31,0)};
+  texts.forEach(t=>{const r=toReal(t.p);if(t.no)tx(lM,t.no,r[0],r[1]);if(t.su)tx(lS,t.su,r[0],r[1]-h*1.6)});
+  g(0,'ENDSEC');g(0,'EOF');
+  return L.join('\r\n');
+}
+
+let CT=null;
+function crc(b){
+  if(!CT){CT=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;CT[n]=c>>>0}}
+  let c=0xFFFFFFFF;for(const x of b)c=CT[(c^x)&255]^(c>>>8);
+  return(c^0xFFFFFFFF)>>>0;
+}
+function zip(name,data){
+  const nm=new TextEncoder().encode(name),c=crc(data),sz=data.length,u16=v=>[v&255,v>>8&255],u32=v=>[v&255,v>>8&255,v>>16&255,v>>24&255];
+  const lh=[0x50,0x4b,3,4,...u16(20),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(sz),...u32(sz),...u16(nm.length),...u16(0)];
+  const cd=[0x50,0x4b,1,2,...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0x21),...u32(c),...u32(sz),...u32(sz),...u16(nm.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(0)];
+  const off=lh.length+nm.length+sz,cds=cd.length+nm.length,eo=[0x50,0x4b,5,6,...u16(0),...u16(0),...u16(1),...u16(1),...u32(cds),...u32(off),...u16(0)];
+  return new Blob([new Uint8Array(lh),nm,data,new Uint8Array(cd),nm,new Uint8Array(eo)],{type:'application/zip'});
+}
+async function save(name,data){
+  try{
+    const b=data instanceof Blob?data:new Blob([data],{type:'application/octet-stream'}),u=URL.createObjectURL(b),a=document.createElement('a');
+    a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(u),4000);
+    return true;
+  }catch(e){return false}
+}
+function ready(){
+  if(!cal.ok){alert('Kalibrasi 4 titik dulu (langkah 1).');return false}
+  if(!lines.length&&!texts.length){alert('Belum ada yang digambar.');return false}
+  return true;
+}
+
+// Local save & open (Free, no token required)
+$('sp').onclick=async()=>{
+  const o={v:1,size:[iw,ih],cal:cal.pts.map((p,i)=>({p,x:$('cx'+i).value,y:$('cy'+i).value})),lines,texts,th:$('th').value,ly:['lP','lD','lSu','lM','lPoly'].map(i=>$(i).value)};
+  const ok=await save('proyek_peta.json',JSON.stringify(o));
+  if(ok)dirty=false;
+  else alert('Simpan proyek tidak tersedia di tampilan ini.');
+};
+$('op').onchange=e=>{
+  const f=e.target.files[0];
+  if(!f)return;
+  f.text().then(t=>{
+    try{
+      const o=JSON.parse(t);
+      lines=o.lines||[];
+      texts=o.texts||[];
+      cal.pts=(o.cal||[]).map(c=>c.p);
+      crs();
+      (o.cal||[]).forEach((c,i)=>{$('cx'+i).value=c.x;$('cy'+i).value=c.y});
+      $('th').value=o.th||5;
+      if(o.ly)['lP','lD','lSu','lM','lPoly'].forEach((i,k)=>{$(i).value=o.ly[k]});
+      hist=[];cur=[];selT=-1;tform();stat();
+      if(cal.pts.length===4)fitCal();
+      dirty=false;
+      if(img&&o.size&&(o.size[0]!==iw||o.size[1]!==ih))alert('Ukuran peta berbeda dari proyek. Pastikan membuka file peta yang sama.');
+      draw();
+    }catch(x){alert('File proyek tidak valid.')}
+  });
+};
+function findV(sp){
+  let hit=null,bd=10;
+  const all=[];
+  lines.forEach(l=>l.pts.forEach(q=>all.push(q)));
+  texts.forEach(t=>all.push(t.p));
+  for(const q of all){
+    const s=toS(q),d=Math.hypot(s[0]-sp[0],s[1]-sp[1]);
+    if(d<bd){bd=d;hit=q}
+  }
+  if(!hit)return null;
+  const isT=texts.some(t=>t.p===hit);
+  return{refs:isT?[hit]:all.filter(q=>Math.abs(q[0]-hit[0])<.01&&Math.abs(q[1]-hit[1])<.01&&!texts.some(t=>t.p===q))};
+}
+function movePt(sp){
+  let p=toI(sp);
+  if($('snap').checked){
+    let best=null,bd=10;
+    for(const l of lines)for(const q of l.pts){
+      if(mv.refs.includes(q))continue;
+      const s=toS(q),d=Math.hypot(s[0]-sp[0],s[1]-sp[1]);
+      if(d<bd){bd=d;best=q}
+    }
+    if(best)p=best;
+  }
+  mv.refs.forEach(q=>{q[0]=p[0];q[1]=p[1]});
+  dirty=true;
+}
+
+function detect(R){
+  const T=+$('dT').value,minL=+$('dL').value,gapF=+$('dG').value;
+  const sc=Math.min(.5,2400/Math.max(R.w,R.h)),w=Math.max(16,Math.round(R.w*sc)),h=Math.max(16,Math.round(R.h*sc));
+  const oc=document.createElement('canvas');oc.width=w;oc.height=h;const o=oc.getContext('2d',{willReadFrequently:true});
+  o.fillStyle='#fff';o.fillRect(0,0,w,h);o.imageSmoothingQuality='high';o.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
+  const D=o.getImageData(0,0,w,h).data,N=w*h,gr=new Float32Array(N);
+  for(let i=0;i<N;i++)gr[i]=.299*D[i*4]+.587*D[i*4+1]+.114*D[i*4+2];
+  const I=new Float64Array((w+1)*(h+1));
+  for(let y=0;y<h;y++){let rs=0;for(let x=0;x<w;x++){rs+=gr[y*w+x];I[(y+1)*(w+1)+x+1]=I[y*(w+1)+x+1]+rs}}
+  const ink=new Uint8Array(N),pts=[],r=20;
+  for(let y=0;y<h;y++){
+    const y0=Math.max(0,y-r),y1=Math.min(h,y+r+1);
+    for(let x=0;x<w;x++){
+      const x0=Math.max(0,x-r),x1=Math.min(w,x+r+1),m=(I[y1*(w+1)+x1]-I[y0*(w+1)+x1]-I[y1*(w+1)+x0]+I[y0*(w+1)+x0])/((x1-x0)*(y1-y0));
+      if(m-gr[y*w+x]>T){ink[y*w+x]=1;pts.push(x,y)}
+    }
+  }
+  const inkD=new Uint8Array(N);
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+    const i=y*w+x;
+    if(ink[i]||ink[i-1]||ink[i+1]||ink[i-w]||ink[i+w]||ink[i-w-1]||ink[i-w+1]||ink[i+w-1]||ink[i+w+1])inkD[i]=1;
+  }
+  const gk=(A,x,y)=>{x=Math.round(x);y=Math.round(y);return x>=0&&y>=0&&x<w&&y<h?A[y*w+x]:0},at=(x,y)=>gk(inkD,x,y),ik=(x,y)=>gk(ink,x,y);
+  const NT=360,diag=Math.ceil(Math.hypot(w,h)),RW=2*diag+1,acc=new Int32Array(NT*RW),cs=new Float32Array(NT),sn=new Float32Array(NT);
+  for(let t=0;t<NT;t++){cs[t]=Math.cos(t*Math.PI/NT);sn[t]=Math.sin(t*Math.PI/NT)}
+  const np=pts.length/2,st=Math.max(1,Math.ceil(np/250000));
+  for(let k=0;k<np;k+=st){
+    const x=pts[2*k],y=pts[2*k+1];
+    for(let t=0;t<NT;t++)acc[t*RW+Math.round(x*cs[t]+y*sn[t])+diag]++;
+  }
+  const thr=minL*sc*.45/st,cd=[];
+  for(let t=0;t<NT;t++)for(let q=1;q<RW-1;q++){
+    const v=acc[t*RW+q];
+    if(v<thr)continue;
+    let mx=true;
+    for(let dt=-1;dt<=1&&mx;dt++){
+      const tt=t+dt;
+      if(tt<0||tt>=NT)continue;
+      for(let dq=-1;dq<=1;dq++){if((dt||dq)&&acc[tt*RW+q+dq]>v){mx=false;break}}
+    }
+    if(mx)cd.push([v,t,q-diag]);
+  }
+  cd.sort((a,b)=>b[0]-a[0]);
+  const pk=[];
+  for(const c of cd){
+    if(pk.length>1500)break;
+    if(!pk.some(p=>Math.abs(p[1]-c[1])<=4&&Math.abs(p[2]-c[2])<=4))pk.push(c);
+  }
+  const segs=[],G=gapF*sc,Lm=minL*sc;
+  for(const[,t,rr]of pk){
+    const c=cs[t],s=sn[t],dx=-s,dy=c,bx=rr*c,by=rr*s;
+    let run=null;const runs=[];
+    for(let u=-diag;u<=diag;u++){
+      const px=bx+u*dx,py=by+u*dy;
+      if(px<-5||py<-5||px>w+5||py>h+5)continue;
+      let has=false;
+      for(let o2=-3;o2<=3;o2++)if(at(px+o2*c,py+o2*s)){has=true;break}
+      if(has){if(run&&u-run[1]<=G)run[1]=u;else{if(run)runs.push(run);run=[u,u]}}
+    }
+    if(run)runs.push(run);
+    for(const rn of runs){
+      if(rn[1]-rn[0]<Lm)continue;
+      let n=0,su=0,so=0,suu=0,suo=0;
+      for(let u=rn[0];u<=rn[1];u+=2){
+        const px=bx+u*dx,py=by+u*dy;
+        let a=0,m=0;
+        for(let o2=-3;o2<=3;o2++)if(ik(px+o2*c,py+o2*s)){a+=o2;m++}
+        if(m){const oo=a/m;n++;su+=u;so+=oo;suu+=u*u;suo+=u*oo}
+      }
+      let a0=0,b0=0;
+      if(n>4){const den=n*suu-su*su;if(den>1e-9){b0=(n*suo-su*so)/den;a0=(so-b0*su)/n}}
+      const P=u=>[bx+u*dx+(a0+b0*u)*c,by+u*dy+(a0+b0*u)*s],p1=P(rn[0]),p2=P(rn[1]),L=Math.hypot(p2[0]-p1[0],p2[1]-p1[1]);
+      if(L<Lm)continue;
+      const ux=(p2[0]-p1[0])/L,uy=(p2[1]-p1[1])/L,nx=-uy,ny=ux,M=Math.max(2,Math.floor(L));
+      let cov=0,sd=0;
+      for(let i=0;i<M;i++){
+        const x=p1[0]+ux*L*i/M,y=p1[1]+uy*L*i/M;
+        cov+=at(x,y);
+        for(const d of[-6,-5,5,6])sd+=at(x+nx*d,y+ny*d)}
+      cov/=M;sd/=4*M;
+      if(cov>=.5&&sd<.18)segs.push([p1[0],p1[1],p2[0],p2[1],cov>.93?'P':'D',L]);
+    }
+  }
+  segs.sort((a,b)=>b[5]-a[5]);
+  const along=(x,y,q)=>{const dx=q[2]-q[0],dy=q[3]-q[1],L=Math.hypot(dx,dy);return[((x-q[0])*dy-(y-q[1])*dx)/L,((x-q[0])*dx+(y-q[1])*dy)/L,L]};
+  const out=[];
+  for(const q of segs){
+    let dup=false;
+    for(const o3 of out){
+      const a=along(q[0],q[1],o3),b=along(q[2],q[3],o3);
+      if(Math.abs(a[0])<4&&Math.abs(b[0])<4&&Math.max(a[1],b[1])>0&&Math.min(a[1],b[1])<a[2]){dup=true;break}
+    }
+    if(!dup)out.push(q);
+  }
+  const ln=out.map(q=>({p:[[q[0],q[1]],[q[2],q[3]]],k:q[4]}));
+  const lineX=(a,b)=>{
+    const[x1,y1]=a.p[0],[x2,y2]=a.p[1],[x3,y3]=b.p[0],[x4,y4]=b.p[1],d=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+    if(Math.abs(d)<1e-9)return null;
+    const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/d;
+    return[x1+t*(x2-x1),y1+t*(y2-y1)];
+  };
+  const R2=8;
+  for(const a of ln)for(const e of a.p){
+    let best=null,bd=R2;
+    for(const b of ln){
+      if(b===a)continue;
+      const X=lineX(a,b);
+      if(!X)continue;
+      const d=Math.hypot(X[0]-e[0],X[1]-e[1]);
+      if(d>=bd)continue;
+      const bx=b.p[1][0]-b.p[0][0],by=b.p[1][1]-b.p[0][1],Lb=Math.hypot(bx,by),tb=((X[0]-b.p[0][0])*bx+(X[1]-b.p[0][1])*by)/Lb;
+      if(tb<-R2||tb>Lb+R2)continue;
+      const ax=a.p[1][0]-a.p[0][0],ay=a.p[1][1]-a.p[0][1];
+      if(Math.abs(ax*by-ay*bx)/(Math.hypot(ax,ay)*Lb)<.17)continue;
+      bd=d;best=X;
+    }
+    if(best){e[0]=best[0];e[1]=best[1]}
+  }
+  const E=ln.flatMap(a=>a.p),dn=new Set();
+  for(const e of E){
+    if(dn.has(e))continue;
+    const g=E.filter(q=>!dn.has(q)&&Math.hypot(q[0]-e[0],q[1]-e[1])<3),mx=g.reduce((z,q)=>z+q[0],0)/g.length,my=g.reduce((z,q)=>z+q[1],0)/g.length;
+    g.forEach(q=>{q[0]=mx;q[1]=my;dn.add(q)});
+  }
+  return ln.map(a=>({k:a.k,pts:a.p.map(q=>[q[0]/sc+R.x,q[1]/sc+R.y])}));
+}
+
+function runDet(R){
+  if(!img||R.w<20||R.h<20)return;
+  $('dMsg').textContent='Mendeteksi...';
+  setTimeout(()=>{
+    try{
+      cand=detect(R);
+      const nd=cand.filter(c=>c.k==='D').length;
+      $('dMsg').textContent=cand.length+' garis kandidat ('+(cand.length-nd)+' penuh, '+nd+' putus-putus). Terima semua atau buang, lalu koreksi dengan Hapus dan Geser titik.';
+    }catch(x){$('dMsg').textContent='Deteksi gagal: '+x.message}
+    draw();
+  },40);
+}
+$('dOk').onclick=()=>{
+  if(!cand.length)return;
+  snapshot();
+  cand.forEach(c=>lines.push({k:c.k,pts:c.pts}));
+  cand=[];
+  $('dMsg').textContent='Kandidat diterima sebagai garis.';
+  stat();
+  draw();
+};
+$('dNo').onclick=()=>{cand=[];$('dMsg').textContent='';draw()};
+$('dAll').onclick=()=>{
+  if(!img){$('dMsg').textContent='Buka peta dulu.';return}
+  runDet({x:0,y:0,w:iw,h:ih});
+};
+
+function polygonize(){
+  const tol=Math.max(1,num($('pTol').value)||8),V=[],hash=new Map();
+  const vid=(x,y)=>{
+    const cx=Math.floor(x/tol),cy=Math.floor(y/tol);
+    for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){
+      const L=hash.get((cx+a)+','+(cy+b));
+      if(L)for(const id of L)if(Math.hypot(V[id][0]-x,V[id][1]-y)<=tol)return id;
+    }
+    V.push([x,y]);
+    const k=cx+','+cy;
+    if(!hash.has(k))hash.set(k,[]);
+    hash.get(k).push(V.length-1);
+    return V.length-1;
+  };
+  const S=[];
+  lines.forEach(l=>{
+    for(let i=0;i<l.pts.length-1;i++){
+      const a=vid(l.pts[i][0],l.pts[i][1]),b=vid(l.pts[i+1][0],l.pts[i+1][1]);
+      if(a!==b)S.push([a,b]);
+    }
+  });
+  const n=S.length,sp=S.map(()=>[]);
+  const bb=S.map(([a,b])=>[Math.min(V[a][0],V[b][0])-tol,Math.min(V[a][1],V[b][1])-tol,Math.max(V[a][0],V[b][0])+tol,Math.max(V[a][1],V[b][1])+tol]);
+  const onSeg=(i,v)=>{
+    const[a,b]=S[i];
+    if(v===a||v===b)return;
+    const ax=V[a][0],ay=V[a][1],dx=V[b][0]-ax,dy=V[b][1]-ay,t=((V[v][0]-ax)*dx+(V[v][1]-ay)*dy)/(dx*dx+dy*dy);
+    if(t<=0||t>=1)return;
+    if(Math.hypot(ax+t*dx-V[v][0],ay+t*dy-V[v][1])<=tol)sp[i].push([t,v]);
+  };
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+    const A=bb[i],B=bb[j];
+    if(A[0]>B[2]||B[0]>A[2]||A[1]>B[3]||B[1]>A[3])continue;
+    onSeg(i,S[j][0]);onSeg(i,S[j][1]);onSeg(j,S[i][0]);onSeg(j,S[i][1]);
+    const p=V[S[i][0]],q=V[S[i][1]],r=V[S[j][0]],s=V[S[j][1]],d=(q[0]-p[0])*(s[1]-r[1])-(q[1]-p[1])*(s[0]-r[0]);
+    if(Math.abs(d)<1e-9)continue;
+    const ti=((r[0]-p[0])*(s[1]-r[1])-(r[1]-p[1])*(s[0]-r[0]))/d,tj=((r[0]-p[0])*(q[1]-p[1])-(r[1]-p[1])*(q[0]-p[0]))/d;
+    if(ti>0&&ti<1&&tj>0&&tj<1){
+      const v=vid(p[0]+ti*(q[0]-p[0]),p[1]+ti*(q[1]-p[1]));
+      sp[i].push([ti,v]);sp[j].push([tj,v]);
+    }
+  }
+  const E=new Set(),adj=new Map(),add=(u,w)=>{
+    if(u===w)return;
+    const k=u<w?u+','+w:w+','+u;
+    if(E.has(k))return;
+    E.add(k);
+    (adj.get(u)||adj.set(u,[]).get(u)).push(w);
+    (adj.get(w)||adj.set(w,[]).get(w)).push(u);
+  };
+  for(let i=0;i<n;i++){
+    const ids=[S[i][0],...sp[i].sort((a,b)=>a[0]-b[0]).map(x=>x[1]),S[i][1]];
+    for(let k=0;k<ids.length-1;k++)add(ids[k],ids[k+1]);
+  }
+  const gp=[];
+  adj.forEach((nb,v)=>{if(nb.length===1)gp.push(V[v].slice())});
+  const q2=[];
+  adj.forEach((nb,v)=>{if(nb.length<2)q2.push(v)});
+  while(q2.length){
+    const v=q2.pop(),nb=adj.get(v);
+    if(!nb)continue;
+    nb.forEach(w=>{
+      const a=adj.get(w);
+      if(a){a.splice(a.indexOf(v),1);if(a.length<2)q2.push(w)}
+    });
+    adj.delete(v);
+  }
+  adj.forEach((nb,v)=>nb.sort((a,b)=>Math.atan2(V[a][1]-V[v][1],V[a][0]-V[v][0])-Math.atan2(V[b][1]-V[v][1],V[b][0]-V[v][0])));
+  const vis=new Set(),out=[],minA=tol*tol*2;
+  adj.forEach((nb,u0)=>nb.forEach(w0=>{
+    if(vis.has(u0+'>'+w0))return;
+    let u=u0,w=w0,c=0;
+    const ring=[];
+    while(!vis.has(u+'>'+w)&&c++<20000){
+      vis.add(u+'>'+w);
+      ring.push(V[u]);
+      const l=adj.get(w),ix=l.indexOf(u),nx=l[(ix-1+l.length)%l.length];
+      u=w;w=nx;
+    }
+    if(u===u0&&w===w0&&ring.length>=3){
+      let A=0;
+      for(let i=0;i<ring.length;i++){
+        const a=ring[i],b=ring[(i+1)%ring.length];
+        A+=a[0]*b[1]-b[0]*a[1];
+      }
+      if(A/2>minA)out.push(ring.map(p=>p.slice()));
+    }
+  }));
+  return{polys:out,gaps:gp};
+}
+$('pMk').onclick=()=>{
+  if(!lines.length){$('pMsg').textContent='Belum ada garis.';return}
+  $('pMsg').textContent='Memproses...';
+  setTimeout(()=>{
+    try{
+      const r=polygonize();
+      polys=r.polys;
+      gaps=r.gaps;
+      $('pMsg').textContent=polys.length+' poligon dibuat. '+gaps.length+' ujung garis menggantung (cincin merah), kemungkinan celah di pojok atau garis yang menjulur.';
+    }catch(x){$('pMsg').textContent='Gagal: '+x.message}
+    draw();
+  },30);
+};
+$('pDel').onclick=()=>{polys=[];gaps=[];$('pMsg').textContent='';draw()};
+
+// ==================== LIVE SLIDERS & CONTROLS ====================
+const sliderPairs = [
+  ['dT', 'val_dT', ''],
+  ['dL', 'val_dL', ' px'],
+  ['dG', 'val_dG', ' px']
+];
+sliderPairs.forEach(([sliderId, labelId, suffix]) => {
+  const s = $(sliderId), l = $(labelId);
+  if(s && l){
+    s.addEventListener('input', () => { l.textContent = s.value + suffix; });
+  }
+});
+
+// Drag and drop onto Canvas
+const wrapEl = $('wrap');
+['dragenter', 'dragover'].forEach(name => {
+  wrapEl.addEventListener(name, e => {
+    e.preventDefault();
+    wrapEl.classList.add('dragover');
+  });
+});
+['dragleave', 'drop'].forEach(name => {
+  wrapEl.addEventListener(name, e => {
+    e.preventDefault();
+    wrapEl.classList.remove('dragover');
+  });
+});
+wrapEl.addEventListener('drop', e => {
+  if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]){
+    const dt = new DataTransfer();
+    dt.items.add(e.dataTransfer.files[0]);
+    $('file').files = dt.files;
+    $('file').dispatchEvent(new Event('change'));
+  }
+});
+
+// Floating Zoom Controls
+function zoomBy(k){
+  if(!img)return;
+  const cx = W() / 2, cy = H() / 2;
+  const p = toI([cx, cy]);
+  V.s = Math.min(Math.max(V.s * k, 0.02), 60);
+  V.x = cx - p[0] * V.s;
+  V.y = cy - p[1] * V.s;
+  draw();
+}
+$('btnZoomIn').onclick = () => zoomBy(1.25);
+$('btnZoomOut').onclick = () => zoomBy(1 / 1.25);
+$('btnZoomFit').onclick = () => { if(img){ fitV(); draw(); } };
+
+// Dark / Light Theme Toggle
+const themeBtn = $('themeToggle');
+function setTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('plotpeta_theme', theme);
+  const icon = $('themeIcon');
+  if(theme === 'light'){
+    icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+    themeBtn.title = 'Ganti ke Mode Gelap';
+  } else {
+    icon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+    themeBtn.title = 'Ganti ke Mode Terang';
+  }
+}
+const savedTheme = localStorage.getItem('plotpeta_theme') || 'dark';
+setTheme(savedTheme);
+themeBtn.onclick = () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  setTheme(current === 'dark' ? 'light' : 'dark');
+};
+
+// ====================================================================
+// ==================== SUPABASE SAAS INTEGRATION =====================
+// ====================================================================
+const SUPABASE_URL = 'https://fqkqoqphqosacatqnwqj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_UwScoKPnmBFGgPy-A2nNag_JSeT1caZ';
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+let currentUser = null;
+let currentProfile = null;
+let currentTokenBalance = 0;
+let currentUniqueCode = Math.floor(100 + Math.random() * 899);
+
+// Auth Modal
+function openAuthModal(tab = 'login'){
+  $('modalAuth').classList.add('open');
+  switchAuthTab(tab);
+  $('authAlert').className = 'form-alert';
+  $('authAlert').textContent = '';
+}
+function closeAuthModal(){ $('modalAuth').classList.remove('open'); }
+$('btnOpenAuth').onclick = () => openAuthModal('login');
+
+function switchAuthTab(tab){
+  ['Login', 'Register', 'Forgot'].forEach(t => {
+    const isThis = t.toLowerCase() === tab;
+    $('tabBtn' + t).classList.toggle('active', isThis);
+    $('form' + t).style.display = isThis ? 'block' : 'none';
+  });
+  $('authAlert').className = 'form-alert';
+  $('authAlert').textContent = '';
+}
+
+async function handleLogin(e){
+  e.preventDefault();
+  const email = $('loginEmail').value.trim();
+  const password = $('loginPassword').value;
+  $('btnLoginSubmit').disabled = true;
+  $('btnLoginSubmit').textContent = 'Memproses...';
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  $('btnLoginSubmit').disabled = false;
+  $('btnLoginSubmit').textContent = 'Masuk';
+
+  if(error){
+    $('authAlert').className = 'form-alert error';
+    $('authAlert').textContent = 'Gagal masuk: ' + error.message;
+  } else {
+    closeAuthModal();
+  }
+}
+
+async function handleRegister(e){
+  e.preventDefault();
+  const nama = $('regNama').value.trim();
+  const email = $('regEmail').value.trim();
+  const password = $('regPassword').value;
+  $('btnRegSubmit').disabled = true;
+  $('btnRegSubmit').textContent = 'Mendaftarkan...';
+
+  const { data, error } = await sb.auth.signUp({
+    email,
+    password,
+    options: { data: { nama } }
+  });
+  $('btnRegSubmit').disabled = false;
+  $('btnRegSubmit').textContent = 'Daftar & Klaim 3 Token';
+
+  if(error){
+    $('authAlert').className = 'form-alert error';
+    $('authAlert').textContent = 'Gagal mendaftar: ' + error.message;
+  } else {
+    $('authAlert').className = 'form-alert success';
+    $('authAlert').textContent = 'Pendaftaran berhasil! Cek email Anda untuk konfirmasi pendaftaran akun.';
+    setTimeout(() => { closeAuthModal(); }, 2500);
+  }
+}
+
+async function handleForgot(e){
+  e.preventDefault();
+  const email = $('forgotEmail').value.trim();
+  $('btnForgotSubmit').disabled = true;
+  $('btnForgotSubmit').textContent = 'Mengirim...';
+
+  const { error } = await sb.auth.resetPasswordForEmail(email);
+  $('btnForgotSubmit').disabled = false;
+  $('btnForgotSubmit').textContent = 'Kirim Link Reset';
+
+  if(error){
+    $('authAlert').className = 'form-alert error';
+    $('authAlert').textContent = 'Gagal mengirim link: ' + error.message;
+  } else {
+    $('authAlert').className = 'form-alert success';
+    $('authAlert').textContent = 'Tautan reset sandi telah dikirim ke email Anda.';
+  }
+}
+
+// User Dropdown toggle
+$('userMenuBtn').onclick = (e) => {
+  e.stopPropagation();
+  $('userMenuWrap').classList.toggle('open');
+};
+document.addEventListener('click', () => {
+  $('userMenuWrap').classList.remove('open');
+});
+
+async function logout(){
+  await sb.auth.signOut();
+  window.location.reload();
+}
+
+// Update User UI State
+async function updateAuthState(session){
+  if(session && session.user){
+    currentUser = session.user;
+    $('btnOpenAuth').style.display = 'none';
+    $('tokenPill').style.display = 'inline-flex';
+    $('btnCloudProjects').style.display = 'inline-flex';
+    $('userMenuWrap').style.display = 'inline-block';
+
+    // Ambil profil
+    const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+    currentProfile = profile;
+    const displayName = profile?.nama || currentUser.email.split('@')[0];
+    $('userName').textContent = displayName;
+    $('userEmail').textContent = currentUser.email;
+    $('userAvatar').textContent = displayName.charAt(0).toUpperCase();
+
+    if(profile?.is_admin){
+      $('adminLink').style.display = 'flex';
+    } else {
+      $('adminLink').style.display = 'none';
+    }
+
+    await fetchUserTokens();
+  } else {
+    currentUser = null;
+    currentProfile = null;
+    $('btnOpenAuth').style.display = 'inline-flex';
+    $('tokenPill').style.display = 'none';
+    $('btnCloudProjects').style.display = 'none';
+    $('userMenuWrap').style.display = 'none';
+  }
+}
+
+// Fetch Token Balance
+async function fetchUserTokens(){
+  if(!currentUser) return;
+  const { data, error } = await sb.rpc('get_user_tokens', { p_user_id: currentUser.id });
+  if(data && !error){
+    currentTokenBalance = data.balance || 0;
+    $('tokenCount').textContent = currentTokenBalance;
+    if(data.earliest_expiry){
+      const expDate = new Date(data.earliest_expiry).toLocaleDateString('id-ID', { day:'numeric', month:'short' });
+      $('tokenPill').title = `${currentTokenBalance} token aktif (berlaku s.d. ${expDate})`;
+    } else {
+      $('tokenPill').title = `${currentTokenBalance} token aktif`;
+    }
+  }
+}
+
+// ==================== CLOUD PROJECTS MODAL ====================
+$('btnCloudProjects').onclick = () => {
+  $('modalCloud').classList.add('open');
+  switchCloudTab('list');
+  loadCloudProjects();
+};
+
+function switchCloudTab(tab){
+  $('tabBtnCloudList').classList.toggle('active', tab === 'list');
+  $('tabBtnCloudSave').classList.toggle('active', tab === 'save');
+  $('tabCloudList').style.display = tab === 'list' ? 'block' : 'none';
+  $('tabCloudSave').style.display = tab === 'save' ? 'block' : 'none';
+}
+
+async function loadCloudProjects(){
+  if(!currentUser) return;
+  const listEl = $('cloudProjectsList');
+  listEl.innerHTML = '<div class="mu" style="text-align:center;padding:20px">Memuat data proyek cloud...</div>';
+
+  const { data: projects, error } = await sb.from('projects')
+    .select('id, nama, ukuran, updated_at')
+    .eq('user_id', currentUser.id)
+    .order('updated_at', { ascending: false });
+
+  if(error || !projects || projects.length === 0){
+    listEl.innerHTML = '<div class="mu" style="text-align:center;padding:24px">Belum ada proyek yang disimpan di cloud.</div>';
+    $('cloudProjectCount').textContent = '0 / 20 proyek digunakan';
+    return;
+  }
+
+  $('cloudProjectCount').textContent = `${projects.length} / 20 proyek digunakan`;
+  listEl.innerHTML = projects.map(p => {
+    const fDate = new Date(p.updated_at).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const szKb = Math.round((p.ukuran || 0) / 1024);
+    return `
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div style="min-width:0;flex:1">
+          <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.nama}</div>
+          <div class="mu" style="font-size:11px;margin-top:2px">${fDate} &bull; ${szKb} KB</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn pri" style="padding:4px 8px;font-size:11px" onclick="openCloudProject('${p.id}')">Buka</button>
+          <button class="btn danger" style="padding:4px 8px;font-size:11px" onclick="deleteCloudProject('${p.id}', '${p.nama}')">Hapus</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function saveCurrentToCloud(){
+  if(!currentUser) return;
+  const name = $('cloudSaveName').value.trim();
+  if(!name){ alert('Masukkan nama proyek terlebih dahulu.'); return; }
+
+  const o = {
+    v: 1,
+    size: [iw, ih],
+    cal: cal.pts.map((p,i)=>({ p, x: $('cx'+i).value, y: $('cy'+i).value })),
+    lines,
+    texts,
+    th: $('th').value,
+    ly: ['lP','lD','lSu','lM','lPoly'].map(i => $(i).value)
+  };
+  const jsonStr = JSON.stringify(o);
+  const szBytes = new TextEncoder().encode(jsonStr).length;
+
+  if(szBytes > 5 * 1024 * 1024){
+    alert('Ukuran data proyek melebihi batas 5 MB.');
+    return;
+  }
+
+  $('btnSaveToCloud').disabled = true;
+  $('btnSaveToCloud').textContent = 'Menyimpan...';
+
+  const { error } = await sb.from('projects').insert({
+    user_id: currentUser.id,
+    nama: name,
+    data: o,
+    ukuran: szBytes
+  });
+
+  $('btnSaveToCloud').disabled = false;
+  $('btnSaveToCloud').textContent = 'Simpan ke Cloud';
+
+  if(error){
+    alert('Gagal menyimpan: ' + error.message);
+  } else {
+    alert('Proyek berhasil disimpan ke cloud!');
+    dirty = false;
+    $('cloudSaveName').value = '';
+    switchCloudTab('list');
+    loadCloudProjects();
+  }
+}
+
+async function openCloudProject(id){
+  const { data: p, error } = await sb.from('projects').select('*').eq('id', id).single();
+  if(error || !p){ alert('Gagal memuat proyek dari cloud'); return; }
+
+  const o = p.data;
+  lines = o.lines || [];
+  texts = o.texts || [];
+  cal.pts = (o.cal || []).map(c => c.p);
+  crs();
+  (o.cal || []).forEach((c, i) => {
+    $('cx' + i).value = c.x;
+    $('cy' + i).value = c.y;
+  });
+  $('th').value = o.th || 5;
+  if(o.ly) ['lP','lD','lSu','lM','lPoly'].forEach((i, k) => { $(i).value = o.ly[k]; });
+
+  hist = []; cur = []; selT = -1;
+  tform(); stat();
+  if(cal.pts.length === 4) fitCal();
+  dirty = false;
+  draw();
+  $('modalCloud').classList.remove('open');
+  alert(`Proyek "${p.nama}" berhasil dimuat. Pastikan membuka file peta yang sesuai jika belum dibuka.`);
+}
+
+async function deleteCloudProject(id, name){
+  if(!confirm(`Hapus proyek "${name}" dari cloud?`)) return;
+  await sb.from('projects').delete().eq('id', id);
+  loadCloudProjects();
+}
+
+// ==================== TOP-UP TOKEN MODAL ====================
+function openTopupModal(){
+  if(!currentUser){
+    openAuthModal('login');
+    return;
+  }
+  currentUniqueCode = Math.floor(100 + Math.random() * 899);
+  const total = 100000 + currentUniqueCode;
+  $('topupNominalDisplay').textContent = 'Rp ' + total.toLocaleString('id-ID');
+  $('modalTopup').classList.add('open');
+  $('topupAlert').className = 'form-alert';
+  $('topupAlert').textContent = '';
+  loadUserTopupHistory();
+}
+$('btnTopupPill').onclick = openTopupModal;
+
+async function handleTopupSubmit(e){
+  e.preventDefault();
+  if(!currentUser) return;
+
+  const fileInput = $('topupBuktiFile');
+  const file = fileInput.files[0];
+  if(!file){ alert('Pilih foto bukti pembayaran'); return; }
+  if(file.size > 2.5 * 1024 * 1024){ alert('Ukuran foto bukti maksimal 2.5 MB'); return; }
+
+  $('btnSubmitTopup').disabled = true;
+  $('btnSubmitTopup').textContent = 'Mengunggah bukti...';
+
+  // Upload ke storage bukti-transfer (private)
+  const ext = file.name.split('.').pop() || 'jpg';
+  const filePath = `${currentUser.id}/${Date.now()}_bukti.${ext}`;
+  const { error: uploadError } = await sb.storage.from('bukti-transfer').upload(filePath, file);
+
+  if(uploadError){
+    $('btnSubmitTopup').disabled = false;
+    $('btnSubmitTopup').textContent = 'Kirim Konfirmasi Pembayaran';
+    $('topupAlert').className = 'form-alert error';
+    $('topupAlert').textContent = 'Gagal upload foto bukti: ' + uploadError.message;
+    return;
+  }
+
+  // Insert ke tabel topups
+  const nominal = 100000 + currentUniqueCode;
+  const metode = $('topupMetode').value;
+  const catatan = $('topupCatatan').value.trim();
+
+  const { error: insertError } = await sb.from('topups').insert({
+    user_id: currentUser.id,
+    paket: '50_token',
+    jumlah_token: 50,
+    nominal: nominal,
+    kode_unik: currentUniqueCode,
+    metode: metode,
+    bukti_url: filePath,
+    catatan: catatan
+  });
+
+  $('btnSubmitTopup').disabled = false;
+  $('btnSubmitTopup').textContent = 'Kirim Konfirmasi Pembayaran';
+
+  if(insertError){
+    $('topupAlert').className = 'form-alert error';
+    $('topupAlert').textContent = 'Gagal menyimpan transaksi: ' + insertError.message;
+  } else {
+    $('topupAlert').className = 'form-alert success';
+    $('topupAlert').textContent = 'Bukti pembayaran berhasil dikirim! Admin akan segera memeriksa dan menyetujui token Anda.';
+    fileInput.value = '';
+    $('topupCatatan').value = '';
+    loadUserTopupHistory();
+  }
+}
+
+async function loadUserTopupHistory(){
+  if(!currentUser) return;
+  const { data: topups } = await sb.from('topups')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  const container = $('userTopupHistory');
+  if(!topups || topups.length === 0){
+    container.innerHTML = '<div class="mu">Belum ada riwayat top-up.</div>';
+    return;
+  }
+
+  container.innerHTML = topups.map(t => {
+    let badge = '<span style="color:var(--warning);font-weight:600">&bull; Menunggu Verifikasi</span>';
+    if(t.status === 'disetujui') badge = '<span style="color:var(--success);font-weight:600">&#10003; Disetujui (+50 Token)</span>';
+    if(t.status === 'ditolak') badge = `<span style="color:var(--danger);font-weight:600">&times; Ditolak (${t.catatan || 'Bukti tidak valid'})</span>`;
+    const fDate = new Date(t.created_at).toLocaleDateString('id-ID', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+    return `
+      <div style="background:var(--bg-input);padding:6px 10px;border-radius:7px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <b>Rp ${t.nominal.toLocaleString('id-ID')}</b> <span class="mu">(${t.metode})</span>
+          <div class="mu" style="font-size:10.5px">${fDate}</div>
+        </div>
+        <div style="font-size:11px">${badge}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ==================== TOKEN LEDGER MODAL ====================
+async function openLedgerModal(){
+  if(!currentUser) return;
+  $('modalLedger').classList.add('open');
+  const c = $('ledgerList');
+  c.innerHTML = '<div class="mu" style="text-align:center;padding:20px">Memuat riwayat token...</div>';
+
+  const { data: ledger, error } = await sb.from('token_ledger')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('waktu', { ascending: false })
+    .limit(40);
+
+  if(error || !ledger || ledger.length === 0){
+    c.innerHTML = '<div class="mu" style="text-align:center;padding:24px">Belum ada riwayat transaksi token.</div>';
+    return;
+  }
+
+  c.innerHTML = ledger.map(l => {
+    const isPlus = l.jumlah > 0;
+    const clr = isPlus ? 'var(--success)' : 'var(--danger)';
+    const sign = isPlus ? '+' : '';
+    const fDate = new Date(l.waktu).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    return `
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <b style="color:${clr}">${sign}${l.jumlah} Token</b> <span style="font-size:11.5px;color:var(--text-main)">(${l.jenis})</span>
+          <div class="mu" style="font-size:11px;margin-top:2px">${l.catatan || '-'}</div>
+        </div>
+        <div class="mono" style="font-size:11px;color:var(--text-muted)">${fDate}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ==================== EXPORT DXF DENGAN VERIFIKASI TOKEN ====================
+$('exp').onclick = async () => {
+  if(!ready()) return;
+
+  // 1. Cek Sesi Pengguna
+  if(!currentUser){
+    alert('Untuk mengunduh file DXF AutoCAD, silakan masuk atau daftar akun terlebih dahulu.\n\n🎁 Dapatkan 3 token gratis saat mendaftar akun baru!');
+    openAuthModal('register');
+    return;
+  }
+
+  // 2. Cek Saldo & Potong 1 Token via RPC Atomik
+  $('exp').disabled = true;
+  const originalExpText = $('exp').innerHTML;
+  $('exp').innerHTML = '<span>Memverifikasi Token...</span>';
+
+  const { data: res, error: err } = await sb.rpc('consume_token_dxf');
+  $('exp').disabled = false;
+  $('exp').innerHTML = originalExpText;
+
+  if(err || !res || !res.success){
+    alert(res?.message || 'Token Anda habis atau telah kedaluwarsa. Silakan lakukan isi ulang token untuk mengunduh DXF.');
+    openTopupModal();
+    return;
+  }
+
+  // 3. Pemotongan Token Berhasil -> Generate DXF & Download
+  await fetchUserTokens(); // Update saldo di navbar
+  const s = dxf();
+  const ok = await save('bidang_tanah.dxf', new Blob([s], { type: 'application/octet-stream' }));
+  if(!ok){
+    $('outbox').classList.remove('hide');
+    $('out').value = s;
+    $('out').select();
+    $('outmsg').textContent = 'Simpan otomatis tidak tersedia. Salin teks ini ke Notepad, simpan sebagai bidang_tanah.dxf.';
+  } else {
+    alert(`Berhasil mengunduh DXF!\n1 token telah dipotong. Sisa saldo token Anda: ${res.remaining_balance} token.`);
+  }
+};
+
+// Listen Auth state change
+if(sb){
+  sb.auth.onAuthStateChange((event, session) => {
+    updateAuthState(session);
+  });
+  sb.auth.getSession().then(({ data: { session } }) => {
+    updateAuthState(session);
+  });
+}
+
+// Initial Setup
+crs();
+setTool('pan');
+resize();
+stat();
+updateDropzone();
+</script>
+</body>
+</html>

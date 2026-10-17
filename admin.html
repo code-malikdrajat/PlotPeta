@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Admin Dashboard &bull; PlotPeta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg-app: #0c0f17;
+  --bg-panel: #131824;
+  --bg-card: #182030;
+  --bg-input: #0f1420;
+  --border: #232d3f;
+  --border-focus: #0ea5e9;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --accent: #0ea5e9;
+  --accent-hover: #0284c7;
+  --accent-subtle: rgba(14, 165, 233, 0.12);
+  --success: #10b981;
+  --success-subtle: rgba(16, 185, 129, 0.15);
+  --warning: #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.15);
+  --danger: #ef4444;
+  --danger-subtle: rgba(239, 68, 68, 0.15);
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+[data-theme="light"] {
+  --bg-app: #f1f5f9;
+  --bg-panel: #ffffff;
+  --bg-card: #f8fafc;
+  --bg-input: #ffffff;
+  --border: #e2e8f0;
+  --border-focus: #0284c7;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-subtle: rgba(2, 132, 199, 0.1);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--bg-app); color: var(--text-main); font-family: var(--font-sans); font-size: 13.5px; }
+.header { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; background: var(--bg-panel); border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--text-main); text-decoration: none; }
+.brand-badge { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--danger-subtle); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); text-transform: uppercase; }
+.container { max-width: 1200px; margin: 24px auto; padding: 0 20px; display: flex; flex-direction: column; gap: 24px; }
+.card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; margin: 0; }
+.card-title svg { color: var(--accent); }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); transition: all 0.15s ease; text-decoration: none; }
+.btn:hover { background: var(--border); }
+.btn.pri { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.pri:hover { background: var(--accent-hover); }
+.btn.suc { background: var(--success); color: #fff; border-color: var(--success); }
+.btn.dan { background: var(--danger); color: #fff; border-color: var(--danger); }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px; }
+th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+th { font-size: 11.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; background: var(--bg-card); }
+tr:hover td { background: var(--bg-card); }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.badge.wait { background: var(--warning-subtle); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+.badge.app { background: var(--success-subtle); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+.badge.rej { background: var(--danger-subtle); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+input, select, textarea { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; color: var(--text-main); font-family: inherit; width: 100%; }
+input:focus, textarea:focus { border-color: var(--border-focus); outline: none; box-shadow: 0 0 0 3px var(--accent-subtle); }
+.grid-settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.setting-item { display: flex; flex-direction: column; gap: 6px; }
+.setting-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.mono { font-family: var(--font-mono); }
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+.modal-overlay.open { display: flex; }
+.modal-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 520px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); padding: 22px; position: relative; }
+.modal-close { position: absolute; top: 16px; right: 16px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; }
+.preview-img { max-width: 100%; max-height: 480px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); margin: 12px 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center;gap:12px">
+    <a href="index.html" class="brand">
+      <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#0ea5e9,#10b981);display:flex;align-items:center;justify-content:center;color:#fff">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon></svg>
+      </div>
+      <span>PlotPeta</span>
+    </a>
+    <span class="brand-badge">Admin Panel</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span id="adminEmail" class="mono" style="font-size:12px;color:var(--text-muted)">Memeriksa sesi...</span>
+    <a href="index.html" class="btn">Kembali ke Aplikasi</a>
+    <button id="btnLogout" class="btn dan" style="padding:6px 10px">Keluar</button>
+  </div>
+</div>
+
+<div class="container" id="adminContent" style="display:none">
+  <!-- Section 1: Permintaan Top-up Menunggu -->
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <span>Permintaan Top-Up Menunggu Verifikasi</span>
+      </h2>
+      <button class="btn" onclick="loadPendingTopups()">Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Waktu</th>
+            <th>Pengguna</th>
+            <th>Paket</th>
+            <th>Nominal Bayar</th>
+            <th>Metode</th>
+            <th>Bukti Bayar</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tblPending">
+          <tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Memuat data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 2: Pengaturan Global -->
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <span>Pengaturan Global (Settings)</span>
+      </h2>
+      <button class="btn pri" id="btnSaveSettings">Simpan Perubahan</button>
+    </div>
+    <div class="grid-settings">
+      <div class="setting-item">
+        <label class="setting-label">Masa Berlaku Token (Hari)</label>
+        <input type="number" id="setMasaHari" min="1" max="365" value="30">
+        <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: 30 hari sejak diterima</span>
+      </div>
+      <div class="setting-item">
+        <label class="setting-label">Bonus Token Pendaftaran Baru</label>
+        <input type="number" id="setTokenGratis" min="0" max="10" value="3">
+        <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: 3 token saat daftar</span>
+      </div>
+      <div class="setting-item">
+        <label class="setting-label">Harga Paket 50 Token (Rp)</label>
+        <input type="number" id="setHargaPaket" min="10000" step="1000" value="100000">
+        <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: Rp 100.000</span>
+      </div>
+      <div class="setting-item" style="grid-column: 1 / -1">
+        <label class="setting-label">Informasi Rekening & QRIS (JSON / Teks Petunjuk)</label>
+        <textarea id="setRekening" rows="3" style="font-family:var(--font-mono);font-size:12px"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3: Daftar Pengguna & Saldo Token -->
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <span>Daftar Pengguna & Saldo Token</span>
+      </h2>
+      <button class="btn" onclick="loadUsers()">Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Pengguna</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Token Aktif</th>
+            <th>Kedaluwarsa Terdekat</th>
+            <th>Terdaftar</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tblUsers">
+          <tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Memuat data pengguna...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 4: Riwayat Top-up -->
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        <span>Riwayat Seluruh Transaksi Top-Up</span>
+      </h2>
+      <button class="btn" onclick="loadAllTopups()">Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Waktu</th>
+            <th>Pengguna</th>
+            <th>Token</th>
+            <th>Nominal</th>
+            <th>Metode</th>
+            <th>Status</th>
+            <th>Diputuskan Oleh</th>
+            <th>Catatan</th>
+          </tr>
+        </thead>
+        <tbody id="tblAllTopups">
+          <tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Memuat riwayat...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Preview Bukti Bayar -->
+<div class="modal-overlay" id="modalBukti">
+  <div class="modal-box">
+    <button class="modal-close" onclick="$('modalBukti').classList.remove('open')">&times;</button>
+    <h3 style="margin-top:0">Bukti Pembayaran</h3>
+    <div id="buktiContainer" style="text-align:center">Memuat bukti...</div>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+      <button class="btn" onclick="$('modalBukti').classList.remove('open')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Koreksi Token -->
+<div class="modal-overlay" id="modalKoreksi">
+  <div class="modal-box">
+    <button class="modal-close" onclick="$('modalKoreksi').classList.remove('open')">&times;</button>
+    <h3 style="margin-top:0">Koreksi Token Manual</h3>
+    <p class="mono" id="koreksiUserInfo" style="font-size:12px;color:var(--accent)"></p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label class="setting-label">Jumlah Token (+ untuk tambah, - untuk kurangi)</label>
+        <input type="number" id="koreksiJumlah" placeholder="Misal: 10 atau -5">
+      </div>
+      <div>
+        <label class="setting-label">Masa Berlaku (Hari dari sekarang)</label>
+        <input type="number" id="koreksiHari" value="30">
+      </div>
+      <div>
+        <label class="setting-label">Alasan / Catatan</label>
+        <input type="text" id="koreksiCatatan" placeholder="Contoh: Kompensasi kendala sistem">
+      </div>
+      <button class="btn pri" id="btnSubmitKoreksi" style="margin-top:8px">Simpan Koreksi</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const SUPABASE_URL = 'https://fqkqoqphqosacatqnwqj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_UwScoKPnmBFGgPy-A2nNag_JSeT1caZ';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentUser = null;
+let currentProfile = null;
+let selectedUserIdForKoreksi = null;
+
+// Format Rupiah
+const fRp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
+const fDate = d => d ? new Date(d).toLocaleString('id-ID', { dateStyle:'short', timeStyle:'short' }) : '-';
+
+// Cek Auth & Status Admin
+async function checkAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if(!session || !session.user){
+    alert('Akses khusus admin. Silakan masuk terlebih dahulu.');
+    window.location.href = 'index.html';
+    return;
+  }
+  currentUser = session.user;
+  
+  // Ambil profil
+  const { data: profile, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  if(error || !profile || !profile.is_admin){
+    alert('Akses Ditolak: Akun Anda (' + currentUser.email + ') bukan akun administrator.');
+    window.location.href = 'index.html';
+    return;
+  }
+  currentProfile = profile;
+  $('adminEmail').textContent = profile.nama + ' (' + currentUser.email + ')';
+  $('adminContent').style.display = 'flex';
+
+  // Load Semua Data
+  loadPendingTopups();
+  loadSettings();
+  loadUsers();
+  loadAllTopups();
+}
+
+// 1. Load Permintaan Topup Menunggu
+async function loadPendingTopups() {
+  const { data, error } = await sb.from('topups')
+    .select('*, profiles(nama, email)')
+    .eq('status', 'menunggu')
+    .order('created_at', { ascending: true });
+
+  const tb = $('tblPending');
+  if(error || !data || data.length === 0){
+    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:18px">Tidak ada permintaan top-up yang menunggu verifikasi.</td></tr>';
+    return;
+  }
+
+  tb.innerHTML = data.map(t => `
+    <tr>
+      <td class="mono">${fDate(t.created_at)}</td>
+      <td><b>${t.profiles?.nama || '-'}</b><br><span class="mono" style="font-size:11px;color:var(--text-dim)">${t.profiles?.email || '-'}</span></td>
+      <td>${t.jumlah_token} Token</td>
+      <td class="mono" style="font-weight:700;color:var(--accent)">${fRp(t.nominal)}</td>
+      <td>${t.metode.toUpperCase()}</td>
+      <td>
+        ${t.bukti_url ? `<button class="btn" style="padding:4px 8px;font-size:11px" onclick="previewBukti('${t.bukti_url}')">Lihat Foto</button>` : '<span style="color:var(--danger)">Tidak ada</span>'}
+      </td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn suc" style="padding:4px 8px;font-size:11px" onclick="approveTopup('${t.id}', '${t.profiles?.nama || 'Pengguna'}', ${t.jumlah_token})">Setujui</button>
+          <button class="btn dan" style="padding:4px 8px;font-size:11px" onclick="rejectTopup('${t.id}')">Tolak</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Preview Foto Bukti
+async function previewBukti(path) {
+  const c = $('buktiContainer');
+  c.innerHTML = 'Membuat tautan privat...';
+  $('modalBukti').classList.add('open');
+
+  const { data, error } = await sb.storage.from('bukti-transfer').createSignedUrl(path, 600);
+  if(error || !data){
+    c.innerHTML = '<span style="color:var(--danger)">Gagal memuat foto bukti: ' + (error?.message || 'File tidak ditemukan') + '</span>';
+  } else {
+    c.innerHTML = `<img src="${data.signedUrl}" class="preview-img"><br><a href="${data.signedUrl}" target="_blank" class="btn" style="margin-top:6px;display:inline-block">Buka Ukuran Asli</a>`;
+  }
+}
+
+// Approve Topup
+async function approveTopup(id, nama, token) {
+  if(!confirm(`Setujui top-up ${token} token untuk ${nama}? Token akan langsung ditambahkan ke saldo pengguna.`)) return;
+  const { data, error } = await sb.rpc('admin_approve_topup', { p_topup_id: id });
+  if(error || (data && !data.success)){
+    alert('Gagal menyetujui: ' + (error?.message || data?.message));
+  } else {
+    alert('Top-up berhasil disetujui!');
+    loadPendingTopups();
+    loadAllTopups();
+    loadUsers();
+  }
+}
+
+// Reject Topup
+async function rejectTopup(id) {
+  const catatan = prompt('Masukkan alasan penolakan (akan ditampilkan ke pengguna):', 'Bukti transfer tidak sesuai atau dana belum masuk');
+  if(catatan === null) return;
+  const { data, error } = await sb.rpc('admin_reject_topup', { p_topup_id: id, p_catatan: catatan });
+  if(error || (data && !data.success)){
+    alert('Gagal menolak: ' + (error?.message || data?.message));
+  } else {
+    alert('Permintaan top-up telah ditolak.');
+    loadPendingTopups();
+    loadAllTopups();
+  }
+}
+
+// 2. Load Settings
+async function loadSettings() {
+  const { data, error } = await sb.from('settings').select('*');
+  if(data){
+    data.forEach(s => {
+      if(s.key === 'masa_berlaku_token_hari') $('setMasaHari').value = s.value;
+      if(s.key === 'token_gratis_daftar') $('setTokenGratis').value = s.value;
+      if(s.key === 'harga_paket_50') $('setHargaPaket').value = s.value;
+      if(s.key === 'rekening_info') $('setRekening').value = JSON.stringify(s.value, null, 2);
+    });
+  }
+}
+
+// Save Settings
+$('btnSaveSettings').onclick = async () => {
+  const masa = parseInt($('setMasaHari').value);
+  const gratis = parseInt($('setTokenGratis').value);
+  const harga = parseInt($('setHargaPaket').value);
+  let rek = null;
+  try {
+    rek = JSON.parse($('setRekening').value);
+  } catch(e) {
+    alert('Format JSON pada Informasi Rekening tidak valid.');
+    return;
+  }
+
+  await sb.from('settings').upsert([
+    { key: 'masa_berlaku_token_hari', value: masa },
+    { key: 'token_gratis_daftar', value: gratis },
+    { key: 'harga_paket_50', value: harga },
+    { key: 'rekening_info', value: rek }
+  ]);
+  alert('Pengaturan berhasil disimpan!');
+};
+
+// 3. Load Users & Balances
+async function loadUsers() {
+  const { data: users, error } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
+  const tb = $('tblUsers');
+  if(error || !users){
+    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--danger)">Gagal memuat pengguna</td></tr>';
+    return;
+  }
+
+  // Ambil token batches aktif untuk tiap user
+  const { data: batches } = await sb.from('token_batches')
+    .select('user_id, sisa, kedaluwarsa_pada')
+    .gt('sisa', 0)
+    .gt('kedaluwarsa_pada', new Date().toISOString());
+
+  const balanceMap = {};
+  const expMap = {};
+  if(batches){
+    batches.forEach(b => {
+      balanceMap[b.user_id] = (balanceMap[b.user_id] || 0) + b.sisa;
+      if(!expMap[b.user_id] || new Date(b.kedaluwarsa_pada) < new Date(expMap[b.user_id])){
+        expMap[b.user_id] = b.kedaluwarsa_pada;
+      }
+    });
+  }
+
+  tb.innerHTML = users.map(u => {
+    const bal = balanceMap[u.id] || 0;
+    const exp = expMap[u.id] ? fDate(expMap[u.id]) : '-';
+    return `
+      <tr>
+        <td><b>${u.nama || '-'}</b></td>
+        <td class="mono">${u.email}</td>
+        <td>${u.is_admin ? '<span class="badge rej">Admin</span>' : '<span class="badge" style="background:var(--border)">User</span>'}</td>
+        <td class="mono" style="font-weight:700;color:var(--accent)">${bal} Token</td>
+        <td class="mono" style="font-size:11.5px">${exp}</td>
+        <td class="mono" style="font-size:11.5px">${fDate(u.created_at)}</td>
+        <td>
+          <button class="btn" style="padding:4px 8px;font-size:11px" onclick="openKoreksiModal('${u.id}', '${u.nama || u.email}')">Koreksi Token</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Modal Koreksi Token Manual
+function openKoreksiModal(userId, name) {
+  selectedUserIdForKoreksi = userId;
+  $('koreksiUserInfo').textContent = 'User: ' + name;
+  $('koreksiJumlah').value = '';
+  $('koreksiCatatan').value = '';
+  $('modalKoreksi').classList.add('open');
+}
+
+$('btnSubmitKoreksi').onclick = async () => {
+  const qty = parseInt($('koreksiJumlah').value);
+  const hari = parseInt($('koreksiHari').value) || 30;
+  const catatan = $('koreksiCatatan').value.trim() || 'Koreksi manual admin';
+
+  if(!qty || isNaN(qty)){
+    alert('Masukkan jumlah token yang valid.');
+    return;
+  }
+
+  if(qty > 0){
+    // Tambah batch baru
+    const expDate = new Date();
+    expDate.setDate(expDate.getDate() + hari);
+    const { data: batch, error } = await sb.from('token_batches').insert({
+      user_id: selectedUserIdForKoreksi,
+      asal: 'koreksi',
+      jumlah_awal: qty,
+      sisa: qty,
+      kedaluwarsa_pada: expDate.toISOString()
+    }).select().single();
+
+    if(error){ alert('Gagal: ' + error.message); return; }
+
+    await sb.from('token_ledger').insert({
+      user_id: selectedUserIdForKoreksi,
+      batch_id: batch.id,
+      jenis: 'koreksi',
+      jumlah: qty,
+      catatan: catatan
+    });
+  } else {
+    // Kurangi token (ambil batch aktif terlama)
+    const need = Math.abs(qty);
+    const { data: batches } = await sb.from('token_batches')
+      .select('*')
+      .eq('user_id', selectedUserIdForKoreksi)
+      .gt('sisa', 0)
+      .order('kedaluwarsa_pada', { ascending: true });
+
+    let remainingToDeduct = need;
+    for(const b of (batches || [])){
+      if(remainingToDeduct <= 0) break;
+      const dec = Math.min(b.sisa, remainingToDeduct);
+      await sb.from('token_batches').update({ sisa: b.sisa - dec }).eq('id', b.id);
+      await sb.from('token_ledger').insert({
+        user_id: selectedUserIdForKoreksi,
+        batch_id: b.id,
+        jenis: 'koreksi',
+        jumlah: -dec,
+        catatan: catatan
+      });
+      remainingToDeduct -= dec;
+    }
+  }
+
+  alert('Koreksi token berhasil disimpan.');
+  $('modalKoreksi').classList.remove('open');
+  loadUsers();
+};
+
+// 4. Load All Topups
+async function loadAllTopups() {
+  const { data, error } = await sb.from('topups')
+    .select('*, profiles(nama, email), decider:profiles!topups_diputuskan_oleh_fkey(nama)')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  const tb = $('tblAllTopups');
+  if(error || !data || data.length === 0){
+    tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Belum ada data transaksi.</td></tr>';
+    return;
+  }
+
+  tb.innerHTML = data.map(t => {
+    let stBadge = '<span class="badge wait">Menunggu</span>';
+    if(t.status === 'disetujui') stBadge = '<span class="badge app">Disetujui</span>';
+    if(t.status === 'ditolak') stBadge = '<span class="badge rej">Ditolak</span>';
+
+    return `
+      <tr>
+        <td class="mono" style="font-size:11.5px">${fDate(t.created_at)}</td>
+        <td><b>${t.profiles?.nama || '-'}</b><br><span class="mono" style="font-size:11px;color:var(--text-dim)">${t.profiles?.email || '-'}</span></td>
+        <td>${t.jumlah_token} Token</td>
+        <td class="mono">${fRp(t.nominal)}</td>
+        <td>${t.metode.toUpperCase()}</td>
+        <td>${stBadge}</td>
+        <td>${t.decider?.nama || '-'}</td>
+        <td style="font-size:11.5px;color:var(--text-muted)">${t.catatan || '-'}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Logout
+$('btnLogout').onclick = async () => {
+  await sb.auth.signOut();
+  window.location.href = 'index.html';
+};
+
+// Inisialisasi
+checkAuth();
+</script>
+</body>
+</html>
