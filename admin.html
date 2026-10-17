@@ -742,6 +742,7 @@ $('btnSaveTokenSettings').onclick = async () => {
 };
 
 // 3. LOAD PERMINTAAN TOP-UP MENUNGGU
+
 async function loadPendingTopups() {
   const { data, error } = await sb.from('topups')
     .select('*, profiles(nama, email)')
@@ -749,10 +750,28 @@ async function loadPendingTopups() {
     .order('created_at', { ascending: true });
 
   const tb = $('tblPending');
-  if(error || !data || data.length === 0){
-    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:18px">Tidak ada permintaan top-up yang menunggu verifikasi.</td></tr>';
+
+  if (error) {
+    console.error('Gagal mengambil data top-up:', error);
+    tb.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align:center;padding:18px;color:#dc2626">
+          Gagal memuat permintaan top-up: ${error.message}
+        </td>
+      </tr>`;
     return;
   }
+
+  if (!data || data.length === 0) {
+    tb.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align:center;color:var(--text-muted);padding:18px">
+          Tidak ada permintaan top-up yang menunggu verifikasi.
+        </td>
+      </tr>`;
+    return;
+  }
+
 
   tb.innerHTML = data.map(t => `
     <tr>
