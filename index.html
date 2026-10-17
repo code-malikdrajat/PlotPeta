@@ -10,6 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- Supabase JS Client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 :root {
   --bg-app: #0c0f17;
@@ -886,6 +888,49 @@ textarea {
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
+/* Google Sign In Button & Divider */
+.btn-google {
+  width: 100%;
+  padding: 10px 14px;
+  background: #ffffff;
+  color: #1f2937;
+  border: 1px solid #d1d5db;
+  font-weight: 600;
+  border-radius: 9px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 13px;
+}
+.btn-google:hover {
+  background: #f8fafc;
+  border-color: #9ca3af;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+.auth-divider {
+  display: flex;
+  align-items: center;
+  margin: 14px 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.auth-divider::before, .auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.auth-divider span {
+  padding: 0 10px;
+}
+
 /* User Dropdown Menu */
 .dropdown-wrap {
   position: relative;
@@ -1365,6 +1410,21 @@ textarea {
         <span id="authModalTitle">Masuk ke PlotPeta</span>
       </h3>
       <button class="modal-close" onclick="closeAuthModal()">&times;</button>
+    </div>
+
+    <!-- Tombol Login Google -->
+    <button type="button" class="btn-google" id="btnGoogleAuth" onclick="signInWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+      </svg>
+      <span>Lanjutkan dengan Google</span>
+    </button>
+
+    <div class="auth-divider">
+      <span>atau dengan email</span>
     </div>
 
     <div class="tab-nav">
@@ -2410,8 +2470,82 @@ function switchAuthTab(tab){
     $('tabBtn' + t).classList.toggle('active', isThis);
     $('form' + t).style.display = isThis ? 'block' : 'none';
   });
+  const isForgot = tab === 'forgot';
+  const gBtn = $('btnGoogleAuth');
+  const dDiv = document.querySelector('.auth-divider');
+  if(gBtn) gBtn.style.display = isForgot ? 'none' : 'flex';
+  if(dDiv) dDiv.style.display = isForgot ? 'none' : 'flex';
   $('authAlert').className = 'form-alert';
   $('authAlert').textContent = '';
+}
+
+// Google Sign-In Integration
+const GOOGLE_CLIENT_ID = '224656203331-upgvdvulha36kqo2n2dmpbuk4dd3tisl.apps.googleusercontent.com';
+
+async function signInWithGoogle(){
+  $('authAlert').className = 'form-alert';
+  $('authAlert').style.display = 'none';
+
+  try {
+    // 1. Coba OAuth redirect Supabase
+    const redirectUrl = window.location.origin + window.location.pathname;
+    const { data, error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectUrl,
+        queryParams: {
+          client_id: GOOGLE_CLIENT_ID,
+          prompt: 'select_account'
+        }
+      }
+    });
+
+    if(error){
+      console.warn('OAuth redirect failed, attempting Google One Tap:', error);
+      triggerGoogleIdentity();
+    }
+  } catch(err){
+    console.warn('OAuth exception, attempting Google One Tap:', err);
+    triggerGoogleIdentity();
+  }
+}
+
+function triggerGoogleIdentity(){
+  if(window.google && window.google.accounts && window.google.accounts.id){
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleCredentialResponse,
+      auto_select: false
+    });
+    google.accounts.id.prompt((notification) => {
+      if(notification.isNotDisplayed() || notification.isSkippedMoment()){
+        alert('Untuk login Google: pastikan provider Google telah diaktifkan di Supabase Dashboard (Authentication -> Providers -> Google) dengan Client ID ini.');
+      }
+    });
+  } else {
+    alert('Google Sign-In sedang dimuat. Silakan coba kembali dalam beberapa detik.');
+  }
+}
+
+async function handleGoogleCredentialResponse(response){
+  if(!response || !response.credential) return;
+  $('authAlert').className = 'form-alert success';
+  $('authAlert').textContent = 'Memverifikasi akun Google...';
+  $('authAlert').style.display = 'block';
+
+  const { data, error } = await sb.auth.signInWithIdToken({
+    provider: 'google',
+    token: response.credential,
+    client_id: GOOGLE_CLIENT_ID
+  });
+
+  if(error){
+    $('authAlert').className = 'form-alert error';
+    $('authAlert').textContent = 'Gagal masuk dengan Google: ' + error.message;
+    $('authAlert').style.display = 'block';
+  } else {
+    closeAuthModal();
+  }
 }
 
 async function handleLogin(e){
@@ -2862,6 +2996,17 @@ setTool('pan');
 resize();
 stat();
 updateDropzone();
+
+// Auto-initialize Google Identity Services if available
+window.addEventListener('load', () => {
+  if (window.google && window.google.accounts && window.google.accounts.id) {
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleCredentialResponse,
+      auto_select: false
+    });
+  }
+});
 </script>
 </body>
 </html>
