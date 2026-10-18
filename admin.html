@@ -166,6 +166,43 @@ tr:hover td { background: var(--bg-card); }
 .badge.rej { background: var(--danger-subtle); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
 .mono { font-family: var(--font-mono); }
 
+/* Responsive SaaS polish */
+html { scroll-behavior: smooth; }
+body { line-height: 1.55; }
+.header { position: sticky; top: 0; z-index: 30; backdrop-filter: blur(14px); background: color-mix(in srgb, var(--bg-panel) 92%, transparent); }
+.container { width: min(100% - 32px, 1380px); gap: 20px; margin: 26px auto 40px; }
+.card { padding: clamp(16px, 2vw, 24px); border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.10); transition: border-color .18s ease, transform .18s ease; }
+.card:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.card-head { gap: 14px; flex-wrap: wrap; }
+.card-title { line-height: 1.4; }
+.btn { min-height: 36px; justify-content: center; white-space: nowrap; }
+.btn:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+input, select, textarea { min-height: 38px; }
+.table-wrap { border: 1px solid var(--border); border-radius: 10px; }
+table { min-width: 760px; }
+th { position: sticky; top: 64px; z-index: 2; }
+td { vertical-align: middle; }
+tbody tr:last-child td { border-bottom: 0; }
+.badge { white-space: nowrap; }
+.qris-panel { flex-wrap: wrap; }
+.login-card { box-shadow: 0 24px 70px rgba(0,0,0,.22); }
+@media (max-width: 700px) {
+  .header { padding: 12px 14px; align-items: flex-start; gap: 12px; }
+  .header > div { flex-wrap: wrap; }
+  .brand-badge { display: none; }
+  #adminSessionLabel { display: none; }
+  .container { width: calc(100% - 20px); padding: 0; margin: 14px auto 28px; gap: 14px; }
+  .card { padding: 14px; border-radius: 12px; }
+  .card-head { align-items: flex-start; }
+  .card-title { font-size: 14px; }
+  .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .qris-panel { align-items: flex-start; gap: 12px; }
+  .qris-preview-box { width: 108px; height: 108px; }
+  .modal-box { padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+
 /* Modals */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
 .modal-overlay.open { display: flex; }
@@ -210,6 +247,7 @@ tr:hover td { background: var(--bg-card); }
     </div>
     <div style="display:flex;align-items:center;gap:12px">
       <span id="adminSessionLabel" class="mono" style="font-size:12px;color:var(--text-muted)"></span>
+      <button id="btnThemeToggle" class="btn" type="button" aria-label="Ganti tema" title="Ganti tema">☀️ / 🌙</button>
       <button id="btnAdminLogout" class="btn dan" style="padding:6px 12px">Keluar</button>
     </div>
   </div>
@@ -461,6 +499,23 @@ const $ = id => document.getElementById(id);
 const SUPABASE_URL = 'https://fqkqoqphqosacatqnwqj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_UwScoKPnmBFGgPy-A2nNag_JSeT1caZ';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Tema terang/gelap; preferensi hanya disimpan di browser admin.
+function applyAdminTheme(theme) {
+  const chosen = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', chosen);
+  const button = $('btnThemeToggle');
+  if (button) {
+    button.textContent = chosen === 'dark' ? '☀️ Tema terang' : '🌙 Tema gelap';
+    button.setAttribute('aria-label', chosen === 'dark' ? 'Aktifkan tema terang' : 'Aktifkan tema gelap');
+  }
+}
+applyAdminTheme(localStorage.getItem('plotpeta_admin_theme') || 'dark');
+$('btnThemeToggle').onclick = () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('plotpeta_admin_theme', next);
+  applyAdminTheme(next);
+};
 
 let currentAdminUser = null;
 let currentQrisUrl = '';
