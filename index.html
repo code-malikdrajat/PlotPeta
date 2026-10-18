@@ -1342,6 +1342,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 #bar-right #settingsAuthSlot #btnOpenAuth { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; white-space:nowrap; }
 #bar-right #settingsAuthSlot .user-menu-btn { white-space:nowrap; }
 #bar-right #settingsAuthSlot .dropdown-menu { right:0; left:auto; z-index:1000; }
+@media (max-width:900px) { #headerInfoLinks { display:none; } #bar { padding-right:112px; } .header-tagline { display:none; } }
 @media (max-width:680px) { #settingsTopbar { margin-bottom:8px; } #bar-right #settingsAuthSlot { margin-left:auto; order:999; } #bar-right #settingsAuthSlot #btnOpenAuth { padding:6px 8px; } }
 
 
@@ -1354,15 +1355,21 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 .tool-mode-hint { color:var(--text-dim); font-size:10px; line-height:1.45; }
 #main.drawer-collapsed .tool-mode-options { display:none; }
 @media (max-width:680px) { .tool-mode-options { display:none; } }
-/* Posisikan tombol masuk/akun di pojok kanan header */
-#bar { position:relative; padding-right:118px; }
-.bar-right { min-width:0; margin-left:auto; justify-content:flex-end; }
-.bar-right #settingsAuthSlot { background:var(--bg-panel); border-radius:8px; padding:2px; position:absolute; top:8px; right:12px; margin:0; z-index:35; }
-.bar-right #settingsAuthSlot .dropdown-menu { right:0; left:auto; }
-@media (max-width:680px) {
-  #bar { padding-right:100px; }
-  .bar-right #settingsAuthSlot { top:8px; right:8px; }
-}
+/* Header identity, info links, and login/account at the far right */
+.header-tagline { color:var(--text-muted); font-size:11px; white-space:nowrap; margin-right:8px; }
+#bar { position:relative; padding-right:390px; }
+#bar-right { min-width:0; }
+#bar-right #settingsAuthSlot { background:var(--bg-panel); border-radius:8px; padding:2px; }
+#bar-right { margin-left:auto; justify-content:flex-end; }
+#headerInfoLinks { position:absolute; top:15px; right:132px; display:flex; align-items:center; gap:10px; z-index:34; white-space:nowrap; font-size:11px; }
+#headerInfoLinks a { color:var(--accent); text-decoration:none; }
+#headerInfoLinks a:hover { text-decoration:underline; }
+/* Pin login/account to the actual header container (#bar), independent of its inner flex groups */
+#settingsAuthSlot { position:absolute !important; top:8px; right:12px; margin:0 !important; z-index:50; flex:0 0 auto; }
+#settingsAuthSlot .dropdown-menu { right:0; left:auto; }
+#settingsAuthSlot #btnOpenAuth { display:inline-flex; align-items:center; justify-content:center; white-space:nowrap; }
+@media (max-width:900px) { #bar { padding-right:112px; } #settingsAuthSlot { top:8px; right:8px; } #headerInfoLinks { display:none; } }
+@media (max-width:680px) { #settingsAuthSlot { top:6px; right:6px; } #settingsAuthSlot #btnOpenAuth { padding:6px 8px; } }
 
 </style>
 </head>
@@ -1382,6 +1389,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       </div>
       <span class="brand-name">PlotPeta</span>
     </div>
+    <span class="header-tagline">Solusi Cerdas Digitasi Peta</span>
 
     <label class="btn pri" title="Buka gambar peta (JPG, PNG, TIFF)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1463,7 +1471,14 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       <span>Simpan DXF</span>
     </button>
 
-    <!-- Login / account in header -->
+    <!-- Tautan informasi juga tersedia langsung di header -->
+    <nav id="headerInfoLinks" aria-label="Informasi PlotPeta">
+      <a href="#" id="btnHelpHeader">Panduan</a>
+      <a href="#" id="btnTosHeader">Syarat &amp; Ketentuan</a>
+      <a href="#" id="btnPrivacyHeader">Privasi</a>
+    </nav>
+
+    <!-- Login / account pinned to the right side of the header -->
       <div id="settingsAuthSlot">
     <button id="btnOpenAuth" class="btn" style="display:inline-flex" title="Masuk atau Buat Akun">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
@@ -1825,7 +1840,17 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
         <div class="shortcut-item"><kbd>Esc</kbd> <span>Batal gambar</span></div>
       </div>
     </div>
-  </div>
+  
+    <!-- Brand, bantuan, syarat dan privasi PlotPeta -->
+    <div style="margin-top:auto; padding:10px 8px 0; font-size:12px; color:var(--text-muted); border-top:1px solid var(--border);">
+      <strong style="color:var(--text-main); font-size:14px;">PlotPeta</strong> — <em>Solusi Cerdas Digitasi Peta</em>
+    </div>
+    <div style="padding:4px 8px 8px; font-size:11px; color:var(--text-muted); display:flex; flex-wrap:wrap; gap:6px;">
+      <a href="#" id="btnHelp" style="color:var(--accent); text-decoration:none;">📖 Panduan</a><span>•</span>
+      <a href="#" id="btnTos" style="color:var(--accent); text-decoration:none;">📜 Syarat &amp; Ketentuan</a><span>•</span>
+      <a href="#" id="btnPrivacy" style="color:var(--accent); text-decoration:none;">🔒 Privasi</a>
+    </div>
+</div>
 </div>
 
 <!-- ==================== SAAS MODALS ==================== -->
@@ -2052,6 +2077,17 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
     </div>
   </div>
 </div>
+
+
+<!-- Modal informasi PlotPeta: panduan, syarat & ketentuan, privasi -->
+<div id="infoModal" class="hide" role="dialog" aria-modal="true" aria-labelledby="modalTitle" style="position:fixed; inset:0; background:rgba(0,0,0,.55); align-items:center; justify-content:center; z-index:9999; padding:15px;">
+  <div style="background:var(--bg-panel); border:1px solid var(--border); border-radius:12px; max-width:480px; width:100%; padding:16px; box-shadow:var(--shadow-lg); color:var(--text-main);">
+    <h3 id="modalTitle" style="margin-top:0; color:var(--accent);">Informasi PlotPeta</h3>
+    <div id="modalBody" style="font-size:13px; line-height:1.55; color:var(--text-main); margin:12px 0; max-height:60vh; overflow-y:auto;"></div>
+    <div style="text-align:right; margin-top:12px;"><button type="button" id="modalClose" class="pri">Tutup</button></div>
+  </div>
+</div>
+<style>#infoModal:not(.hide){display:flex!important} #infoModal.hide{display:none!important} #infoModal a{color:var(--accent)}</style>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -3776,6 +3812,64 @@ window.addEventListener('load', () => {
   }, true);
   renderFavorites();
   updateToolModeHint();
+})();
+</script>
+
+
+<script>
+/* PlotPeta information modal handlers */
+(() => {
+  const modal = document.getElementById('infoModal');
+  const title = document.getElementById('modalTitle');
+  const body = document.getElementById('modalBody');
+  const close = document.getElementById('modalClose');
+  if (!modal || !title || !body || !close) return;
+
+  const content = {
+    help: {
+      title: '📖 Panduan Penggunaan',
+      body: `<p><strong>PlotPeta — Solusi Cerdas Digitasi Peta</strong></p>
+        <ol style="padding-left:18px;margin:8px 0">
+          <li><strong>Buka Peta:</strong> Klik <em>Buka peta</em> dan pilih gambar scan JPG, PNG, atau TIFF.</li>
+          <li><strong>Kalibrasi 4 Titik:</strong> Pilih tool kalibrasi, klik empat titik referensi pada peta, masukkan koordinat X dan Y, lalu klik <em>Terapkan</em>. Jika memakai mode koordinat lokal, kalibrasi tidak diperlukan.</li>
+          <li><strong>Digitasi Garis:</strong> Gunakan tool garis yang tersedia atau deteksi otomatis. Periksa dan koreksi hasil digitasi sebelum ekspor.</li>
+          <li><strong>Teks Bidang:</strong> Pilih tool <em>Teks bidang</em>, klik bidang tanah, lalu isi informasi bidang yang diperlukan.</li>
+          <li><strong>Ekspor DXF:</strong> Gunakan tombol ekspor DXF yang tersedia pada aplikasi. Setelah diunduh, buka berkas di perangkat lunak CAD dan periksa skala, koordinat, serta layer.</li>
+        </ol>
+        <p><strong>Catatan:</strong> Nama tombol dapat berbeda mengikuti mode kerja dan versi aplikasi. Selalu periksa hasil digitasi sebelum digunakan untuk pekerjaan resmi.</p>`
+    },
+    tos: {
+      title: '📜 Syarat & Ketentuan',
+      body: `<p><strong>1. Layanan:</strong> PlotPeta adalah aplikasi web untuk membantu digitasi dan kalibrasi peta serta menyiapkan hasil ekspor DXF.</p>
+        <p><strong>2. Verifikasi hasil:</strong> Pengguna bertanggung jawab memeriksa geometri, ketelitian koordinat, skala, teks, dan layer hasil ekspor. Verifikasi berkas di aplikasi CAD sebelum digunakan untuk dokumen resmi pertanahan.</p>
+        <p><strong>3. Akun dan pembayaran:</strong> Penggunaan fitur berbayar mengikuti harga, jumlah token, masa berlaku, dan ketentuan yang ditampilkan di aplikasi saat transaksi. Periksa ketentuan transaksi sebelum melakukan pembayaran.</p>
+        <p><strong>4. Batasan:</strong> Digitasi otomatis dapat menghasilkan kesalahan; hasilnya bukan pengganti pemeriksaan teknis oleh tenaga yang berwenang.</p>`
+    },
+    privacy: {
+      title: '🔒 Kebijakan Privasi',
+      body: `<p><strong>Pemrosesan gambar peta</strong></p>
+        <p>Gambar yang dibuka untuk proses digitasi diproses di browser pada perangkat Anda. Namun, jika Anda menggunakan fitur cloud, login, ekspor melalui server, atau mengirim data ke layanan lain, data yang diperlukan oleh fitur tersebut dapat dikirim dan diproses oleh layanan terkait.</p>
+        <p>Jangan unggah atau simpan ke cloud peta yang bersifat rahasia kecuali Anda telah memastikan pengaturan dan ketentuan penyimpanannya sesuai kebutuhan Anda.</p>
+        <p>Informasi akun dan transaksi dapat diproses untuk menyediakan autentikasi, penyimpanan proyek cloud, token, dan pembayaran sesuai fitur yang Anda gunakan.</p>`
+    }
+  };
+  function show(key) {
+    const item = content[key];
+    if (!item) return;
+    title.textContent = item.title;
+    body.innerHTML = item.body;
+    modal.classList.remove('hide');
+    close.focus();
+  }
+  document.getElementById('btnHelp')?.addEventListener('click', e => { e.preventDefault(); show('help'); });
+  document.getElementById('btnTos')?.addEventListener('click', e => { e.preventDefault(); show('tos'); });
+  document.getElementById('btnPrivacy')?.addEventListener('click', e => { e.preventDefault(); show('privacy'); });
+  document.getElementById('btnHelpHeader')?.addEventListener('click', e => { e.preventDefault(); show('help'); });
+  document.getElementById('btnTosHeader')?.addEventListener('click', e => { e.preventDefault(); show('tos'); });
+  document.getElementById('btnPrivacyHeader')?.addEventListener('click', e => { e.preventDefault(); show('privacy'); });
+  close.addEventListener('click', () => modal.classList.add('hide'));
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hide'); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.classList.contains('hide')) modal.classList.add('hide'); });
 })();
 </script>
 
