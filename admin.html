@@ -280,6 +280,8 @@ th { white-space:nowrap; }
       <button class="nav-item" data-nav="panel-token"><span>⚙</span> Pengaturan Token</button>
       <button class="nav-item" data-nav="panel-users"><span>♙</span> Pengguna</button>
       <button class="nav-item" data-nav="panel-history"><span>▤</span> Riwayat Transaksi</button>
+      <button class="nav-item" data-nav="panel-announcements"><span>📢</span> Pengumuman</button>
+      <button class="nav-item" data-nav="panel-support"><span>✉</span> Chat Pengguna <b id="navSupportCount" class="nav-count">—</b></button>
       <div class="sidebar-foot"><span class="status-dot"></span> Terhubung ke panel admin</div>
     </aside>
     <main class="admin-main" id="adminContentPanels">
@@ -509,6 +511,13 @@ th { white-space:nowrap; }
           </tbody>
         </table>
       </div>
+    </div>
+    <div class="card admin-section" id="panel-announcements" data-panel="panel-announcements" style="display:none">
+      <div class="card-head"><h2 class="card-title">Pengumuman untuk Pengguna</h2><button class="btn" type="button" id="btnReloadAnnouncements">Refresh</button></div>
+      <div style="display:grid;gap:10px;padding:4px 0 16px"><input id="annTitle" placeholder="Judul pengumuman" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-main)"><textarea id="annBody" rows="4" placeholder="Isi pengumuman" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-main)"></textarea><label><input id="annPublished" type="checkbox" checked> Tampilkan ke pengguna</label><button class="btn pri" id="btnSaveAnnouncement" type="button">Terbitkan pengumuman</button></div><div id="adminAnnouncementsList">Memuat pengumuman...</div>
+    </div>
+    <div class="card admin-section" id="panel-support" data-panel="panel-support" style="display:none">
+      <div class="card-head"><h2 class="card-title">Chat Pribadi Pengguna</h2><button class="btn" type="button" id="btnReloadSupport">Refresh</button></div><div id="adminSupportList">Memuat pesan...</div><div id="adminSupportReplyBox" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><b id="adminSupportUserLabel">Percakapan</b><div id="adminSupportThread" style="margin:10px 0;max-height:340px;overflow:auto"></div><textarea id="adminSupportReply" rows="3" placeholder="Balas pesan pengguna" style="width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-main)"></textarea><button class="btn pri" id="btnSendSupportReply" type="button">Kirim balasan</button></div>
     </div>
     </main>
   </div>
@@ -1045,6 +1054,18 @@ document.addEventListener('click', e => {
   else if(a === 'koreksi') openKoreksiModal(b.dataset.id, b.dataset.nama);
 });
 
+
+// Pengumuman dan chat privat pengguna. RLS Supabase tetap menjadi batas keamanan utama.
+let supportSelectedUserId=null;
+async function loadAdminAnnouncements(){const box=$('adminAnnouncementsList');if(!box)return;box.textContent='Memuat...';const {data,error}=await sb.from('announcements').select('*').order('created_at',{ascending:false});if(error){box.textContent='Gagal memuat: '+error.message;return;}box.innerHTML=(data||[]).map(a=>`<div style="padding:12px;border:1px solid var(--border);border-radius:10px;margin:8px 0"><b>${esc(a.title)}</b> <span class="badge">${a.is_published?'Tayang':'Draft'}</span><p style="white-space:pre-wrap">${esc(a.body)}</p><small>${fDate(a.created_at)}</small><button class="btn" style="margin-left:8px" onclick="toggleAnnouncement('${a.id}',${!a.is_published})">${a.is_published?'Sembunyikan':'Terbitkan'}</button><button class="btn dan" style="margin-left:6px" onclick="deleteAnnouncement('${a.id}')">Hapus</button></div>`).join('')||'Belum ada pengumuman.';}
+async function toggleAnnouncement(id,published){const {error}=await sb.from('announcements').update({is_published:published}).eq('id',id);if(error)alert('Gagal: '+error.message);else loadAdminAnnouncements();}
+async function deleteAnnouncement(id){if(!confirm('Hapus pengumuman ini?'))return;const {error}=await sb.from('announcements').delete().eq('id',id);if(error)alert('Gagal: '+error.message);else loadAdminAnnouncements();}
+async function saveAnnouncement(){const title=$('annTitle').value.trim(),body=$('annBody').value.trim();if(!title||!body){alert('Isi judul dan isi pengumuman.');return;}const {error}=await sb.from('announcements').insert({title,body,is_published:$('annPublished').checked,created_by:currentAdminUser.id});if(error){alert('Gagal menyimpan pengumuman: '+error.message);return;}$('annTitle').value='';$('annBody').value='';loadAdminAnnouncements();}
+async function loadAdminSupport(){const box=$('adminSupportList');if(!box)return;box.textContent='Memuat pesan...';const {data,error}=await sb.from('support_messages').select('id,user_id,sender_role,message,created_at').order('created_at',{ascending:false}).limit(500);if(error){box.textContent='Gagal memuat chat: '+error.message;return;}const rows=data||[];const users=[...new Set(rows.map(x=>x.user_id))];$('navSupportCount').textContent=String(users.length);box.innerHTML=users.map(uid=>{const last=rows.find(x=>x.user_id===uid);const count=rows.filter(x=>x.user_id===uid).length;return `<div style="padding:12px;border:1px solid var(--border);border-radius:10px;margin:8px 0"><b>${esc(uid)}</b><div style="margin:5px 0;color:var(--text-muted)">${esc(last.message)}<br><small>${fDate(last.created_at)} · ${count} pesan</small></div><button class="btn pri" onclick="openAdminSupport('${uid}')">Buka percakapan</button></div>`}).join('')||'Belum ada pesan pengguna.';}
+async function openAdminSupport(uid){supportSelectedUserId=uid;$('adminSupportReplyBox').style.display='block';$('adminSupportUserLabel').textContent='Percakapan pengguna: '+uid;const {data,error}=await sb.from('support_messages').select('*').eq('user_id',uid).order('created_at',{ascending:true}).limit(300);if(error){$('adminSupportThread').textContent=error.message;return;}$('adminSupportThread').innerHTML=(data||[]).map(m=>`<div style="padding:9px;margin:6px 0;border-radius:9px;background:var(--bg-card)"><b>${m.sender_role==='admin'?'Admin':'Pengguna'}</b><div style="white-space:pre-wrap;margin:4px 0">${esc(m.message)}</div><small>${fDate(m.created_at)}</small></div>`).join('');$('adminSupportThread').scrollTop=$('adminSupportThread').scrollHeight;}
+async function sendAdminSupportReply(){const message=$('adminSupportReply').value.trim();if(!supportSelectedUserId||!message)return;const {error}=await sb.from('support_messages').insert({user_id:supportSelectedUserId,sender_role:'admin',message});if(error){alert('Balasan gagal dikirim: '+error.message);return;}$('adminSupportReply').value='';await openAdminSupport(supportSelectedUserId);loadAdminSupport();}
+$('btnSaveAnnouncement').addEventListener('click',saveAnnouncement);$('btnReloadAnnouncements').addEventListener('click',loadAdminAnnouncements);$('btnReloadSupport').addEventListener('click',loadAdminSupport);$('btnSendSupportReply').addEventListener('click',sendAdminSupportReply);
+
 // Inisialisasi
 checkAdminSession();
 </script>
@@ -1060,6 +1081,8 @@ checkAdminSession();
     // Muat ulang dari Supabase setiap kali bagian transaksi/top-up dibuka.
     if(id==='panel-history' && typeof loadAllTopups==='function') loadAllTopups();
     if(id==='panel-topups' && typeof loadPendingTopups==='function') loadPendingTopups();
+    if(id==='panel-announcements') loadAdminAnnouncements();
+    if(id==='panel-support') loadAdminSupport();
     navItems.forEach(x=>x.classList.toggle('active',x===btn || (x.classList.contains('nav-item') && x.dataset.nav===id)));
     const overview=document.getElementById('panel-overview');
     if(overview) overview.style.display=id==='panel-overview'?'':'none';
