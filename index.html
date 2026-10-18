@@ -1333,7 +1333,13 @@ textarea {
         </h3>
         <span class="brand-badge" style="background:var(--warning-subtle);color:var(--warning);border-color:rgba(245,158,11,0.3)">Langkah 1</span>
       </div>
-      <div class="mu">Pilih tool <b>Kalibrasi</b>, klik 4 titik silang grid di pojok-pojok peta (zoom dulu), lalu isi koordinat aslinya.</div>
+      <label class="mu" style="display:block;margin:8px 0 6px">Mode koordinat
+        <select id="coordMode" style="width:100%;margin-top:5px">
+          <option value="local" selected>Koordinat lokal (default, tanpa kalibrasi)</option>
+          <option value="map">Koordinat peta / UTM (kalibrasi 4 titik)</option>
+        </select>
+      </label>
+      <div class="mu" id="coordHint" style="padding:9px;border-radius:8px;background:var(--bg-soft);margin-bottom:8px">Mode lokal: DXF memakai titik awal lokal (0,0). Satuan mengikuti piksel gambar; bukan koordinat geografis. Cocok untuk membuka gambar di AutoCAD lalu menyesuaikan skala.</div>
       <div id="crs"></div>
       <div class="g2">
         <button class="pri" id="apply">Terapkan</button>
@@ -1695,7 +1701,7 @@ const $=id=>document.getElementById(id);
 const cv=$('cv'),ctx=cv.getContext('2d');
 const LN={get P(){return $('lP').value.trim()||'020100'},get D(){return $('lD').value.trim()||'020300'}};
 let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=-1,mouse=null,drag=null,dirty=false,hist=[];
-let cal={pts:[],ok:false,M:null};
+let cal={pts:[],ok:false,M:null,mode:'local'};
 let cand=[],box=null,mv=null,polys=[],gaps=[];
 let mapName='';
 const W=()=>cv.clientWidth,H=()=>cv.clientHeight,d1=()=>devicePixelRatio||1;
@@ -1706,7 +1712,7 @@ const fitV=()=>{V.s=Math.min(W()/iw,H()/ih);V.x=(W()-iw*V.s)/2;V.y=(H()-ih*V.s)/
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=s=>{s=String(s).trim();s=/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)?s.replace(/\./g,'').replace(',','.'):s.replace(',','.');return parseFloat(s)};
 const f2=n=>n.toLocaleString('id-ID',{maximumFractionDigits:2,minimumFractionDigits:2});
-const toReal=p=>{if(!cal.ok)return null;const m=cal.M;return[m[0]*p[0]+m[1]*p[1]+m[2],m[3]*p[0]+m[4]*p[1]+m[5]]};
+const toReal=p=>{if(cal.mode==='local')return [p[0],(ih||0)-p[1]];if(!cal.ok||!cal.M)return null;const m=cal.M;return[m[0]*p[0]+m[1]*p[1]+m[2],m[3]*p[0]+m[4]*p[1]+m[5]]};
 function snapshot(){hist.push(JSON.stringify({lines,texts}));if(hist.length>100)hist.shift();dirty=true}
 function undo(){if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;selT=-1;tform()}stat();draw()}
 
@@ -1765,6 +1771,7 @@ $('file').onchange=e=>{
   }
 };
 
+setCoordMode('local');
 function setTool(t){
   if(cur.length&&(t==='P'||t==='D'))finish();
   else cur=[];
@@ -1892,8 +1899,22 @@ function crs(){
     c.appendChild(r);
   }
   [...c.querySelectorAll('input')].forEach((n,i)=>n.value=old[i]||'');
+  c.style.display=cal.mode==='map'?'block':'none';
+  $('apply').style.display=cal.mode==='map'?'':'none';
+  $('creset').textContent=cal.mode==='map'?'Ulang titik':'Reset kalibrasi';
 }
-$('creset').onclick=()=>{cal.pts=[];cal.ok=false;$('calres').textContent='';crs();draw()};
+function setCoordMode(mode){
+  cal.mode=mode==='map'?'map':'local';
+  $('coordMode').value=cal.mode;
+  $('coordHint').textContent=cal.mode==='local'
+    ? 'Mode lokal: DXF memakai titik awal lokal (0,0). Satuan mengikuti piksel gambar; bukan koordinat geografis. Cocok untuk membuka gambar di AutoCAD lalu menyesuaikan skala.'
+    : 'Mode koordinat peta: klik 4 titik kontrol pada peta, lalu masukkan koordinat X/Y yang benar dari sumber ukur. Jangan gunakan angka contoh sebagai koordinat nyata.';
+  if(cal.mode==='local'){cal.ok=true;cal.M=null;$('calres').textContent='Mode lokal aktif. Titik awal (0,0) berada di kiri bawah gambar; koordinat bukan geografis.';}
+  else {cal.ok=false;cal.M=null;$('calres').textContent='Pilih 4 titik dan masukkan koordinat sebenarnya, lalu tekan Terapkan.';}
+  crs();draw();
+}
+$('coordMode').addEventListener('change',e=>{setCoordMode(e.target.value);dirty=true});
+$('creset').onclick=()=>{cal.pts=[];cal.ok=cal.mode==='local';cal.M=null;$('calres').textContent=cal.mode==='local'?'Mode lokal aktif; kalibrasi tidak diperlukan.':'';crs();draw()};
 function solve3(A,b){
   const n=3,M=A.map((r,i)=>[...r,b[i]]);
   for(let i=0;i<n;i++){
@@ -1915,11 +1936,12 @@ function solve3(A,b){
   return x;
 }
 function fitCal(){
+  if(cal.mode==='local'){cal.ok=true;cal.M=null;$('calres').textContent='Mode lokal aktif. Titik awal (0,0) berada di kiri bawah gambar; koordinat bukan geografis.';return true;}
   const vals=[];
   for(let i=0;i<4;i++){vals.push([num($('cx'+i).value),num($('cy'+i).value)])}
   if(cal.pts.length<4||vals.flat().some(isNaN)){
-    $('calres').textContent='Perlu 4 titik di peta dan 4 pasang koordinat.';
-    return;
+    cal.ok=false;cal.M=null;$('calres').textContent='Perlu 4 titik di peta dan 4 pasang koordinat yang benar.';
+    return false;
   }
   const N=[[0,0,0],[0,0,0],[0,0,0]],rx=[0,0,0],ry=[0,0,0];
   cal.pts.forEach((p,i)=>{
@@ -1932,8 +1954,8 @@ function fitCal(){
   });
   const cx=solve3(N,rx),cy=solve3(N,ry);
   if(!cx||!cy){
-    $('calres').textContent='Titik terlalu sejajar atau berimpit. Pilih titik yang tersebar.';
-    return;
+    cal.ok=false;cal.M=null;$('calres').textContent='Titik terlalu sejajar atau berimpit. Pilih titik yang tersebar.';
+    return false;
   }
   cal.M=[...cx,...cy];
   cal.ok=true;
@@ -1946,6 +1968,7 @@ function fitCal(){
   const det=Math.abs(cx[0]*cy[1]-cx[1]*cy[0]);
   $('calres').textContent='Kalibrasi berhasil. 1 px = '+Math.sqrt(det).toFixed(4)+' satuan. Selisih terbesar '+f2(mx)+' (makin kecil makin baik).';
   dirty=true;
+  return true;
 }
 $('apply').onclick=fitCal;
 
@@ -2110,8 +2133,8 @@ async function save(name,data){
   }catch(e){return false}
 }
 function ready(){
-  if(!cal.ok){alert('Kalibrasi 4 titik dulu (langkah 1).');return false}
-  if(!lines.length&&!texts.length){alert('Belum ada yang digambar.');return false}
+  if(cal.mode==='map'&&!cal.ok){alert('Lengkapi 4 titik dan koordinat sebenarnya pada kalibrasi sebelum ekspor.');return false}
+  if(!lines.length&&!texts.length&&!polys.length){alert('Belum ada garis, poligon, atau teks yang digambar.');return false}
   return true;
 }
 
@@ -2126,7 +2149,7 @@ $('sp').onclick=async()=>{
     if(nama)break;
     alert('Nama proyek tidak boleh kosong.');
   }
-  const o={v:1,nama,size:[iw,ih],cal:cal.pts.map((p,i)=>({p,x:$('cx'+i).value,y:$('cy'+i).value})),lines,texts,th:$('th').value,ly:['lP','lD','lSu','lM','lPoly'].map(i=>$(i).value)};
+  const o={v:1,nama,size:[iw,ih],coordinateMode:cal.mode,cal:cal.pts.map((p,i)=>({p,x:$('cx'+i).value,y:$('cy'+i).value})),lines,texts,th:$('th').value,ly:['lP','lD','lSu','lM','lPoly'].map(i=>$(i).value)};
   const ok=await save(nama+'.json',JSON.stringify(o));
   if(ok){dirty=false;if(window.__ppSaved)await window.__ppSaved();}
   else alert('Simpan proyek tidak tersedia di tampilan ini.');
@@ -2140,6 +2163,7 @@ $('op').onchange=e=>{
       lines=o.lines||[];
       texts=o.texts||[];
       cal.pts=(o.cal||[]).map(c=>c.p);
+      setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
       crs();
       (o.cal||[]).forEach((c,i)=>{$('cx'+i).value=c.x;$('cy'+i).value=c.y});
       $('th').value=o.th||5;
@@ -2737,6 +2761,7 @@ async function saveCurrentToCloud(){
   const o = {
     v: 1,
     size: [iw, ih],
+    coordinateMode: cal.mode,
     cal: cal.pts.map((p,i)=>({ p, x: $('cx'+i).value, y: $('cy'+i).value })),
     lines,
     texts,
@@ -2785,6 +2810,7 @@ async function openCloudProject(id){
   polys = []; gaps = []; cand = []; cal.ok = false; cal.M = null;
   texts = o.texts || [];
   cal.pts = (o.cal || []).map(c => c.p);
+  setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
   crs();
   (o.cal || []).forEach((c, i) => {
     $('cx' + i).value = c.x;
@@ -2996,6 +3022,8 @@ $('exp').onclick = async () => {
   $('exp').innerHTML = '<span>Membuat DXF di server...</span>';
 
   const payload = {
+    size: [iw, ih],
+    coordinateMode: cal.mode,
     cal: cal.pts.map((p, i) => ({ p, x: $('cx' + i).value, y: $('cy' + i).value })),
     lines, texts, polys,
     th: $('th').value,
@@ -3112,7 +3140,7 @@ updateDropzone();
     setTimeout(()=>d.remove(),6000);
   }
 
-  const proj=()=>({v:1,size:[iw,ih],cal:cal.pts.map((p,i)=>({p,x:$('cx'+i).value,y:$('cy'+i).value})),lines,texts,polys,th:$('th').value,ly:['lP','lD','lSu','lM','lPoly'].map(i=>$(i).value)});
+  const proj=()=>({v:1,size:[iw,ih],coordinateMode:cal.mode,cal:cal.pts.map((p,i)=>({p,x:$('cx'+i).value,y:$('cy'+i).value})),lines,texts,polys,th:$('th').value,ly:['lP','lD','lSu','lM','lPoly'].map(i=>$(i).value)});
 
   // Simpan file peta setiap kali pengguna memilih peta baru
   $('file').addEventListener('change',e=>{
@@ -3173,6 +3201,7 @@ updateDropzone();
         lines=o.lines||[];texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];
         cal.ok=false;cal.M=null;
         cal.pts=(o.cal||[]).map(c=>c.p);
+        setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
         crs();
         (o.cal||[]).forEach((c,i)=>{$('cx'+i).value=c.x;$('cy'+i).value=c.y});
         $('th').value=o.th||5;
