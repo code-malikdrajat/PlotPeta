@@ -1099,6 +1099,11 @@ textarea {
       </svg>
       <span>Simpan lokal</span>
     </button>
+
+    <button id="btnClearMap" class="btn danger" title="Hapus peta dan pekerjaan yang sedang terbuka; tidak menghapus proyek cloud atau file asli di komputer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5M14 11v5"></path></svg>
+      <span>Hapus peta</span>
+    </button>
   </div>
 
   <!-- CAD Digitizing Tools -->
@@ -2139,7 +2144,28 @@ function ready(){
 }
 
 // Local save & open (Free, no token required)
+// Hapus peta yang sedang terbuka tanpa menghapus proyek cloud atau file asli pengguna.
+$('btnClearMap').onclick=async()=>{
+  if(!img && !lines.length && !texts.length && !polys.length){
+    alert('Belum ada peta atau pekerjaan yang sedang terbuka.');
+    return;
+  }
+  if(!confirm('Hapus peta yang sedang terbuka beserta semua garis, poligon, teks, dan kalibrasinya? Proyek yang sudah disimpan di Cloud tidak ikut terhapus.')) return;
+  img=null; iw=0; ih=0; mapName='';
+  lines=[]; texts=[]; polys=[]; gaps=[]; cand=[]; cur=[]; hist=[];
+  selT=-1; dirty=false; box=null; mv=null; drag=null; mouse=null;
+  cal.pts=[]; cal.ok=false; cal.M=null;
+  ['cx0','cy0','cx1','cy1','cx2','cy2','cx3','cy3'].forEach(id=>{ if($(id)) $(id).value=''; });
+  setCoordMode('local'); crs(); tform(); stat();
+  $('file').value='';
+  $('st').innerHTML='<span class="status-dot"></span><span>Belum ada peta</span>';
+  updateDropzone(); draw();
+  if(window.__ppClear){ try{await window.__ppClear();}catch(e){console.warn('Pemulihan otomatis tidak bisa dibersihkan:',e);} }
+  alert('Peta dan pekerjaan yang sedang terbuka sudah dihapus.');
+};
+
 $('sp').onclick=async()=>{
+  if(!img){alert('Buka peta terlebih dahulu sebelum menyimpan proyek.');return;}
   const base=(mapName?mapName.replace(/\.[^.]+$/,''):'')||'proyek_peta';
   let nama='';
   while(true){
