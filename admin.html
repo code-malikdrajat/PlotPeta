@@ -198,7 +198,7 @@ body { background:var(--bg-app); }
 .summary-card small,.summary-card span:not(.summary-icon) { display:block; color:var(--text-muted); font-size:10.5px; }
 .summary-card strong { display:block; font-size:23px; line-height:1.4; letter-spacing:-.5px; }
 .summary-card span:not(.summary-icon) { font-size:10px; margin-top:2px; }
-.admin-section { scroll-margin-top:100px; margin-bottom:18px; border-radius:15px; box-shadow:var(--shadow-soft); overflow:hidden; }
+.admin-section { display:none; scroll-margin-top:100px; margin-bottom:18px; border-radius:15px; box-shadow:var(--shadow-soft); overflow:hidden; }
 .admin-section .card-head { padding-bottom:14px; }
 .admin-section .card-title { font-size:13px; }
 .admin-section input,.admin-section select,.admin-section textarea { border-radius:9px; }
@@ -274,7 +274,7 @@ th { white-space:nowrap; }
   <div class="container admin-layout">
     <aside class="admin-sidebar" aria-label="Navigasi admin">
       <div class="sidebar-heading">MENU ADMIN</div>
-      <button class="nav-item active" data-nav="panel-overview"><span>▦</span> Ringkasan</button>
+      <button class="nav-item active" data-nav="panel-overview"><span>▦</span> Dashboard</button>
       <button class="nav-item" data-nav="panel-topups"><span>◷</span> Verifikasi Top-up <b id="navPendingCount" class="nav-count">—</b></button>
       <button class="nav-item" data-nav="panel-payment"><span>▣</span> Pembayaran</button>
       <button class="nav-item" data-nav="panel-token"><span>⚙</span> Pengaturan Token</button>
@@ -283,7 +283,8 @@ th { white-space:nowrap; }
       <div class="sidebar-foot"><span class="status-dot"></span> Terhubung ke panel admin</div>
     </aside>
     <main class="admin-main" id="adminContentPanels">
-      <div class="welcome-row" id="panel-overview">
+      <div id="panel-overview">
+      <div class="welcome-row">
         <div><div class="eyebrow">PUSAT KONTROL</div><h1>Dashboard Admin</h1><p>Kelola transaksi, pengguna, pembayaran, dan token PlotPeta.</p></div>
         <button class="btn" id="btnThemeToggle" type="button">☼ Tema terang</button>
       </div>
@@ -306,6 +307,7 @@ th { white-space:nowrap; }
           <button class="quick-link" type="button" data-nav="panel-token"><span class="quick-emoji">⚙</span><span><b>Pengaturan token</b><small>Atur harga dan masa berlaku</small></span><span class="quick-arrow">↗</span></button>
         </section>
       </div>
+      </div><!-- /panel-overview -->
     <!-- Section 1: Permintaan Top-up Menunggu -->
     <div class="card admin-section" id="panel-topups" data-panel="panel-topups">
       <div class="card-head">
@@ -1043,9 +1045,15 @@ checkAdminSession();
 (function(){
   const navItems=[...document.querySelectorAll('[data-nav]')];
   document.querySelectorAll('[data-nav]').forEach(btn=>btn.addEventListener('click',()=>{
-    const target=document.getElementById(btn.dataset.nav);
+    const id=btn.dataset.nav;
+    const target=document.getElementById(id);
     if(!target)return;
-    navItems.forEach(x=>x.classList.toggle('active',x===btn));
+    navItems.forEach(x=>x.classList.toggle('active',x===btn || (x.classList.contains('nav-item') && x.dataset.nav===id)));
+    const overview=document.getElementById('panel-overview');
+    if(overview) overview.style.display=id==='panel-overview'?'':'none';
+    document.querySelectorAll('.admin-section[data-panel]').forEach(panel=>{
+      panel.style.display=panel.id===id?'block':'none';
+    });
     target.scrollIntoView({behavior:'smooth',block:'start'});
   }));
   const themeBtn=document.getElementById('btnThemeToggle');
