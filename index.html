@@ -1045,6 +1045,24 @@ textarea {
 }
 
 
+
+/* Bilah favorit di atas peta */
+.favorite-bar { position:absolute; top:13px; left:96px; right:72px; z-index:7; display:flex; flex-wrap:wrap; gap:6px; align-items:center; pointer-events:none; }
+.favorite-bar.hide { display:none; }
+.favorite-bar button {
+  pointer-events:auto; display:inline-flex; align-items:center; gap:6px; padding:6px 11px;
+  font-size:11.5px; font-weight:600; line-height:1; border-radius:999px; cursor:pointer;
+  background:var(--bg-panel); color:var(--text-main); border:1px solid var(--border); box-shadow:var(--shadow-sm);
+}
+.favorite-bar button svg { width:14px; height:14px; flex:0 0 14px; }
+.favorite-bar button:hover { border-color:var(--accent); }
+.favorite-bar button.on { background:var(--accent-subtle); color:var(--accent); border-color:rgba(14,165,233,.4); }
+.favorite-bar .fav-mode { display:none; pointer-events:auto; align-items:center; gap:6px; padding:3px 4px 3px 11px; border-radius:999px; background:var(--bg-panel); border:1px solid var(--border); box-shadow:var(--shadow-sm); font-size:11px; font-weight:600; color:var(--text-muted); }
+.favorite-bar .fav-mode select { padding:4px 8px; font-size:11px; border-radius:999px; max-width:200px; }
+#main.drawer-collapsed .favorite-bar .fav-mode.visible { display:inline-flex; }
+@media (max-width:680px) { .favorite-bar .fav-mode.visible { display:inline-flex; } }
+.favorite-bar .fav-mark { color:#f59e0b; font-size:12px; margin-right:-2px; }
+
 /* ===== Hybrid workspace: left collapsible tool drawer + right settings/layers ===== */
 #main { align-items: stretch; }
 #wrap { order: 2; }
@@ -1492,16 +1510,6 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 <div id="main">
   <!-- Alat kerja dipindah ke laci kiri -->
     <section class="tool-drawer" id="toolDrawer" aria-label="Alat Kerja">
-      <div class="favorite-section">
-        <button type="button" id="favoriteToggle" class="favorite-toggle" aria-expanded="false">
-          <span class="favorite-label"><span aria-hidden="true">★</span> Favorit</span>
-          <span id="favoriteCount" class="favorite-count">0</span>
-          <svg class="favorite-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <div id="favoriteTools" class="favorite-tools hide" aria-label="Alat favorit">
-          <div class="favorite-empty">Klik bintang pada alat untuk menambah favorit.</div>
-        </div>
-      </div>
       <div class="tool-drawer-top">
         <button type="button" id="toolDrawerToggle" class="drawer-toggle" aria-expanded="true" title="Buka/tutup laci alat">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
@@ -1520,7 +1528,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
         </svg>
         <span>Geser</span>
-      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</span></button>
+      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <button data-tool="cal" title="Langkah 1: Kalibrasi 4 titik grid peta">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1531,7 +1539,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <line x1="12" y1="22" x2="12" y2="18"></line>
         </svg>
         <span>1. Kalibrasi</span>
-      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</span></button>
+      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <button data-tool="P" title="Digitasi garis penuh (solid line)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1540,14 +1548,14 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <circle cx="20" cy="5" r="2.5" fill="currentColor"></circle>
         </svg>
         <span>Garis penuh</span>
-      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</span></button>
+      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <button data-tool="D" title="Digitasi garis putus-putus (dashed line)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="4" y1="19" x2="20" y2="5" stroke-dasharray="3 3"></line>
         </svg>
         <span>Garis putus</span>
-      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</span></button>
+      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <button data-tool="T" title="Tambahkan teks nomor hak dan surat ukur">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1556,7 +1564,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <line x1="12" y1="4" x2="12" y2="20"></line>
         </svg>
         <span>Teks bidang</span>
-      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</span></button>
+      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <button data-tool="M" title="Geser titik simpul / vertex">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1568,14 +1576,14 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <line x1="12" y1="2" x2="12" y2="22"></line>
         </svg>
         <span>Geser titik</span>
-      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</span></button>
+      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <button data-tool="A" title="Deteksi garis otomatis menggunakan AI/Computer Vision">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
         </svg>
         <span>Deteksi otomatis</span>
-      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</span></button>
+      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <div class="tool-mode-options detect-mode-options" aria-label="Metode Deteksi Otomatis">
         <label>Metode Deteksi
@@ -1593,7 +1601,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
         </svg>
         <span>Hapus</span>
-      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</span></button>
+      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <div class="tool-mode-options erase-mode-options" aria-label="Metode Hapus">
         <label>Metode Hapus
@@ -1613,6 +1621,9 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
   <!-- Canvas Viewport -->
   <div id="wrap">
     <canvas id="cv"></canvas>
+
+    <!-- Bilah favorit: tampil di atas peta, tetap terlihat walau laci dilipat -->
+    <div id="favoriteBar" class="favorite-bar hide" role="toolbar" aria-label="Alat favorit"></div>
 
     <!-- Empty State / Dropzone -->
     <div id="dropzone" class="dropzone-overlay">
@@ -2761,7 +2772,8 @@ function runDet(R,poly=null){
   setTimeout(()=>{
     try{
       cand=detect(R);
-      if(poly && poly.length>=3) cand=cand.filter(c=>{const mid=[(c.pts[0][0]+c.pts[c.pts.length-1][0])/2,(c.pts[0][1]+c.pts[c.pts.length-1][1])/2];return pointInPolygon(toS(mid),poly)});
+      // poly dan kandidat sama-sama dalam koordinat gambar. Garis diterima jika minimal separuh titiknya berada di dalam area.
+      if(poly && poly.length>=3) cand=cand.filter(c=>{let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;return n>=c.pts.length/2});
       const nd=cand.filter(c=>c.k==='D').length;
       $('dMsg').textContent=cand.length+' garis kandidat ('+(cand.length-nd)+' penuh, '+nd+' putus-putus). Terima semua atau buang, lalu koreksi dengan Hapus dan Geser titik.';
     }catch(x){$('dMsg').textContent='Deteksi gagal: '+x.message}
@@ -3667,7 +3679,7 @@ window.addEventListener('load', () => {
   const drawer = document.getElementById('toolDrawer');
   const toggle = document.getElementById('toolDrawerToggle');
   const favToggle = document.getElementById('favoriteToggle');
-  const favTools = document.getElementById('favoriteTools');
+  const favTools = document.getElementById('favoriteBar');
   const favCount = document.getElementById('favoriteCount');
   if (!main || !drawer) return;
 
@@ -3675,6 +3687,7 @@ window.addEventListener('load', () => {
     const collapsed = main.classList.toggle('drawer-collapsed');
     toggle.setAttribute('aria-expanded', String(!collapsed));
     toggle.title = collapsed ? 'Buka laci alat' : 'Tutup laci alat';
+    if (typeof syncMode === 'function') syncMode();
   });
 
   favToggle?.addEventListener('click', () => {
@@ -3688,36 +3701,62 @@ window.addEventListener('load', () => {
   try { favorites = JSON.parse(localStorage.getItem(key) || '[]'); } catch (_) { favorites = []; }
   const tools = [...drawer.querySelectorAll('button[data-tool]')];
 
+  // Pilihan metode deteksi/hapus di bilah (muncul saat laci dilipat, karena pilihan di laci ikut tersembunyi)
+  const MODE_OPTS = { A: { label: 'Metode deteksi', src: 'detectMode' }, E: { label: 'Metode hapus', src: 'eraseMode' } };
+  const modeWrap = document.createElement('label');
+  modeWrap.className = 'fav-mode';
+  modeWrap.innerHTML = '<span></span><select></select>';
+  const modeLbl = modeWrap.querySelector('span'), modeSel = modeWrap.querySelector('select');
+  function syncMode() {
+    const cfg = MODE_OPTS[tool];
+    modeWrap.classList.toggle('visible', !!cfg);
+    favTools.classList.toggle('hide', !favTools.querySelector('button') && !cfg);
+    const src = cfg && document.getElementById(cfg.src);
+    if (!src) return;
+    modeLbl.textContent = cfg.label;
+    modeSel.innerHTML = src.innerHTML;
+    modeSel.value = src.value;
+    modeSel.dataset.src = cfg.src;
+  }
+  modeSel.addEventListener('change', () => {
+    const src = document.getElementById(modeSel.dataset.src);
+    if (src) { src.value = modeSel.value; src.dispatchEvent(new Event('change')); }
+  });
+  if (typeof setTool === 'function') {
+    const baseSetTool = setTool;
+    setTool = function () { const r = baseSetTool.apply(this, arguments); syncMode(); return r; };
+  }
+
   function renderFavorites() {
     if (!favTools) return;
     favTools.innerHTML = '';
     const selected = tools.filter(btn => favorites.includes(btn.dataset.tool));
-    if (!selected.length) {
-      const empty = document.createElement('div');
-      empty.className = 'favorite-empty';
-      empty.textContent = 'Klik bintang pada alat untuk menambah favorit.';
-      favTools.appendChild(empty);
-    } else {
-      selected.forEach(source => {
-        const shortcut = document.createElement('button');
-        shortcut.type = 'button';
-        shortcut.className = 'favorite-tool-shortcut';
-        shortcut.innerHTML = source.querySelector('svg')?.outerHTML || '';
-        const label = document.createElement('span');
-        label.textContent = source.querySelector('span:not(.tool-fav-star)')?.textContent?.trim() || source.dataset.tool;
-        shortcut.appendChild(label);
-        shortcut.addEventListener('click', () => source.click());
-        favTools.appendChild(shortcut);
-      });
-    }
-    favCount.textContent = String(selected.length);
+    favTools.classList.toggle('hide', !selected.length);
+    selected.forEach(source => {
+      const shortcut = document.createElement('button');
+      shortcut.type = 'button';
+      shortcut.className = 'favorite-tool-shortcut';
+      shortcut.dataset.tool = source.dataset.tool;
+      shortcut.title = source.title || '';
+      shortcut.innerHTML = source.querySelector('svg')?.outerHTML || '';
+      const label = document.createElement('span');
+      label.textContent = source.querySelector('span:not(.tool-fav-star)')?.textContent?.trim() || source.dataset.tool;
+      shortcut.appendChild(label);
+      shortcut.addEventListener('click', () => source.click());
+      favTools.appendChild(shortcut);
+    });
+    favTools.appendChild(modeWrap);
+    favTools.classList.toggle('hide', !selected.length && !MODE_OPTS[tool]);
+    favTools.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tool === tool));
+    syncMode();
+    if (favCount) favCount.textContent = String(selected.length);
     tools.forEach(btn => {
       const star = btn.querySelector('.tool-fav-star');
       if (!star) return;
       const active = favorites.includes(btn.dataset.tool);
       star.classList.toggle('is-favorite', active);
       star.textContent = active ? '★' : '☆';
-      star.title = active ? 'Hapus dari favorit' : 'Tambah ke favorit';
+      star.title = active ? 'Hapus dari favorit' : 'Tambah ke favorit (tampil di atas peta)';
       star.setAttribute('aria-label', star.title);
     });
   }
