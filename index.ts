@@ -148,12 +148,22 @@ function buildDxf(o: any): string {
   g(0, "LTYPE"); g(100, "AcDbSymbolTableRecord"); g(100, "AcDbLinetypeTableRecord"); g(2, "DASHED"); g(70, 0); g(3, "Dashed"); g(72, 65); g(73, 2); g(40, 9); g(49, 6); g(49, -3);
   g(0, "ENDTAB");
   const CL: Record<string, number> = { "020100": 255, "020300": 7, "080202": 7, "080203": 7, "BIDANG K4 ER": 2 };
+
+  // helper: ensure color is integer in 0..255, fallback to 7
+  const clampColor = (v: unknown): number => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 7;
+    const c = Math.round(n);
+    if (c < 0 || c > 255) return 7;
+    return c;
+  };
+
   const ls = [[lP, "CONTINUOUS"], [lD, "DASHED"], [lS, "CONTINUOUS"], [lM, "CONTINUOUS"], [lPo, "CONTINUOUS"]]
     .filter((a, i, A) => A.findIndex((b) => b[0] === a[0]) === i);
   g(0, "TABLE"); g(2, "LAYER"); g(70, ls.length);
   ls.forEach(([a, t]) => {
     g(0, "LAYER"); g(100, "AcDbSymbolTableRecord"); g(100, "AcDbLayerTableRecord");
-    g(2, a); g(70, 0); g(62, CL[a] || 7); g(6, t);
+    g(2, a); g(70, 0); g(62, clampColor(CL[a])); g(6, t);
   });
   g(0, "ENDTAB"); g(0, "ENDSEC");
   // Bagian BLOCKS wajib disediakan pada struktur DXF standar.
@@ -189,7 +199,7 @@ function buildDxf(o: any): string {
     if (no) tx(lM, no, r[0], r[1]);
     if (su) tx(lS, su, r[0], r[1] - h * 1.6);
   });
-  if (exportedGeometry === 0 && texts.every((t) => !clean(t.no, 200) && !clean(t.su, 200))) throw new Error("Tidak ada garis atau teks valid untuk diekspor. Periksa digitasi dan mode koordinat.");
+  if (exportedGeometry === 0 && texts.every((t) => !clean(t.no, 200) && !clean(t.su, 200))) throw new Error("Tidak ada garis atau teks valid untuk diekspor. Periksa digitasi dan mode koordinat.")[...]
   g(0, "ENDSEC"); g(0, "EOF");
   return L.join("\r\n");
 }
