@@ -209,6 +209,25 @@ th { white-space:nowrap; }
 @media(max-width:760px) { .container.admin-layout { display:flex; flex-direction:column; padding:12px; gap:14px; } .admin-sidebar { position:static; min-height:0; width:100%; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding:10px; } .sidebar-heading,.sidebar-foot { grid-column:1/-1; } .sidebar-heading { padding:4px 6px; } .sidebar-foot { margin-top:5px; } .nav-item { padding:10px 8px; font-size:11px; } .welcome-row { align-items:flex-start; } .welcome-row h1 { font-size:21px; } .welcome-row p { max-width:300px; } .header { padding:12px; } .brand-badge { display:none; } #adminSessionLabel { max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } }
 @media(max-width:480px) { .summary-grid { grid-template-columns:1fr; } .welcome-row { flex-direction:column; } .welcome-row #btnThemeToggle { align-self:flex-start; } .admin-sidebar { grid-template-columns:1fr 1fr; } .card { padding:14px; } }
 
+
+/* Ringkasan diselaraskan dengan preview UI/UX, tetap menggunakan data database. */
+.preview-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.preview-summary-grid .summary-card{min-height:112px;padding:17px 15px}
+.preview-summary-grid .summary-card strong{font-size:25px;overflow-wrap:anywhere}
+.summary-icon.amber{color:var(--warning);background:var(--warning-subtle)}
+.overview-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(260px,1fr);gap:16px;margin-bottom:20px}
+.overview-grid .card{min-width:0;overflow:hidden}
+.overview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:19px 20px 14px}
+.overview-head h2{font-size:14px;margin:0;font-weight:750}
+.overview-head p{font-size:11px;color:var(--text-muted);margin:4px 0 0}
+.overview-grid th{padding:10px 14px}.overview-grid td{padding:11px 14px;font-size:11.5px}
+.summary-empty{text-align:center;color:var(--text-muted);padding:22px!important}
+.quick-link{display:flex;align-items:center;gap:11px;width:calc(100% - 28px);margin:0 14px 9px;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--bg-panel);color:var(--text-main);text-align:left}
+.quick-link:hover{background:var(--bg-card);border-color:var(--accent)}.quick-emoji{width:37px;height:37px;display:grid;place-items:center;flex:none;background:var(--bg-card);border-radius:10px;font-size:17px;color:var(--accent)}
+.quick-link>span:nth-child(2){flex:1;min-width:0}.quick-link b{display:block;font-size:11.5px}.quick-link small{display:block;color:var(--text-muted);font-size:10.5px;margin-top:3px}.quick-arrow{color:var(--text-muted)}
+@media(max-width:1100px){.preview-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.overview-grid{grid-template-columns:1fr}}
+@media(max-width:480px){.preview-summary-grid{grid-template-columns:1fr 1fr;gap:9px}.preview-summary-grid .summary-card{gap:9px;padding:12px 10px}.preview-summary-grid .summary-icon{width:34px;height:34px}.preview-summary-grid .summary-card strong{font-size:20px}.overview-head{padding:15px 12px 12px}}
+
 </style>
 </head>
 <body>
@@ -268,10 +287,24 @@ th { white-space:nowrap; }
         <div><div class="eyebrow">PUSAT KONTROL</div><h1>Dashboard Admin</h1><p>Kelola transaksi, pengguna, pembayaran, dan token PlotPeta.</p></div>
         <button class="btn" id="btnThemeToggle" type="button">☼ Tema terang</button>
       </div>
-      <div class="summary-grid">
-        <div class="summary-card"><span class="summary-icon blue">◷</span><div><small>Top-up menunggu</small><strong id="summaryPending">—</strong><span>Perlu verifikasi</span></div></div>
-        <div class="summary-card"><span class="summary-icon green">♙</span><div><small>Pengguna terdaftar</small><strong id="summaryUsers">—</strong><span>Akun terdata</span></div></div>
-        <div class="summary-card"><span class="summary-icon purple">▤</span><div><small>Riwayat transaksi</small><strong id="summaryHistory">—</strong><span>Data yang dimuat</span></div></div>
+      <div class="summary-grid preview-summary-grid">
+        <div class="summary-card"><span class="summary-icon blue">◷</span><div><small>Top-up menunggu</small><strong id="summaryPending">—</strong><span>Permintaan perlu verifikasi</span></div></div>
+        <div class="summary-card"><span class="summary-icon green">♙</span><div><small>Total pengguna</small><strong id="summaryUsers">—</strong><span>Akun terdaftar di aplikasi</span></div></div>
+        <div class="summary-card"><span class="summary-icon purple">✓</span><div><small>Top-up disetujui</small><strong id="summaryApproved">—</strong><span>Total transaksi berhasil</span></div></div>
+        <div class="summary-card"><span class="summary-icon amber">Rp</span><div><small>Nilai pembayaran</small><strong id="summaryRevenue">—</strong><span>Total nominal transaksi disetujui</span></div></div>
+      </div>
+      <div class="overview-grid">
+        <section class="card overview-recent">
+          <div class="overview-head"><div><h2>Top-up terbaru</h2><p>Transaksi terbaru dari database Supabase</p></div><button class="btn" type="button" data-nav="panel-history">Lihat semua</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Pengguna / Waktu</th><th>Nominal</th><th>Status</th></tr></thead><tbody id="summaryRecentRows"><tr><td colspan="3" class="summary-empty">Memuat transaksi...</td></tr></tbody></table></div>
+        </section>
+        <section class="card overview-quick">
+          <div class="overview-head"><div><h2>Akses cepat</h2><p>Menu yang sering digunakan</p></div></div>
+          <button class="quick-link" type="button" data-nav="panel-topups"><span class="quick-emoji">◷</span><span><b>Verifikasi top-up</b><small>Periksa bukti pembayaran pengguna</small></span><span class="quick-arrow">↗</span></button>
+          <button class="quick-link" type="button" data-nav="panel-users"><span class="quick-emoji">♙</span><span><b>Kelola pengguna</b><small>Lihat akun dan saldo token</small></span><span class="quick-arrow">↗</span></button>
+          <button class="quick-link" type="button" data-nav="panel-payment"><span class="quick-emoji">▣</span><span><b>Metode pembayaran</b><small>Kelola rekening dan QRIS</small></span><span class="quick-arrow">↗</span></button>
+          <button class="quick-link" type="button" data-nav="panel-token"><span class="quick-emoji">⚙</span><span><b>Pengaturan token</b><small>Atur harga dan masa berlaku</small></span><span class="quick-arrow">↗</span></button>
+        </section>
       </div>
     <!-- Section 1: Permintaan Top-up Menunggu -->
     <div class="card admin-section" id="panel-topups" data-panel="panel-topups">
@@ -1009,7 +1042,7 @@ checkAdminSession();
 // Navigasi UI tambahan: hanya menggulir ke bagian yang sudah ada; tidak mengganti auth atau query Supabase.
 (function(){
   const navItems=[...document.querySelectorAll('[data-nav]')];
-  navItems.forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('[data-nav]').forEach(btn=>btn.addEventListener('click',()=>{
     const target=document.getElementById(btn.dataset.nav);
     if(!target)return;
     navItems.forEach(x=>x.classList.toggle('active',x===btn));
@@ -1022,17 +1055,33 @@ checkAdminSession();
     themeBtn.addEventListener('click',()=>{const root=document.documentElement;root.setAttribute('data-theme',root.getAttribute('data-theme')==='light'?'dark':'light');update();});
   }
   function updateStats(){
-    const pending=document.querySelectorAll('#tblPending tr').length;
-    const users=document.querySelectorAll('#tblUsers tr').length;
-    const history=document.querySelectorAll('#tblAllTopups tr').length;
-    const pText=(document.getElementById('tblPending')?.innerText||'').toLowerCase();
-    const uText=(document.getElementById('tblUsers')?.innerText||'').toLowerCase();
-    const hText=(document.getElementById('tblAllTopups')?.innerText||'').toLowerCase();
-    const p=(pText.includes('belum ada')||pText.includes('tidak ada')||pText.includes('memuat'))?0:pending;
-    const u=(uText.includes('belum ada')||uText.includes('memuat'))?0:users;
-    const h=(hText.includes('belum ada')||hText.includes('belum ada data')||hText.includes('memuat'))?0:history;
+    const pendingBody=document.getElementById('tblPending');
+    const usersBody=document.getElementById('tblUsers');
+    const historyBody=document.getElementById('tblAllTopups');
+    const realRows=(body,emptyWords)=>body?[...body.querySelectorAll('tr')].filter(row=>!emptyWords.some(w=>row.innerText.toLowerCase().includes(w))):[];
+    const pendingRows=realRows(pendingBody,['tidak ada permintaan','belum ada','gagal memuat','memuat data']);
+    const userRows=realRows(usersBody,['belum ada data','belum ada pengguna','gagal memuat','memuat data']);
+    const historyRows=realRows(historyBody,['belum ada data','tidak ada transaksi','gagal memuat','memuat riwayat']);
+    const approvedRows=historyRows.filter(row=>/disetujui|approved/i.test(row.innerText));
+    const moneyFromRow=row=>{const cells=[...row.querySelectorAll('td')];const cell=cells.find(td=>/Rp\s?[\d.]+/.test(td.innerText));if(!cell)return 0;return Number(cell.innerText.replace(/[^0-9]/g,''))||0;};
+    const revenue=approvedRows.reduce((sum,row)=>sum+moneyFromRow(row),0);
+    const fmtRp=n=>n>=1000000?'Rp '+(n/1000000).toLocaleString('id-ID',{maximumFractionDigits:1})+' jt':'Rp '+n.toLocaleString('id-ID');
     const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=String(v);};
-    set('summaryPending',p);set('summaryUsers',u);set('summaryHistory',h);set('navPendingCount',p);
+    set('summaryPending',pendingRows.length);set('summaryUsers',userRows.length);set('summaryHistory',historyRows.length);
+    set('summaryApproved',approvedRows.length);set('summaryRevenue',fmtRp(revenue));set('navPendingCount',pendingRows.length);
+    const recent=document.getElementById('summaryRecentRows');
+    if(recent){
+      if(!historyRows.length){recent.innerHTML='<tr><td colspan="3" class="summary-empty">Belum ada transaksi yang dapat ditampilkan.</td></tr>';}
+      else {recent.innerHTML=historyRows.slice(0,5).map(row=>{
+        const cells=[...row.querySelectorAll('td')];
+        const who=(cells[1]?.innerText||cells[0]?.innerText||'-').split('\n').filter(Boolean);
+        const amountCell=cells.find(td=>/Rp\s?[\d.]+/.test(td.innerText));
+        const statusCell=cells.find(td=>/menunggu|disetujui|ditolak/i.test(td.innerText));
+        const safe=t=>String(t||'-').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        let statusText=statusCell?.innerText||'-';let statusClass=/disetujui/i.test(statusText)?'app':/ditolak/i.test(statusText)?'rej':'wait';
+        return '<tr><td><b>'+safe(who[0])+'</b><br><span style="color:var(--text-muted);font-size:10px">'+safe(cells[0]?.innerText||'')+'</span></td><td style="font-weight:700">'+safe(amountCell?.innerText||'-')+'</td><td><span class="badge '+statusClass+'">'+safe(statusText)+'</span></td></tr>';
+      }).join('');}
+    }
   }
   const watchIds=['tblPending','tblUsers','tblAllTopups'];
   watchIds.forEach(id=>{const el=document.getElementById(id);if(el)new MutationObserver(updateStats).observe(el,{childList:true,subtree:true,characterData:true});});
