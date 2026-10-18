@@ -1354,13 +1354,15 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 .tool-mode-hint { color:var(--text-dim); font-size:10px; line-height:1.45; }
 #main.drawer-collapsed .tool-mode-options { display:none; }
 @media (max-width:680px) { .tool-mode-options { display:none; } }
-/* Pin login/account control to the actual top-right of the header */
-#bar { position:relative; padding-right:112px; }
-#bar-right { min-width:0; }
-#bar-right #settingsAuthSlot { background:var(--bg-panel); border-radius:8px; padding:2px; }
-#bar-right { margin-left:auto; justify-content:flex-end; }
-#bar-right #settingsAuthSlot { position:absolute; top:8px; right:12px; margin:0; z-index:35; }
-#bar-right #settingsAuthSlot .dropdown-menu { right:0; left:auto; }
+/* Posisikan tombol masuk/akun di pojok kanan header */
+#bar { position:relative; padding-right:118px; }
+.bar-right { min-width:0; margin-left:auto; justify-content:flex-end; }
+.bar-right #settingsAuthSlot { background:var(--bg-panel); border-radius:8px; padding:2px; position:absolute; top:8px; right:12px; margin:0; z-index:35; }
+.bar-right #settingsAuthSlot .dropdown-menu { right:0; left:auto; }
+@media (max-width:680px) {
+  #bar { padding-right:100px; }
+  .bar-right #settingsAuthSlot { top:8px; right:8px; }
+}
 
 </style>
 </head>
