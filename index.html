@@ -1355,19 +1355,24 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 .tool-mode-hint { color:var(--text-dim); font-size:10px; line-height:1.45; }
 #main.drawer-collapsed .tool-mode-options { display:none; }
 @media (max-width:680px) { .tool-mode-options { display:none; } }
-/* Header identity, info links, and login/account at the far right */
+/* Header layout: account tools and login are grouped on the right */
 .header-tagline { color:var(--text-muted); font-size:11px; white-space:nowrap; margin-right:8px; }
-#bar { position:relative; padding-right:390px; }
-#bar-right { min-width:0; }
-#bar-right #settingsAuthSlot { background:var(--bg-panel); border-radius:8px; padding:2px; }
-#bar-right { margin-left:auto; justify-content:flex-end; }
-#headerInfoLinks { position:absolute; top:15px; right:132px; display:flex; align-items:center; gap:10px; z-index:34; white-space:nowrap; font-size:11px; }
+#bar { position:relative; padding-right:560px; }
+#headerRightTools { position:absolute; top:7px; right:132px; z-index:36; display:flex; align-items:center; justify-content:flex-end; gap:7px; min-width:0; }
+#headerRightTools > #tokenPill, #headerRightTools > #btnCloudProjects, #headerRightTools > #exp, #headerRightTools > #themeToggle { flex:0 0 auto; }
+#headerRightTools #exp { display:inline-flex; align-items:center; gap:6px; padding:7px 9px; white-space:nowrap; }
+#headerRightTools #btnCloudProjects { white-space:nowrap; }
+#headerRightTools #themeToggle { display:inline-flex; align-items:center; justify-content:center; min-width:32px; }
+#headerInfoLinks { position:absolute; top:15px; right:440px; display:flex; align-items:center; gap:10px; z-index:34; white-space:nowrap; font-size:11px; }
 #headerInfoLinks a { color:var(--accent); text-decoration:none; }
 #headerInfoLinks a:hover { text-decoration:underline; }
-/* Pin login/account to the actual header container (#bar), independent of its inner flex groups */
+/* Login/account is the final control at the far-right edge */
 #settingsAuthSlot { position:absolute !important; top:8px; right:12px; margin:0 !important; z-index:50; flex:0 0 auto; }
 #settingsAuthSlot .dropdown-menu { right:0; left:auto; }
 #settingsAuthSlot #btnOpenAuth { display:inline-flex; align-items:center; justify-content:center; white-space:nowrap; }
+@media (max-width:1250px) { #bar { padding-right:500px; } #headerInfoLinks { display:none; } }
+@media (max-width:900px) { #bar { padding-right:0; padding-bottom:46px; } #headerRightTools { left:8px; right:8px; top:auto; bottom:6px; justify-content:flex-end; } #settingsAuthSlot { top:8px; right:8px; } .header-tagline { display:none; } }
+@media (max-width:520px) { #headerRightTools { gap:4px; } #headerRightTools #btnCloudProjects span, #headerRightTools #exp span { font-size:10px; } #headerRightTools #exp { padding:6px; } #headerRightTools #tokenPill { padding:4px 6px; } }
 @media (max-width:900px) { #bar { padding-right:112px; } #settingsAuthSlot { top:8px; right:8px; } #headerInfoLinks { display:none; } }
 @media (max-width:680px) { #settingsAuthSlot { top:6px; right:6px; } #settingsAuthSlot #btnOpenAuth { padding:6px 8px; } }
 
@@ -2987,6 +2992,20 @@ function zoomBy(k){
 $('btnZoomIn').onclick = () => zoomBy(1.25);
 $('btnZoomOut').onclick = () => zoomBy(1 / 1.25);
 $('btnZoomFit').onclick = () => { if(img){ fitV(); draw(); } };
+
+// Group the account tools at the right side of the header, before the login/account button.
+(function arrangeHeaderTools(){
+  const bar = document.getElementById('bar');
+  if (!bar || document.getElementById('headerRightTools')) return;
+  const tools = document.createElement('div');
+  tools.id = 'headerRightTools';
+  tools.setAttribute('aria-label', 'Kontrol akun dan proyek');
+  bar.appendChild(tools);
+  ['tokenPill','btnCloudProjects','exp','themeToggle'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) tools.appendChild(el);
+  });
+})();
 
 // Dark / Light Theme Toggle
 const themeBtn = $('themeToggle');
