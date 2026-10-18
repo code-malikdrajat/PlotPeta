@@ -2092,7 +2092,34 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
     <div style="text-align:right; margin-top:12px;"><button type="button" id="modalClose" class="pri">Tutup</button></div>
   </div>
 </div>
-<style>#infoModal:not(.hide){display:flex!important} #infoModal.hide{display:none!important} #infoModal a{color:var(--accent)}</style>
+<style>#infoModal:not(.hide){display:flex!important} #infoModal.hide{display:none!important} #infoModal a{color:var(--accent)}
+/* Perubahan minimal: hanya pindahkan tautan informasi ke bawah tombol Login. */
+#headerInfoLinks {
+  position:absolute !important;
+  top:43px !important;
+  right:12px !important;
+  display:flex !important;
+  flex-direction:row !important;
+  flex-wrap:nowrap !important;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  width:max-content;
+  max-width:calc(100vw - 24px);
+  white-space:nowrap;
+  font-size:11px;
+  z-index:52;
+}
+#headerInfoLinks a { display:inline-block; white-space:nowrap; line-height:1.5; }
+#settingsAuthSlot { top:7px !important; right:12px !important; }
+@media (max-width:900px) {
+  #headerInfoLinks { top:42px !important; right:8px !important; gap:8px; font-size:10px; }
+  #settingsAuthSlot { top:6px !important; right:8px !important; }
+}
+@media (max-width:420px) {
+  #headerInfoLinks { gap:6px; font-size:9px; }
+}
+</style>
 
 <script>
 const $=id=>document.getElementById(id);
