@@ -1792,10 +1792,10 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <span>Poligon Bidang</span>
         </h3>
       </div>
-      <div class="mu">Dibuat otomatis dari ruang tertutup di jaringan garis. Buat ulang jika garis diubah.</div>
+      <div class="mu">Sambungkan ujung garis yang berdekatan, hitung perpotongan, lalu bentuk poligon dari jaringan garis yang menutup. Garis asli tidak diubah; buat ulang setelah mengedit garis.</div>
       <label class="mu" style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
-        <span>Toleransi sambung (px)</span>
-        <input id="pTol" value="8" style="width:70px;text-align:center">
+        <span>Toleransi sambung ujung (px)</span>
+        <input id="pTol" type="number" min="1" max="40" step="1" value="8" title="Jarak maksimum untuk menyatukan titik/ujung garis yang berdekatan" style="width:70px;text-align:center">
       </label>
       <div class="g2">
         <button class="pri" id="pMk">Buat poligon</button>
@@ -3055,7 +3055,7 @@ $('pMk').onclick=()=>{
       const r=polygonize();
       polys=r.polys;
       gaps=r.gaps;
-      $('pMsg').textContent=polys.length+' poligon dibuat. '+gaps.length+' ujung garis menggantung (cincin merah), kemungkinan celah di pojok atau garis yang menjulur.';
+      $('pMsg').textContent=polys.length+' poligon dibuat setelah menyambungkan titik dekat dan menghitung perpotongan. '+gaps.length+' ujung garis masih menggantung (cincin merah); jika bidang belum tertutup, periksa celah dan sesuaikan toleransi sambung.';
     }catch(x){$('pMsg').textContent='Gagal: '+x.message}
     draw();
   },30);
