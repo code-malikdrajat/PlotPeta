@@ -1328,6 +1328,8 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 
 /* Tool method options: region selection for detection and erase */
 .tool-mode-options { display:flex; flex-direction:column; gap:8px; padding:9px; border:1px solid var(--border); border-radius:10px; background:var(--bg-card); }
+.tool-drawer-list .tool-mode-options { margin:0 0 6px 0; }
+.tool-drawer-list .tool-mode-options:not(.mode-visible) { display:none; }
 .tool-mode-options label { display:flex; flex-direction:column; gap:4px; color:var(--text-muted); font-size:10.5px; font-weight:700; }
 .tool-mode-options select { width:100%; min-width:0; font-size:11px; padding:7px 6px; }
 .tool-mode-hint { color:var(--text-dim); font-size:10px; line-height:1.45; }
@@ -1489,41 +1491,24 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 <div id="main">
   <!-- Alat kerja dipindah ke laci kiri -->
     <section class="tool-drawer" id="toolDrawer" aria-label="Alat Kerja">
-      <div class="tool-drawer-top">
-        <button type="button" id="toolDrawerToggle" class="drawer-toggle" aria-expanded="true" title="Buka/tutup laci alat">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
-        </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
-        <div class="tool-drawer-heading">
-          <strong>ALAT KERJA</strong>
-          <span class="tool-drawer-hint">Pilih alat</span>
-        </div>
-      </div>
       <div class="favorite-section">
         <button type="button" id="favoriteToggle" class="favorite-toggle" aria-expanded="false">
           <span class="favorite-label"><span aria-hidden="true">★</span> Favorit</span>
           <span id="favoriteCount" class="favorite-count">0</span>
           <svg class="favorite-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-        </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+        </button>
         <div id="favoriteTools" class="favorite-tools hide" aria-label="Alat favorit">
           <div class="favorite-empty">Klik bintang pada alat untuk menambah favorit.</div>
         </div>
       </div>
-      <div class="tool-mode-options" aria-label="Pilihan metode alat">
-        <label>Metode Deteksi
-          <select id="detectMode" title="Pilih cara menentukan area deteksi">
-            <option value="rect">Area kotak (tarik)</option>
-            <option value="poly">Area bebas / poligon</option>
-            <option value="all">Seluruh peta</option>
-          </select>
-        </label>
-        <label>Metode Hapus
-          <select id="eraseMode" title="Pilih cara menghapus garis atau teks">
-            <option value="click">Klik objek / segmen</option>
-            <option value="rect">Area kotak (tarik)</option>
-            <option value="poly">Area bebas / poligon</option>
-          </select>
-        </label>
-        <div class="tool-mode-hint" id="toolModeHint">Pilih Deteksi atau Hapus untuk memakai metode di atas.</div>
+      <div class="tool-drawer-top">
+        <button type="button" id="toolDrawerToggle" class="drawer-toggle" aria-expanded="true" title="Buka/tutup laci alat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div class="tool-drawer-heading">
+          <strong>ALAT KERJA</strong>
+          <span class="tool-drawer-hint">Pilih alat</span>
+        </div>
       </div>
       <div class="tool-drawer-list">
       <button data-tool="pan" title="Geser tampilan peta (atau drag layar)">
@@ -1534,7 +1519,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
         </svg>
         <span>Geser</span>
-      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+      <button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button></button>
 
       <button data-tool="cal" title="Langkah 1: Kalibrasi 4 titik grid peta">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1545,7 +1530,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <line x1="12" y1="22" x2="12" y2="18"></line>
         </svg>
         <span>1. Kalibrasi</span>
-      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+      <button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button></button>
 
       <button data-tool="P" title="Digitasi garis penuh (solid line)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1554,14 +1539,14 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <circle cx="20" cy="5" r="2.5" fill="currentColor"></circle>
         </svg>
         <span>Garis penuh</span>
-      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+      <button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button></button>
 
       <button data-tool="D" title="Digitasi garis putus-putus (dashed line)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="4" y1="19" x2="20" y2="5" stroke-dasharray="3 3"></line>
         </svg>
         <span>Garis putus</span>
-      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+      <button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button></button>
 
       <button data-tool="T" title="Tambahkan teks nomor hak dan surat ukur">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1570,7 +1555,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <line x1="12" y1="4" x2="12" y2="20"></line>
         </svg>
         <span>Teks bidang</span>
-      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+      <button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button></button>
 
       <button data-tool="M" title="Geser titik simpul / vertex">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1582,14 +1567,24 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <line x1="12" y1="2" x2="12" y2="22"></line>
         </svg>
         <span>Geser titik</span>
-      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+      <button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button></button>
 
       <button data-tool="A" title="Deteksi garis otomatis menggunakan AI/Computer Vision">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
         </svg>
         <span>Deteksi otomatis</span>
-      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+      <button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button></button>
+
+      <div class="tool-mode-options detect-mode-options" aria-label="Metode Deteksi Otomatis">
+        <label>Metode Deteksi
+          <select id="detectMode" title="Pilih cara menentukan area deteksi">
+            <option value="rect">Area kotak (tarik)</option>
+            <option value="poly">Area bebas (tarik mouse)</option>
+            <option value="all">Seluruh peta</option>
+          </select>
+        </label>
+      </div>
 
       <button data-tool="E" title="Hapus segmen garis atau teks">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1597,7 +1592,18 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
         </svg>
         <span>Hapus</span>
-      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+      <button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button></button>
+
+      <div class="tool-mode-options erase-mode-options" aria-label="Metode Hapus">
+        <label>Metode Hapus
+          <select id="eraseMode" title="Pilih cara menghapus garis atau teks">
+            <option value="click">Klik objek / segmen</option>
+            <option value="rect">Area kotak (tarik)</option>
+            <option value="poly">Area bebas (tarik mouse)</option>
+          </select>
+        </label>
+        <div class="tool-mode-hint" id="toolModeHint">Pilih alat Deteksi Otomatis atau Hapus untuk menampilkan pilihannya di bawah tombol.</div>
+      </div>
 
       </div>
     </section>
@@ -2040,7 +2046,7 @@ const LN={get P(){return $('lP').value.trim()||'020100'},get D(){return $('lD').
 let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=-1,mouse=null,drag=null,dirty=false,hist=[];
 let cal={pts:[],ok:false,M:null,mode:'local'};
 let cand=[],box=null,mv=null,polys=[],gaps=[];
-let selectionPoly=[], boxAction='detect';
+let selectionPoly=[], boxAction='detect', freehandDrawing=false;
 let mapName='';
 const W=()=>cv.clientWidth,H=()=>cv.clientHeight,d1=()=>devicePixelRatio||1;
 function resize(){const r=$('wrap').getBoundingClientRect(),d=d1();cv.width=r.width*d;cv.height=r.height*d;cv.style.width=r.width+'px';cv.style.height=r.height+'px';draw()}
@@ -2123,10 +2129,12 @@ function setTool(t){
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
 const detectModeEl=$('detectMode'), eraseModeEl=$('eraseMode'), toolModeHint=$('toolModeHint');
 function updateToolModeHint(){
+  document.querySelector('.detect-mode-options')?.classList.toggle('mode-visible', tool==='A');
+  document.querySelector('.erase-mode-options')?.classList.toggle('mode-visible', tool==='E');
   if(!toolModeHint)return;
-  if(tool==='A') toolModeHint.textContent=detectModeEl.value==='rect'?'Tarik kotak pada peta untuk mendeteksi garis.':detectModeEl.value==='poly'?'Klik beberapa titik mengelilingi area, lalu tekan Enter untuk mendeteksi.':'Klik Deteksi seluruh peta pada panel kanan.';
-  else if(tool==='E') toolModeHint.textContent=eraseModeEl.value==='click'?'Klik teks atau segmen garis yang ingin dihapus.':eraseModeEl.value==='rect'?'Tarik kotak untuk menghapus objek/segmen di dalam area.':'Klik titik-titik batas area, lalu tekan Enter untuk menghapus di dalam poligon.';
-  else toolModeHint.textContent='Pilih Deteksi atau Hapus untuk memakai metode di atas.';
+  if(tool==='A') toolModeHint.textContent=detectModeEl.value==='rect'?'Tarik kotak pada peta untuk mendeteksi garis.':detectModeEl.value==='poly'?'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk mendeteksi.':'Klik Deteksi seluruh peta pada panel kanan.';
+  else if(tool==='E') toolModeHint.textContent=eraseModeEl.value==='click'?'Klik teks atau segmen garis yang ingin dihapus.':eraseModeEl.value==='rect'?'Tarik kotak untuk menghapus objek/segmen di dalam area.':'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk menghapus.';
+  else toolModeHint.textContent='Pilih alat Deteksi Otomatis atau Hapus untuk menampilkan pilihannya di bawah tombol.';
 }
 detectModeEl?.addEventListener('change',updateToolModeHint); eraseModeEl?.addEventListener('change',updateToolModeHint);
 
@@ -2183,8 +2191,17 @@ $('fin').onclick=finish;
 $('undo').onclick=undo;
 
 cv.addEventListener('pointerdown',e=>{
-  cv.setPointerCapture(e.pointerId);
   const sp=[e.offsetX,e.offsetY];
+  const freehandMode = (tool==='A' && detectModeEl?.value==='poly') || (tool==='E' && eraseModeEl?.value==='poly');
+  if(e.button===0 && img && freehandMode){
+    e.preventDefault();
+    cv.setPointerCapture(e.pointerId);
+    freehandDrawing=true; drag=null; box=null; selectionPoly=[sp];
+    if(tool==='A') $('dMsg').textContent='Sedang menggambar area deteksi bebas… lepaskan mouse untuk mulai deteksi.';
+    else $('st').innerHTML='<span class="status-dot"></span><span>Sedang menggambar area hapus bebas… lepaskan mouse untuk menghapus</span>';
+    draw(); return;
+  }
+  cv.setPointerCapture(e.pointerId);
   if(e.button===0&&img){
     if(tool==='M'){const h=findV(sp);if(h){snapshot();mv=h;return}}
     if(tool==='A' && detectModeEl?.value==='rect'){boxAction='detect';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
@@ -2194,6 +2211,11 @@ cv.addEventListener('pointerdown',e=>{
 });
 cv.addEventListener('pointermove',e=>{
   mouse=[e.offsetX,e.offsetY];
+  if(freehandDrawing){
+    const last=selectionPoly[selectionPoly.length-1], next=[e.offsetX,e.offsetY];
+    if(!last || Math.hypot(next[0]-last[0],next[1]-last[1])>=2) selectionPoly.push(next);
+    draw(); return;
+  }
   if(mv){movePt(mouse);draw();return}
   if(box){box.x1=e.offsetX;box.y1=e.offsetY;draw();return}
   if(drag){
@@ -2210,6 +2232,12 @@ cv.addEventListener('pointermove',e=>{
   draw();
 });
 cv.addEventListener('pointerup',e=>{
+  if(freehandDrawing){
+    freehandDrawing=false;
+    if(selectionPoly.length>=3) finishSelection();
+    else { selectionPoly=[]; draw(); }
+    return;
+  }
   if(mv){mv=null;stat();draw();return}
   if(box){
     const b=box,a=toI([Math.min(b.x0,b.x1),Math.min(b.y0,b.y1)]),z=toI([Math.max(b.x0,b.x1),Math.max(b.y0,b.y1)]);
@@ -2223,6 +2251,7 @@ cv.addEventListener('pointerup',e=>{
 });
 cv.addEventListener('dblclick',()=>{if((tool==='P'||tool==='D')&&cur.length){cur.pop();finish()}});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.style.touchAction='none';
 cv.addEventListener('wheel',e=>{
   e.preventDefault();
   if(!img)return;
