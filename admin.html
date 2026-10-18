@@ -994,14 +994,23 @@ $('btnSubmitKoreksi').onclick = async () => {
 
 // 5. RIWAYAT SELURUH TOP-UP
 async function loadAllTopups() {
-  const { data, error } = await sb.from('topups')
-    .select('*, profiles(nama, email), decider:profiles!topups_diputuskan_oleh_fkey(nama)')
-    .order('created_at', { ascending: false })
-    .limit(50);
-
   const tb = $('tblAllTopups');
-  if(error || !data || data.length === 0){
-    tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Belum ada data transaksi.</td></tr>';
+  if (!tb) return;
+  tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Memuat riwayat top-up...</td></tr>';
+
+  // Gunakan relasi FK user yang sama seperti daftar verifikasi top-up.
+  // profiles(nama,email) tanpa nama FK dapat gagal jika PostgREST melihat relasi ambigu.
+  const { data, error } = await sb.from('topups')
+    .select('*, profiles:profiles!topups_user_id_fkey(nama, email), decider:profiles!topups_diputuskan_oleh_fkey(nama)')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Gagal memuat riwayat top-up:', error);
+    tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:18px">Gagal memuat riwayat: ${esc(error.message)}. Periksa relasi tabel/RLS Supabase.</td></tr>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Belum ada transaksi top-up di database.</td></tr>';
     return;
   }
 
@@ -1048,6 +1057,9 @@ checkAdminSession();
     const id=btn.dataset.nav;
     const target=document.getElementById(id);
     if(!target)return;
+    // Muat ulang dari Supabase setiap kali bagian transaksi/top-up dibuka.
+    if(id==='panel-history' && typeof loadAllTopups==='function') loadAllTopups();
+    if(id==='panel-topups' && typeof loadPendingTopups==='function') loadPendingTopups();
     navItems.forEach(x=>x.classList.toggle('active',x===btn || (x.classList.contains('nav-item') && x.dataset.nav===id)));
     const overview=document.getElementById('panel-overview');
     if(overview) overview.style.display=id==='panel-overview'?'':'none';
