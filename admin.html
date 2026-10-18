@@ -295,7 +295,7 @@ th { white-space:nowrap; }
         <div class="summary-card"><span class="summary-icon green">♙</span><div><small>Total pengguna</small><strong id="summaryUsers">—</strong><span>Akun terdaftar di aplikasi</span></div></div>
         <div class="summary-card"><span class="summary-icon purple">✓</span><div><small>Top-up disetujui</small><strong id="summaryApproved">—</strong><span>Total transaksi berhasil</span></div></div>
         <div class="summary-card"><span class="summary-icon amber">Rp</span><div><small>Nilai pembayaran</small><strong id="summaryRevenue">—</strong><span>Total nominal transaksi disetujui</span></div></div>
-        <button class="summary-card" type="button" data-nav="panel-support" style="text-align:left;color:inherit;cursor:pointer"><span class="summary-icon blue">✉</span><div><small>Pesan belum dibaca</small><strong id="summaryUnreadMessages">—</strong><span>Pesan pengguna yang belum dibuka admin</span></div></button>
+        <button class="summary-card" type="button" data-nav="panel-support" style="text-align:left;color:inherit;cursor:pointer"><span class="summary-icon blue">✉</span><div><small>Pesan belum dibaca</small><strong id="summaryUnreadMessages">Memuat…</strong><span>Pesan pengguna yang belum dibuka admin</span></div></button>
       </div>
       <div class="overview-grid">
         <section class="card overview-recent">
@@ -619,6 +619,8 @@ function showDashboard(profile){
   loadAllSettings();
   loadUsers();
   loadAllTopups();
+  // Muat hitungan pesan belum dibaca segera setelah dashboard admin tampil.
+  if (typeof loadAdminSupport === 'function') loadAdminSupport();
 }
 
 // Login administrator hanya lewat Google
@@ -1136,7 +1138,7 @@ checkAdminSession();
   // Jika admin sedang membuka percakapan, isi percakapan juga diperbarui tanpa mengganggu kolom balasan.
   let adminAutoRefreshBusy = false;
   async function autoRefreshAdminChat(){
-    if(adminAutoRefreshBusy || !window.sb) return;
+    if(adminAutoRefreshBusy || typeof sb === 'undefined' || !sb) return;
     adminAutoRefreshBusy = true;
     try {
       if(typeof loadAdminSupport === 'function') await loadAdminSupport();
