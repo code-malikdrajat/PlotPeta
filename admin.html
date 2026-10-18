@@ -1131,6 +1131,24 @@ checkAdminSession();
   const watchIds=['tblPending','tblUsers','tblAllTopups'];
   watchIds.forEach(id=>{const el=document.getElementById(id);if(el)new MutationObserver(updateStats).observe(el,{childList:true,subtree:true,characterData:true});});
   updateStats();
+
+  // Auto-refresh ringan: jumlah pesan belum dibaca dan daftar chat diperbarui tiap 15 detik.
+  // Jika admin sedang membuka percakapan, isi percakapan juga diperbarui tanpa mengganggu kolom balasan.
+  let adminAutoRefreshBusy = false;
+  async function autoRefreshAdminChat(){
+    if(adminAutoRefreshBusy || !window.sb) return;
+    adminAutoRefreshBusy = true;
+    try {
+      if(typeof loadAdminSupport === 'function') await loadAdminSupport();
+      const supportPanel = document.getElementById('panel-support');
+      const isSupportVisible = supportPanel && getComputedStyle(supportPanel).display !== 'none';
+      if(isSupportVisible && typeof supportSelectedUserId !== 'undefined' && supportSelectedUserId && typeof openAdminSupport === 'function') {
+        await openAdminSupport(supportSelectedUserId);
+      }
+    } catch(err) { console.warn('Auto-refresh chat gagal:', err); }
+    finally { adminAutoRefreshBusy = false; }
+  }
+  window.setInterval(autoRefreshAdminChat, 15000);
 })();
 </script>
 
