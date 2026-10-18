@@ -1044,6 +1044,90 @@ textarea {
   transform: scale(1.03);
 }
 
+
+/* ===== Hybrid workspace: left collapsible tool drawer + right settings/layers ===== */
+#main { align-items: stretch; }
+#wrap { order: 2; }
+#side {
+  order: 3;
+  width: 300px;
+  flex: 0 0 300px;
+  border-left: 1px solid var(--border);
+  border-right: 0;
+  box-shadow: -2px 0 12px rgba(15,23,42,.08);
+}
+.tool-drawer {
+  order: 1;
+  flex: 0 0 204px;
+  width: 204px;
+  min-width: 204px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width .2s ease, flex-basis .2s ease, padding .2s ease;
+  z-index: 16;
+}
+.tool-drawer-top { display:flex; align-items:center; gap:7px; min-height:34px; }
+.drawer-toggle {
+  width:30px; height:30px; flex:0 0 30px; padding:0;
+  border-radius:8px; background:var(--bg-card); color:var(--text-muted);
+}
+.tool-drawer-heading { display:flex; flex-direction:column; min-width:0; gap:1px; }
+.tool-drawer-heading strong { font-size:11px; letter-spacing:.06em; color:var(--text-muted); }
+.tool-drawer-hint { font-size:10px; color:var(--text-dim); }
+.tool-drawer-list { display:flex; flex-direction:column; gap:4px; }
+.tool-drawer-list button[data-tool] {
+  width:100%; min-height:38px; justify-content:flex-start; gap:9px;
+  padding:8px 7px; border:1px solid transparent; border-radius:9px;
+  background:transparent; color:var(--text-muted); box-shadow:none;
+}
+.tool-drawer-list button[data-tool] svg { width:17px; height:17px; }
+.tool-drawer-list button[data-tool] span:not(.tool-fav-star) { flex:1; text-align:left; }
+.tool-drawer-list button[data-tool].on { background:var(--accent-subtle); color:var(--accent); border-color:rgba(14,165,233,.22); box-shadow:none; }
+.tool-drawer-list button[data-tool].on svg { stroke:currentColor; }
+.tool-fav-star {
+  flex:0 0 25px; width:25px; height:25px; padding:0; margin-left:auto;
+  border:0 !important; background:transparent !important; box-shadow:none !important;
+  color:var(--text-dim) !important; font-size:17px; line-height:1;
+}
+.tool-fav-star:hover, .tool-fav-star.is-favorite { color:#f59e0b !important; background:var(--warning-subtle) !important; }
+.favorite-section { border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--bg-card); }
+.favorite-toggle { width:100%; display:flex; align-items:center; gap:8px; justify-content:space-between; border:0; background:transparent; padding:9px 10px; }
+.favorite-label { display:flex; gap:7px; align-items:center; font-weight:600; }
+.favorite-label span { color:#f59e0b; }
+.favorite-count { font:600 10px 'JetBrains Mono',monospace; color:var(--text-muted); background:var(--bg-panel); padding:2px 6px; border-radius:999px; margin-left:auto; }
+.favorite-chevron { transition:transform .18s ease; color:var(--text-muted); }
+.favorite-toggle[aria-expanded="true"] .favorite-chevron { transform:rotate(180deg); }
+.favorite-tools { padding:4px 6px 7px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:3px; }
+.favorite-tools.hide { display:none !important; }
+.favorite-tools button { width:100%; justify-content:flex-start; background:transparent; border-color:transparent; font-size:11.5px; padding:7px; }
+.favorite-tools button svg { width:15px; height:15px; }
+.favorite-empty { color:var(--text-dim); font-size:10.5px; line-height:1.5; padding:7px; }
+#main.drawer-collapsed .tool-drawer { flex-basis:52px; width:52px; min-width:52px; padding:8px 6px; }
+#main.drawer-collapsed .tool-drawer-heading,
+#main.drawer-collapsed .favorite-section,
+#main.drawer-collapsed .tool-drawer-list button[data-tool] span:not(.tool-fav-star),
+#main.drawer-collapsed .tool-drawer-list .tool-fav-star { display:none !important; }
+#main.drawer-collapsed .tool-drawer-list button[data-tool] { justify-content:center; padding:8px 0; }
+#main.drawer-collapsed .drawer-toggle svg { transform:rotate(180deg); }
+@media (max-width: 900px) {
+  #main { flex-direction:row; }
+  .tool-drawer { flex-basis:170px; width:170px; min-width:170px; }
+  #side { width:260px; flex-basis:260px; height:auto; border-top:0; border-left:1px solid var(--border); }
+}
+@media (max-width: 680px) {
+  .tool-drawer { flex-basis:48px; width:48px; min-width:48px; padding:7px 5px; }
+  .tool-drawer-heading, .favorite-section, .tool-drawer-list button[data-tool] span:not(.tool-fav-star), .tool-drawer-list .tool-fav-star { display:none; }
+  .tool-drawer-list button[data-tool] { justify-content:center; padding:8px 0; }
+  #side { width:220px; flex-basis:220px; padding:8px; }
+  #bar { max-height:27vh; overflow:auto; }
+}
+
 @media (max-width: 900px) {
   #bar { padding: 6px 10px; gap: 6px; }
   .brand-badge { display: none; }
@@ -1051,6 +1135,212 @@ textarea {
   #side { width: auto; height: 44%; border-left: 0; border-top: 1px solid var(--border); }
   .tool-group { overflow-x: auto; }
 }
+
+/* ==================== PlotPeta Hybrid Modern UI refresh ==================== */
+:root {
+  --bg-app: #e9eff6;
+  --bg-panel: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --border: #d7e0ea;
+  --border-subtle: #e7edf4;
+  --border-focus: #0787cf;
+  --text-main: #24364b;
+  --text-muted: #64758b;
+  --text-dim: #8797aa;
+  --accent: #0787cf;
+  --accent-hover: #0575b4;
+  --accent-active: #075985;
+  --accent-glow: rgba(7, 135, 207, .18);
+  --accent-subtle: rgba(7, 135, 207, .10);
+  --canvas-bg: #e6edf5;
+  --grid-pattern: linear-gradient(to right, rgba(135,157,181,.25) 1px, transparent 1px), linear-gradient(to bottom, rgba(135,157,181,.25) 1px, transparent 1px);
+  --shadow-sm: 0 1px 2px rgba(20,40,60,.06);
+  --shadow-md: 0 5px 18px rgba(20,40,60,.10);
+  --shadow-lg: 0 14px 34px rgba(20,40,60,.16);
+}
+[data-theme="light"] {
+  --bg-app: #e9eff6;
+  --bg-panel: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --border: #d7e0ea;
+  --border-subtle: #e7edf4;
+  --text-main: #24364b;
+  --text-muted: #64758b;
+  --text-dim: #8797aa;
+  --canvas-bg: #e6edf5;
+  --grid-pattern: linear-gradient(to right, rgba(135,157,181,.25) 1px, transparent 1px), linear-gradient(to bottom, rgba(135,157,181,.25) 1px, transparent 1px);
+}
+[data-theme="dark"] {
+  --bg-app: #0d1420;
+  --bg-panel: #141e2c;
+  --bg-card: #1b293a;
+  --bg-input: #101a28;
+  --border: #2b3b50;
+  --border-subtle: #223145;
+  --text-main: #e8f0f8;
+  --text-muted: #a5b5c8;
+  --text-dim: #7589a1;
+  --accent: #1598df;
+  --accent-hover: #0787cf;
+  --accent-active: #0369a1;
+  --accent-glow: rgba(21,152,223,.22);
+  --accent-subtle: rgba(21,152,223,.13);
+  --canvas-bg: #101a28;
+  --grid-pattern: linear-gradient(to right, rgba(149,171,196,.10) 1px, transparent 1px), linear-gradient(to bottom, rgba(149,171,196,.10) 1px, transparent 1px);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.18);
+  --shadow-md: 0 5px 18px rgba(0,0,0,.24);
+  --shadow-lg: 0 14px 34px rgba(0,0,0,.34);
+}
+html, body { min-height: 0; }
+body { background: var(--bg-app); }
+#bar {
+  flex: 0 0 auto;
+  padding: 12px 16px 10px;
+  background: #172333;
+  color: #f4f8fc;
+  border-bottom: 1px solid #26384d;
+  box-shadow: 0 3px 12px rgba(12,25,40,.12);
+  gap: 10px 16px;
+}
+#bar .brand { color: #f4f8fc; }
+#bar .brand-name { background: none; -webkit-text-fill-color: #f4f8fc; color: #f4f8fc; font-size: 18px; letter-spacing: -.45px; }
+#bar .brand-icon { width: 38px; height: 38px; border-radius: 10px; background: #0787cf; box-shadow: none; }
+#bar .brand-badge { background: rgba(7,135,207,.16); color: #55baff; border: 0; border-radius: 999px; }
+#bar .bar-left, #bar .bar-center, #bar .bar-right { gap: 7px; }
+#bar .bar-div { background: #405168; }
+#bar button, #bar .btn, #bar .switch-label, #bar .user-menu-btn {
+  border-radius: 9px; min-height: 36px; padding: 8px 11px;
+  background: #26384d; color: #eef5fc; border: 1px solid transparent;
+  box-shadow: none; font-size: 12.5px;
+}
+#bar button:hover, #bar .btn:hover, #bar .switch-label:hover, #bar .user-menu-btn:hover { background: #314860; border-color: #48627c; color: #fff; }
+#bar button.pri, #bar .btn.pri, #bar button[data-tool].on { background: #0787cf; border-color: #0787cf; color: #fff; box-shadow: none; }
+#bar button[data-tool] { background: transparent; color: #c5d2e0; }
+#bar button[data-tool].on { background: #0787cf; color: #fff; }
+#bar .token-pill { background: #26384d; border-color: #405168; color: #f4f8fc; }
+#bar .dropdown-menu { background: #172333; border-color: #405168; }
+#bar .dropdown-item { background: transparent; color: #e8f0f8; }
+#bar .dropdown-item:hover { background: #26384d; }
+#main { flex-direction: row; min-height: 0; }
+#side {
+  order: 0; flex: 0 0 320px; width: 320px; min-width: 265px;
+  border-left: 0; border-right: 1px solid var(--border);
+  background: var(--bg-panel); padding: 16px; gap: 14px; box-shadow: 2px 0 10px rgba(20,40,60,.035);
+}
+#wrap { order: 1; flex: 1 1 auto; min-width: 0; background-color: var(--canvas-bg); background-image: var(--grid-pattern); background-size: 38px 38px; }
+#wrap::before {
+  content: "MODEL"; position: absolute; top: 16px; left: 16px; z-index: 6;
+  font-size: 11px; font-weight: 700; letter-spacing: .45px; color: var(--text-main);
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px;
+  box-shadow: var(--shadow-sm); pointer-events: none;
+}
+.box { border-radius: 11px; padding: 13px; box-shadow: 0 1px 2px rgba(20,40,60,.025); }
+.box-header { margin-bottom: 10px; }
+h3 { letter-spacing: -.1px; }
+input, textarea, select { border-radius: 8px; }
+button, .btn { border-radius: 8px; }
+button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#st { border-radius: 10px; background: var(--bg-panel); border-color: var(--border); }
+.canvas-controls { border-radius: 10px; }
+.dropzone-box { border-radius: 14px; }
+[data-theme="light"] #side { background: #f0f5fa; }
+[data-theme="light"] .box { background: #fff; }
+[data-theme="light"] #st, [data-theme="light"] .canvas-controls { background: rgba(255,255,255,.94); }
+@media (max-width: 900px) {
+  #bar { padding: 10px; }
+  #bar .bar-left, #bar .bar-center, #bar .bar-right { max-width: 100%; }
+  #bar .bar-left { flex: 1 1 100%; }
+  #bar .bar-center { flex: 1 1 100%; overflow-x: auto; flex-wrap: nowrap; }
+  #bar .bar-right { flex: 1 1 100%; overflow-x: auto; flex-wrap: nowrap; }
+  #main { flex-direction: column; }
+  #wrap { order: 0; flex: 1 1 58%; min-height: 260px; }
+  #side { order: 1; flex: 0 0 auto; width: 100%; min-width: 0; height: 42%; border-right: 0; border-top: 1px solid var(--border); padding: 10px; }
+  .tool-group { overflow-x: auto; flex-wrap: nowrap; max-width: 100%; }
+}
+@media (max-width: 520px) {
+  #bar .brand-name { font-size: 16px; }
+  #bar .bar-left { gap: 5px; }
+  #bar .bar-left > .btn, #bar .bar-left > button { padding: 7px 9px; }
+  #side { height: 45%; }
+  .dropzone-box { padding: 24px 18px; }
+}
+/* Left drawer tool layout */
+.tool-drawer { padding: 2px 0 14px; border-bottom: 1px solid var(--border); }
+.tool-drawer-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 9px; color:var(--text-muted); font-size:11px; font-weight:700; letter-spacing:.55px; }
+.tool-drawer-hint { font-size:10px; font-weight:500; letter-spacing:0; opacity:.75; text-transform:none; }
+#side .tool-drawer-list { display:flex; flex-direction:column; align-items:stretch; gap:4px; padding:0; border:0; background:transparent; border-radius:0; }
+#side .tool-drawer-list button[data-tool] { display:flex; width:100%; justify-content:flex-start; gap:11px; padding:10px 12px; min-height:39px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--text-muted); text-align:left; box-shadow:none; }
+#side .tool-drawer-list button[data-tool] svg { width:16px; height:16px; }
+#side .tool-drawer-list button[data-tool]:hover { background:var(--bg-panel); color:var(--text-main); border-color:var(--border); }
+#side .tool-drawer-list button[data-tool].on { background:var(--accent-subtle); color:var(--accent); border-color:rgba(21,152,223,.25); box-shadow:none; font-weight:700; }
+#side .tool-drawer-list button[data-tool].on svg { stroke:var(--accent); }
+@media (max-width:900px) {
+  #side { order:1; }
+  #wrap { order:0; }
+  #side .tool-drawer-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  #side .tool-drawer-list button[data-tool] { min-width:0; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* Final workspace order: tools left, map center, calibration/settings/layers right */
+#main { display:flex !important; flex-direction:row !important; align-items:stretch; min-height:0; }
+#toolDrawer { order:0 !important; flex:0 0 204px; width:204px; min-width:204px; max-height:100%; overflow-y:auto; overflow-x:hidden; padding:12px 10px; border-right:1px solid var(--border); border-bottom:0; background:var(--bg-panel); }
+#wrap { order:1 !important; flex:1 1 auto; min-width:0; min-height:0; }
+#side { order:2 !important; flex:0 0 320px; width:320px; min-width:270px; height:auto; max-height:100%; overflow-y:auto; border-left:1px solid var(--border); border-right:0; border-top:0; padding:12px; background:var(--bg-panel); }
+#toolDrawer .tool-drawer-list { display:flex; flex-direction:column; align-items:stretch; gap:4px; }
+#toolDrawer .tool-drawer-list button[data-tool] { display:flex; width:100%; min-height:38px; justify-content:flex-start; gap:10px; padding:9px 10px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--text-muted); text-align:left; box-shadow:none; }
+#toolDrawer .tool-drawer-list button[data-tool]:hover { background:var(--bg-card); color:var(--text-main); border-color:var(--border); }
+#toolDrawer .tool-drawer-list button[data-tool].on { background:var(--accent-subtle); color:var(--accent); border-color:rgba(21,152,223,.25); box-shadow:none; font-weight:700; }
+#toolDrawer .tool-drawer-list button[data-tool].on svg { stroke:var(--accent); }
+#main.drawer-collapsed #toolDrawer { flex-basis:52px; width:52px; min-width:52px; padding:10px 6px; }
+#main.drawer-collapsed #wrap { flex:1 1 auto; }
+#main.drawer-collapsed #side { flex-basis:320px; width:320px; }
+@media (max-width:900px) {
+  #main { flex-direction:row !important; }
+  #toolDrawer { flex:0 0 160px; width:160px; min-width:160px; }
+  #side { flex:0 0 270px; width:270px; min-width:250px; height:auto; }
+}
+@media (max-width:680px) {
+  #main { flex-direction:column !important; overflow:auto; }
+  #toolDrawer { order:0 !important; flex:0 0 auto; width:100%; min-width:0; max-height:190px; border-right:0; border-bottom:1px solid var(--border); padding:8px; }
+  #toolDrawer .tool-drawer-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  #wrap { order:1 !important; flex:1 0 320px; min-height:320px; }
+  #side { order:2 !important; flex:0 0 auto; width:100%; min-width:0; max-height:42vh; border-left:0; border-top:1px solid var(--border); }
+  #main.drawer-collapsed #toolDrawer { flex-basis:44px; width:100%; min-width:0; max-height:52px; }
+}
+
+
+/* Login/account action in the upper-right header */
+#settingsTopbar { display:flex; align-items:center; justify-content:flex-start; gap:10px; margin:0 0 12px; padding:2px 0 10px; border-bottom:1px solid var(--border); }
+#settingsTopbar .settings-title { font-size:13px; font-weight:800; letter-spacing:.04em; color:var(--text-main); }
+#settingsAuthSlot { display:flex; align-items:center; justify-content:flex-end; gap:6px; min-width:0; }
+#settingsAuthSlot #btnOpenAuth { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; white-space:nowrap; }
+#settingsAuthSlot .user-menu-btn { max-width:170px; }
+#settingsAuthSlot .dropdown-menu { right:0; left:auto; z-index:1000; }
+#bar-right #settingsAuthSlot { margin-left:auto; order:999; flex:0 0 auto; position:relative; z-index:30; }
+#bar-right #settingsAuthSlot #btnOpenAuth { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; white-space:nowrap; }
+#bar-right #settingsAuthSlot .user-menu-btn { white-space:nowrap; }
+#bar-right #settingsAuthSlot .dropdown-menu { right:0; left:auto; z-index:1000; }
+@media (max-width:680px) { #settingsTopbar { margin-bottom:8px; } #bar-right #settingsAuthSlot { margin-left:auto; order:999; } #bar-right #settingsAuthSlot #btnOpenAuth { padding:6px 8px; } }
+
+
+/* Tool method options: region selection for detection and erase */
+.tool-mode-options { display:flex; flex-direction:column; gap:8px; padding:9px; border:1px solid var(--border); border-radius:10px; background:var(--bg-card); }
+.tool-mode-options label { display:flex; flex-direction:column; gap:4px; color:var(--text-muted); font-size:10.5px; font-weight:700; }
+.tool-mode-options select { width:100%; min-width:0; font-size:11px; padding:7px 6px; }
+.tool-mode-hint { color:var(--text-dim); font-size:10px; line-height:1.45; }
+#main.drawer-collapsed .tool-mode-options { display:none; }
+@media (max-width:680px) { .tool-mode-options { display:none; } }
+/* Pin login/account control to the actual top-right of the header */
+#bar { position:relative; padding-right:112px; }
+#bar-right { min-width:0; }
+#bar-right #settingsAuthSlot { background:var(--bg-panel); border-radius:8px; padding:2px; }
+#bar-right { margin-left:auto; justify-content:flex-end; }
+#bar-right #settingsAuthSlot { position:absolute; top:8px; right:12px; margin:0; z-index:35; }
+#bar-right #settingsAuthSlot .dropdown-menu { right:0; left:auto; }
+
 </style>
 </head>
 <body>
@@ -1068,7 +1358,6 @@ textarea {
         </svg>
       </div>
       <span class="brand-name">PlotPeta</span>
-      <span class="brand-badge">AutoCAD DXF</span>
     </div>
 
     <label class="btn pri" title="Buka gambar peta (JPG, PNG, TIFF)">
@@ -1106,84 +1395,7 @@ textarea {
     </button>
   </div>
 
-  <!-- CAD Digitizing Tools -->
-  <div class="bar-center">
-    <div class="tool-group">
-      <button data-tool="pan" title="Geser tampilan peta (atau drag layar)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
-          <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
-          <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
-          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
-        </svg>
-        <span>Geser</span>
-      </button>
-
-      <button data-tool="cal" title="Langkah 1: Kalibrasi 4 titik grid peta">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="22" y1="12" x2="18" y2="12"></line>
-          <line x1="6" y1="12" x2="2" y2="12"></line>
-          <line x1="12" y1="6" x2="12" y2="2"></line>
-          <line x1="12" y1="22" x2="12" y2="18"></line>
-        </svg>
-        <span>1. Kalibrasi</span>
-      </button>
-
-      <button data-tool="P" title="Digitasi garis penuh (solid line)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="4" y1="19" x2="20" y2="5"></line>
-          <circle cx="4" cy="19" r="2.5" fill="currentColor"></circle>
-          <circle cx="20" cy="5" r="2.5" fill="currentColor"></circle>
-        </svg>
-        <span>Garis penuh</span>
-      </button>
-
-      <button data-tool="D" title="Digitasi garis putus-putus (dashed line)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="4" y1="19" x2="20" y2="5" stroke-dasharray="3 3"></line>
-        </svg>
-        <span>Garis putus</span>
-      </button>
-
-      <button data-tool="T" title="Tambahkan teks nomor hak dan surat ukur">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="4 7 4 4 20 4 20 7"></polyline>
-          <line x1="9" y1="20" x2="15" y2="20"></line>
-          <line x1="12" y1="4" x2="12" y2="20"></line>
-        </svg>
-        <span>Teks bidang</span>
-      </button>
-
-      <button data-tool="M" title="Geser titik simpul / vertex">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="5 9 2 12 5 15"></polyline>
-          <polyline points="9 5 12 2 15 5"></polyline>
-          <polyline points="15 19 12 22 9 19"></polyline>
-          <polyline points="19 9 22 12 19 15"></polyline>
-          <line x1="2" y1="12" x2="22" y2="12"></line>
-          <line x1="12" y1="2" x2="12" y2="22"></line>
-        </svg>
-        <span>Geser titik</span>
-      </button>
-
-      <button data-tool="A" title="Deteksi garis otomatis menggunakan AI/Computer Vision">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
-        </svg>
-        <span>Deteksi otomatis</span>
-      </button>
-
-      <button data-tool="E" title="Hapus segmen garis atau teks">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        </svg>
-        <span>Hapus</span>
-      </button>
-    </div>
-  </div>
-
+  <!-- CAD tools moved into the left drawer -->
   <!-- Actions, Cloud, Token & Profile -->
   <div class="bar-right">
     <button id="fin" title="Selesai menggambar satu rangkaian garis (Enter)">
@@ -1228,13 +1440,12 @@ textarea {
       <span>Simpan DXF</span>
     </button>
 
-    <!-- Auth / User Profile Button -->
+    <!-- Login / account in header -->
+      <div id="settingsAuthSlot">
     <button id="btnOpenAuth" class="btn" style="display:inline-flex" title="Masuk atau Buat Akun">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
       <span>Masuk</span>
     </button>
-
-    <!-- Dropdown Menu for Logged In User -->
     <div class="dropdown-wrap" id="userMenuWrap" style="display:none">
       <div class="user-menu-btn" id="userMenuBtn">
         <div class="user-avatar" id="userAvatar">U</div>
@@ -1255,6 +1466,7 @@ textarea {
         </button>
       </div>
     </div>
+      </div>
 
     <!-- Theme Switcher -->
     <button id="themeToggle" class="btn" title="Ganti Mode Gelap / Terang" style="padding:6px 8px">
@@ -1275,6 +1487,122 @@ textarea {
 
 <!-- ==================== MAIN WORKSPACE ==================== -->
 <div id="main">
+  <!-- Alat kerja dipindah ke laci kiri -->
+    <section class="tool-drawer" id="toolDrawer" aria-label="Alat Kerja">
+      <div class="tool-drawer-top">
+        <button type="button" id="toolDrawerToggle" class="drawer-toggle" aria-expanded="true" title="Buka/tutup laci alat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+        </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+        <div class="tool-drawer-heading">
+          <strong>ALAT KERJA</strong>
+          <span class="tool-drawer-hint">Pilih alat</span>
+        </div>
+      </div>
+      <div class="favorite-section">
+        <button type="button" id="favoriteToggle" class="favorite-toggle" aria-expanded="false">
+          <span class="favorite-label"><span aria-hidden="true">★</span> Favorit</span>
+          <span id="favoriteCount" class="favorite-count">0</span>
+          <svg class="favorite-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+        <div id="favoriteTools" class="favorite-tools hide" aria-label="Alat favorit">
+          <div class="favorite-empty">Klik bintang pada alat untuk menambah favorit.</div>
+        </div>
+      </div>
+      <div class="tool-mode-options" aria-label="Pilihan metode alat">
+        <label>Metode Deteksi
+          <select id="detectMode" title="Pilih cara menentukan area deteksi">
+            <option value="rect">Area kotak (tarik)</option>
+            <option value="poly">Area bebas / poligon</option>
+            <option value="all">Seluruh peta</option>
+          </select>
+        </label>
+        <label>Metode Hapus
+          <select id="eraseMode" title="Pilih cara menghapus garis atau teks">
+            <option value="click">Klik objek / segmen</option>
+            <option value="rect">Area kotak (tarik)</option>
+            <option value="poly">Area bebas / poligon</option>
+          </select>
+        </label>
+        <div class="tool-mode-hint" id="toolModeHint">Pilih Deteksi atau Hapus untuk memakai metode di atas.</div>
+      </div>
+      <div class="tool-drawer-list">
+      <button data-tool="pan" title="Geser tampilan peta (atau drag layar)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
+          <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
+          <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+        </svg>
+        <span>Geser</span>
+      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+
+      <button data-tool="cal" title="Langkah 1: Kalibrasi 4 titik grid peta">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="22" y1="12" x2="18" y2="12"></line>
+          <line x1="6" y1="12" x2="2" y2="12"></line>
+          <line x1="12" y1="6" x2="12" y2="2"></line>
+          <line x1="12" y1="22" x2="12" y2="18"></line>
+        </svg>
+        <span>1. Kalibrasi</span>
+      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+
+      <button data-tool="P" title="Digitasi garis penuh (solid line)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="19" x2="20" y2="5"></line>
+          <circle cx="4" cy="19" r="2.5" fill="currentColor"></circle>
+          <circle cx="20" cy="5" r="2.5" fill="currentColor"></circle>
+        </svg>
+        <span>Garis penuh</span>
+      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+
+      <button data-tool="D" title="Digitasi garis putus-putus (dashed line)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="19" x2="20" y2="5" stroke-dasharray="3 3"></line>
+        </svg>
+        <span>Garis putus</span>
+      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+
+      <button data-tool="T" title="Tambahkan teks nomor hak dan surat ukur">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4 7 4 4 20 4 20 7"></polyline>
+          <line x1="9" y1="20" x2="15" y2="20"></line>
+          <line x1="12" y1="4" x2="12" y2="20"></line>
+        </svg>
+        <span>Teks bidang</span>
+      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+
+      <button data-tool="M" title="Geser titik simpul / vertex">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="5 9 2 12 5 15"></polyline>
+          <polyline points="9 5 12 2 15 5"></polyline>
+          <polyline points="15 19 12 22 9 19"></polyline>
+          <polyline points="19 9 22 12 19 15"></polyline>
+          <line x1="2" y1="12" x2="22" y2="12"></line>
+          <line x1="12" y1="2" x2="12" y2="22"></line>
+        </svg>
+        <span>Geser titik</span>
+      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+
+      <button data-tool="A" title="Deteksi garis otomatis menggunakan AI/Computer Vision">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+        </svg>
+        <span>Deteksi otomatis</span>
+      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+
+      <button data-tool="E" title="Hapus segmen garis atau teks">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        <span>Hapus</span>
+      </button><button type="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit">☆</button>
+
+      </div>
+    </section>
+
+  
   <!-- Canvas Viewport -->
   <div id="wrap">
     <canvas id="cv"></canvas>
@@ -1329,6 +1657,10 @@ textarea {
 
   <!-- Sidebar Panel -->
   <div id="side">
+    <div id="settingsTopbar">
+      <span class="settings-title">PENGATURAN</span>
+
+    </div>
     <!-- Box 1: Kalibrasi 4 Titik -->
     <div class="box">
       <div class="box-header">
@@ -1708,6 +2040,7 @@ const LN={get P(){return $('lP').value.trim()||'020100'},get D(){return $('lD').
 let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=-1,mouse=null,drag=null,dirty=false,hist=[];
 let cal={pts:[],ok:false,M:null,mode:'local'};
 let cand=[],box=null,mv=null,polys=[],gaps=[];
+let selectionPoly=[], boxAction='detect';
 let mapName='';
 const W=()=>cv.clientWidth,H=()=>cv.clientHeight,d1=()=>devicePixelRatio||1;
 function resize(){const r=$('wrap').getBoundingClientRect(),d=d1();cv.width=r.width*d;cv.height=r.height*d;cv.style.width=r.width+'px';cv.style.height=r.height+'px';draw()}
@@ -1781,11 +2114,22 @@ function setTool(t){
   if(cur.length&&(t==='P'||t==='D'))finish();
   else cur=[];
   tool=t;
+  selectionPoly=[]; box=null;
+  updateToolModeHint();
   document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
   cv.style.cursor=t==='pan'?'grab':'crosshair';
   draw();
 }
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+const detectModeEl=$('detectMode'), eraseModeEl=$('eraseMode'), toolModeHint=$('toolModeHint');
+function updateToolModeHint(){
+  if(!toolModeHint)return;
+  if(tool==='A') toolModeHint.textContent=detectModeEl.value==='rect'?'Tarik kotak pada peta untuk mendeteksi garis.':detectModeEl.value==='poly'?'Klik beberapa titik mengelilingi area, lalu tekan Enter untuk mendeteksi.':'Klik Deteksi seluruh peta pada panel kanan.';
+  else if(tool==='E') toolModeHint.textContent=eraseModeEl.value==='click'?'Klik teks atau segmen garis yang ingin dihapus.':eraseModeEl.value==='rect'?'Tarik kotak untuk menghapus objek/segmen di dalam area.':'Klik titik-titik batas area, lalu tekan Enter untuk menghapus di dalam poligon.';
+  else toolModeHint.textContent='Pilih Deteksi atau Hapus untuk memakai metode di atas.';
+}
+detectModeEl?.addEventListener('change',updateToolModeHint); eraseModeEl?.addEventListener('change',updateToolModeHint);
+
 
 function snapPt(p){
   if(!$('snap').checked)return p;
@@ -1804,10 +2148,14 @@ function distSeg(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy;let t=L?((
 function click(sp){
   if(!img)return;
   const p=toI(sp);
+  if(tool==='A' && detectModeEl?.value==='all'){runDet({x:0,y:0,w:iw,h:ih});return}
+  if(tool==='A' && detectModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('dMsg').textContent='Batas area deteksi: '+selectionPoly.length+' titik. Tekan Enter untuk menjalankan deteksi.';draw();return}
+  if(tool==='E' && eraseModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('st').innerHTML='<span class="status-dot"></span><span>Batas area hapus: '+selectionPoly.length+' titik — tekan Enter untuk menghapus</span>';draw();return}
   if(tool==='cal'){if(cal.pts.length<4){cal.pts.push(p);crs()}draw();return}
   if(tool==='P'||tool==='D'){const q=snapPt(p);cur.push(q);if(cur.length>=3&&q[0]===cur[0][0]&&q[1]===cur[0][1]&&cur.length-1>0)finish();draw();return}
   if(tool==='T'){snapshot();texts.push({p,no:'',su:''});selT=texts.length-1;tform(true);stat();draw();return}
   if(tool==='E'){
+    if(eraseModeEl && eraseModeEl.value!=='click') return;
     let hit=-1;
     texts.forEach((t,i)=>{const s=toS(t.p);if(Math.hypot(s[0]-sp[0],s[1]-sp[1])<14)hit=i});
     if(hit>=0){
@@ -1839,7 +2187,8 @@ cv.addEventListener('pointerdown',e=>{
   const sp=[e.offsetX,e.offsetY];
   if(e.button===0&&img){
     if(tool==='M'){const h=findV(sp);if(h){snapshot();mv=h;return}}
-    if(tool==='A'){box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
+    if(tool==='A' && detectModeEl?.value==='rect'){boxAction='detect';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
+    if(tool==='E' && eraseModeEl?.value==='rect'){boxAction='erase';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
   }
   drag={x:e.offsetX,y:e.offsetY,ox:V.x,oy:V.y,moved:false,btn:e.button};
 });
@@ -1865,8 +2214,8 @@ cv.addEventListener('pointerup',e=>{
   if(box){
     const b=box,a=toI([Math.min(b.x0,b.x1),Math.min(b.y0,b.y1)]),z=toI([Math.max(b.x0,b.x1),Math.max(b.y0,b.y1)]);
     box=null;
-    const x=Math.max(0,a[0]),y=Math.max(0,a[1]);
-    runDet({x,y,w:Math.min(iw,z[0])-x,h:Math.min(ih,z[1])-y});
+    const x=Math.max(0,a[0]),y=Math.max(0,a[1]),R={x,y,w:Math.min(iw,z[0])-x,h:Math.min(ih,z[1])-y};
+    if(boxAction==='erase') eraseRegion(R,null); else runDet(R);
     draw();return;
   }
   if(drag&&!drag.moved&&drag.btn===0)click([e.offsetX,e.offsetY]);
@@ -1885,8 +2234,8 @@ cv.addEventListener('wheel',e=>{
 },{passive:false});
 addEventListener('keydown',e=>{
   if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
-  if(e.key==='Enter')finish();
-  else if(e.key==='Escape'){cur=[];draw()}
+  if(e.key==='Enter'){if(!finishSelection())finish()}
+  else if(e.key==='Escape'){cur=[];selectionPoly=[];box=null;draw()}
   else if(e.key==='Backspace'||(e.key==='z'&&(e.ctrlKey||e.metaKey))){e.preventDefault();undo()}
 });
 addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
@@ -2096,6 +2445,10 @@ function draw(){
     ctx.lineWidth=1.6;
     ctx.strokeRect(box.x0,box.y0,box.x1-box.x0,box.y1-box.y0);
     ctx.setLineDash([]);
+  }
+  if(selectionPoly.length){
+    ctx.save(); ctx.beginPath(); selectionPoly.forEach((pt,i)=>i?ctx.lineTo(pt[0],pt[1]):ctx.moveTo(pt[0],pt[1]));
+    if(selectionPoly.length>2)ctx.closePath(); ctx.strokeStyle=tool==='E'?'#ef4444':'#0ea5e9'; ctx.fillStyle=tool==='E'?'rgba(239,68,68,.10)':'rgba(14,165,233,.12)'; ctx.lineWidth=2; ctx.setLineDash([5,4]); ctx.fill(); ctx.stroke(); ctx.setLineDash([]); selectionPoly.forEach(pt=>{ctx.beginPath();ctx.arc(pt[0],pt[1],3,0,Math.PI*2);ctx.fillStyle=ctx.strokeStyle;ctx.fill()}); ctx.restore();
   }
   cal.pts.forEach((p,i)=>{
     const s=toS(p);
@@ -2357,12 +2710,28 @@ function detect(R){
   return ln.map(a=>({k:a.k,pts:a.p.map(q=>[q[0]/sc+R.x,q[1]/sc+R.y])}));
 }
 
-function runDet(R){
+function pointInPolygon(pt,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];const intersect=((yi>pt[1])!==(yj>pt[1]))&&(pt[0]<(xj-xi)*(pt[1]-yi)/(yj-yi+1e-12)+xi);if(intersect)inside=!inside;}return inside;}
+function eraseRegion(R,poly){
+  if(!img)return; const inside=(pt)=>poly?pointInPolygon(toS(pt),poly):(pt[0]>=R.x&&pt[0]<=R.x+R.w&&pt[1]>=R.y&&pt[1]<=R.y+R.h);
+  const beforeL=lines.length,beforeT=texts.length; let changed=false;
+  const keep=[];
+  for(const l of lines){const pts=l.pts;const selected=pts.some(inside)||pts.slice(0,-1).some((p,i)=>inside([(p[0]+pts[i+1][0])/2,(p[1]+pts[i+1][1])/2]));if(!selected)keep.push(l);else changed=true;}
+  const keptTexts=texts.filter(t=>!inside(t.p)); if(keptTexts.length!==texts.length)changed=true;
+  if(changed){snapshot();lines=keep;texts=keptTexts;selT=-1;tform();stat();$('st').innerHTML='<span class="status-dot"></span><span>Area hapus selesai: '+(beforeL-lines.length)+' objek garis dan '+(beforeT-texts.length)+' teks dihapus</span>';}
+}
+function finishSelection(){
+  if(tool==='A'&&detectModeEl?.value==='poly'&&selectionPoly.length>=3){const poly=selectionPoly.map(toI);const xs=poly.map(p=>p[0]),ys=poly.map(p=>p[1]);const R={x:Math.max(0,Math.floor(Math.min(...xs))),y:Math.max(0,Math.floor(Math.min(...ys))),w:Math.min(iw,Math.ceil(Math.max(...xs)))-Math.max(0,Math.floor(Math.min(...xs))),h:Math.min(ih,Math.ceil(Math.max(...ys)))-Math.max(0,Math.floor(Math.min(...ys)))};runDet(R,poly);selectionPoly=[];draw();return true;}
+  if(tool==='E'&&eraseModeEl?.value==='poly'&&selectionPoly.length>=3){eraseRegion(null,selectionPoly);selectionPoly=[];draw();return true;}
+  return false;
+}
+
+function runDet(R,poly=null){
   if(!img||R.w<20||R.h<20)return;
   $('dMsg').textContent='Mendeteksi...';
   setTimeout(()=>{
     try{
       cand=detect(R);
+      if(poly && poly.length>=3) cand=cand.filter(c=>{const mid=[(c.pts[0][0]+c.pts[c.pts.length-1][0])/2,(c.pts[0][1]+c.pts[c.pts.length-1][1])/2];return pointInPolygon(toS(mid),poly)});
       const nd=cand.filter(c=>c.k==='D').length;
       $('dMsg').textContent=cand.length+' garis kandidat ('+(cand.length-nd)+' penuh, '+nd+' putus-putus). Terima semua atau buang, lalu koreksi dengan Hapus dan Geser titik.';
     }catch(x){$('dMsg').textContent='Deteksi gagal: '+x.message}
@@ -3260,5 +3629,84 @@ window.addEventListener('load', () => {
   }
 });
 </script>
+
+<script>
+/* PlotPeta tool drawer and user favorites */
+(function () {
+  const main = document.getElementById('main');
+  const drawer = document.getElementById('toolDrawer');
+  const toggle = document.getElementById('toolDrawerToggle');
+  const favToggle = document.getElementById('favoriteToggle');
+  const favTools = document.getElementById('favoriteTools');
+  const favCount = document.getElementById('favoriteCount');
+  if (!main || !drawer) return;
+
+  toggle?.addEventListener('click', () => {
+    const collapsed = main.classList.toggle('drawer-collapsed');
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.title = collapsed ? 'Buka laci alat' : 'Tutup laci alat';
+  });
+
+  favToggle?.addEventListener('click', () => {
+    const expanded = favToggle.getAttribute('aria-expanded') !== 'true';
+    favToggle.setAttribute('aria-expanded', String(expanded));
+    favTools?.classList.toggle('hide', !expanded);
+  });
+
+  const key = 'plotpeta-tool-favorites-v1';
+  let favorites = [];
+  try { favorites = JSON.parse(localStorage.getItem(key) || '[]'); } catch (_) { favorites = []; }
+  const tools = [...drawer.querySelectorAll('button[data-tool]')];
+
+  function renderFavorites() {
+    if (!favTools) return;
+    favTools.innerHTML = '';
+    const selected = tools.filter(btn => favorites.includes(btn.dataset.tool));
+    if (!selected.length) {
+      const empty = document.createElement('div');
+      empty.className = 'favorite-empty';
+      empty.textContent = 'Klik bintang pada alat untuk menambah favorit.';
+      favTools.appendChild(empty);
+    } else {
+      selected.forEach(source => {
+        const shortcut = document.createElement('button');
+        shortcut.type = 'button';
+        shortcut.className = 'favorite-tool-shortcut';
+        shortcut.innerHTML = source.querySelector('svg')?.outerHTML || '';
+        const label = document.createElement('span');
+        label.textContent = source.querySelector('span:not(.tool-fav-star)')?.textContent?.trim() || source.dataset.tool;
+        shortcut.appendChild(label);
+        shortcut.addEventListener('click', () => source.click());
+        favTools.appendChild(shortcut);
+      });
+    }
+    favCount.textContent = String(selected.length);
+    tools.forEach(btn => {
+      const star = btn.parentElement?.querySelector('.tool-fav-star');
+      if (!star) return;
+      const active = favorites.includes(btn.dataset.tool);
+      star.classList.toggle('is-favorite', active);
+      star.textContent = active ? '★' : '☆';
+      star.title = active ? 'Hapus dari favorit' : 'Tambah ke favorit';
+      star.setAttribute('aria-label', star.title);
+    });
+  }
+
+  drawer.addEventListener('click', event => {
+    const star = event.target.closest('.tool-fav-star');
+    if (!star) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const tool = star.parentElement?.dataset?.tool;
+    if (!tool) return;
+    favorites = favorites.includes(tool) ? favorites.filter(item => item !== tool) : [...favorites, tool];
+    try { localStorage.setItem(key, JSON.stringify(favorites)); } catch (_) {}
+    renderFavorites();
+  });
+  renderFavorites();
+  updateToolModeHint();
+})();
+</script>
+
 </body>
 </html>
