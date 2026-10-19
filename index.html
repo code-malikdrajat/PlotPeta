@@ -1806,6 +1806,12 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       </div>
       <input id="dG" type="range" min="10" max="120" value="50" style="width:100%">
 
+      <div class="slider-row">
+        <span>Radius Magnet Otomatis</span>
+        <span class="slider-val" id="val_magR">40 px</span>
+      </div>
+      <input id="magR" type="range" min="10" max="80" value="40" style="width:100%">
+
       <div class="g2">
         <button class="pri" id="dOk">Terima semua</button>
         <button id="dNo">Buang</button>
@@ -2860,7 +2866,8 @@ function detect(R){
     const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/d;
     return [x1+t*(x2-x1),y1+t*(y2-y1)];
   };
-  const R2=14;
+  const userMagR=+($('magR')?.value || 40);
+  const R2=userMagR;
   for(const a of ln){
     for(const e of a.p){
       let best=null,bd=R2;
@@ -2883,7 +2890,7 @@ function detect(R){
   // Satukan ujung-ujung yang dekat; tetap gunakan radius terbatas agar sudut bidang
   // yang berbeda tidak mudah ikut tergabung.
   const E=ln.flatMap(a=>a.p),dn=new Set();
-  const snapRadius=16;
+  const snapRadius=userMagR;
   for(const e of E){
     if(dn.has(e))continue;
     const g=E.filter(q=>!dn.has(q)&&Math.hypot(q[0]-e[0],q[1]-e[1])<snapRadius);
@@ -3047,7 +3054,8 @@ $('pDel').onclick=()=>{polys=[];gaps=[];$('pMsg').textContent='';draw()};
 const sliderPairs = [
   ['dT', 'val_dT', ''],
   ['dL', 'val_dL', ' px'],
-  ['dG', 'val_dG', ' px']
+  ['dG', 'val_dG', ' px'],
+  ['magR', 'val_magR', ' px']
 ];
 sliderPairs.forEach(([sliderId, labelId, suffix]) => {
   const s = $(sliderId), l = $(labelId);
