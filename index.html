@@ -1796,7 +1796,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
         <option value="graph">Graph tracing (kelokan / polylines)</option>
         <option value="opencv">OpenCV.js (adaptive threshold + Hough)</option>
       </select>
-      <div class="mu" style="margin-top:5px">Graph tracing mengikuti kerangka piksel; OpenCV memakai adaptive threshold dan Hough untuk segmen lurus. Keduanya tetap perlu diperiksa pada teks, simbol, dan persilangan.</div>
+      <div class="mu" style="margin-top:5px">Graph tracing mengikuti kerangka piksel; OpenCV memakai adaptive threshold + Hough, lalu menekan segmen pendek yang tidak didukung jaringan garis (indikasi goresan tulisan). Garis batas tetap perlu diperiksa pada pratinjau.</div>
       
       <div class="slider-row">
         <span>Kepekaan</span>
@@ -2830,6 +2830,8 @@ function detectWithOpenCV(R){
   octx.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
   let src=null,gray=null,thresh=null,linesMat=null,kernel=null;
   const detectedSegments=[];
+  // Suppresi tulisan berbasis geometri: jangan menghapus tinta dari gambar asli.
+  // Segmen pendek hanya dipertahankan bila terhubung/selaras dengan kandidat batas lain.
   try{
     src=cvLib.imread(oc);gray=new cvLib.Mat();thresh=new cvLib.Mat();linesMat=new cvLib.Mat();
     cvLib.cvtColor(src,gray,cvLib.COLOR_RGBA2GRAY,0);
@@ -2837,7 +2839,7 @@ function detectWithOpenCV(R){
     cvLib.adaptiveThreshold(gray,thresh,255,cvLib.ADAPTIVE_THRESH_GAUSSIAN_C,cvLib.THRESH_BINARY_INV,15,5);
     kernel=cvLib.getStructuringElement(cvLib.MORPH_RECT,new cvLib.Size(2,2));
     cvLib.morphologyEx(thresh,thresh,cvLib.MORPH_CLOSE,kernel);
-    const minLineLength=Math.max(10,Math.round((+$('dL').value||120)*sc*.35));
+    const minLineLength=Math.max(8,Math.round((+$('dL').value||120)*sc*.18));
     const maxLineGap=Math.max(3,Math.round((+$('dG').value||12)*sc));
     const houghThreshold=Math.max(10,Math.round((+$('dT').value||40)*.7));
     cvLib.HoughLinesP(thresh,linesMat,1,Math.PI/180,houghThreshold,minLineLength,maxLineGap);
@@ -2845,9 +2847,23 @@ function detectWithOpenCV(R){
       const k=linesMat.data32S[i*4],l=linesMat.data32S[i*4+1],m=linesMat.data32S[i*4+2],n=linesMat.data32S[i*4+3];
       const x1=k/sc+R.x,y1=l/sc+R.y,x2=m/sc+R.x,y2=n/sc+R.y;
       const len=Math.hypot(x2-x1,y2-y1);
-      if(len>=Math.max(10,(+$('dL').value||120)*.35))detectedSegments.push({k:'P',pts:[[x1,y1],[x2,y2]],len});
+      if(len>=Math.max(8,(+$('dL').value||120)*.18))detectedSegments.push({k:'P',pts:[[x1,y1],[x2,y2]],len,angle:Math.atan2(y2-y1,x2-x1)});
     }
-    return detectedSegments;
+    // Skor dukungan jaringan: segmen pendek yang menyerupai goresan huruf ditekan,
+    // kecuali ujungnya dekat atau arahnya selaras dengan kandidat batas lain.
+    const minKeep=Math.max(18,(+$('dL').value||120)*.32);
+    const linkDist=Math.max(10,(+$('dG').value||50)*.55);
+    const angleDiff=(a,b)=>{let d=Math.abs(a-b)%(Math.PI);return Math.min(d,Math.PI-d);};
+    const kept=detectedSegments.filter((a,i,all)=>{
+      if(a.len>=minKeep)return true;
+      const [a1,a2]=a.pts;
+      for(let j=0;j<all.length;j++){if(i===j)continue;const b=all[j],[b1,b2]=b.pts;
+        const near=Math.min(Math.hypot(a1[0]-b1[0],a1[1]-b1[1]),Math.hypot(a1[0]-b2[0],a1[1]-b2[1]),Math.hypot(a2[0]-b1[0],a2[1]-b1[1]),Math.hypot(a2[0]-b2[0],a2[1]-b2[1]));
+        if(near<=linkDist && angleDiff(a.angle,b.angle)<=Math.PI/12)return true;
+      }
+      return false;
+    });
+    return kept.map(({k,pts})=>({k,pts}));
   }catch(err){
     console.error('OpenCV detection error:',err);
     $('dMsg').textContent='Deteksi OpenCV gagal: '+(err?.message||err);
@@ -3109,7 +3125,7 @@ function runDet(R,poly=null){
       // poly dan kandidat sama-sama dalam koordinat gambar. Garis diterima jika minimal separuh titiknya berada di dalam area.
       if(poly && poly.length>=3) cand=cand.filter(c=>{let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;return n>=c.pts.length/2});
       if(method==='opencv' && !cand.length && /^Deteksi OpenCV gagal:/.test($('dMsg').textContent)) { draw();return; }
-      $('dMsg').textContent=cand.length+' kandidat garis batas. Smart Filter aktif. Magnet otomatis mengikuti toggle dan radius; segmen panjang (>150 px) dilindungi dari merging/snapping. Periksa kandidat sebelum diterima.';
+      $('dMsg').textContent=cand.length+' kandidat garis. Filter geometri menekan goresan pendek yang tidak selaras dengan jaringan; tulisan tidak dihapus dari gambar. Tetap periksa pratinjau sebelum menerima karena sebagian tulisan/garis batas bisa mirip.';
     }catch(x){$('dMsg').textContent='Deteksi gagal: '+x.message}
     draw();
   },40);
