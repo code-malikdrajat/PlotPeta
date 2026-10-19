@@ -12,6 +12,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- OpenCV.js: runtime initialization flag; image detection remains in the browser -->
+<script>window.plotPetaOpenCVReady = false; window.Module = window.Module || {}; window.Module.onRuntimeInitialized = function(){ window.plotPetaOpenCVReady = true; };</script>
+<script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
 <style>
 :root {
   --bg-app: #0c0f17;
@@ -1634,7 +1637,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
   
   <!-- Canvas Viewport -->
   <div id="wrap">
-    <canvas id="cv"></canvas>
+    <canvas id="plotCanvas"></canvas>
 
     <!-- Bilah favorit: tampil di atas peta, tetap terlihat walau laci dilipat -->
     <div id="favoriteBar" class="favorite-bar hide" role="toolbar" aria-label="Alat favorit"></div>
@@ -1791,8 +1794,9 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       <select id="detectMethod" style="width:100%;padding:8px;border-radius:8px;background:var(--panel);color:inherit;border:1px solid var(--border)">
         <option value="hough" selected>Hough + Smart Filter (garis lurus)</option>
         <option value="graph">Graph tracing (kelokan / polylines)</option>
+        <option value="opencv">OpenCV.js (adaptive threshold + Hough)</option>
       </select>
-      <div class="mu" style="margin-top:5px">Graph tracing mengikuti kerangka piksel; hasil bisa lebih berisik pada teks dan scan pudar.</div>
+      <div class="mu" style="margin-top:5px">Graph tracing mengikuti kerangka piksel; OpenCV memakai adaptive threshold dan Hough untuk segmen lurus. Keduanya tetap perlu diperiksa pada teks, simbol, dan persilangan.</div>
       
       <div class="slider-row">
         <span>Kepekaan</span>
@@ -2130,15 +2134,15 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 
 <script>
 const $=id=>document.getElementById(id);
-const cv=$('cv'),ctx=cv.getContext('2d');
+const plotCanvas=$('plotCanvas'),ctx=plotCanvas.getContext('2d');
 const LN={get P(){return $('lP').value.trim()||'020100'},get D(){return $('lD').value.trim()||'020300'}};
 let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=-1,mouse=null,drag=null,dirty=false,hist=[];
 let cal={pts:[],ok:false,M:null,mode:'local'};
 let cand=[],box=null,mv=null,polys=[],gaps=[];
 let selectionPoly=[], boxAction='detect', freehandDrawing=false;
 let mapName='';
-const W=()=>cv.clientWidth,H=()=>cv.clientHeight,d1=()=>devicePixelRatio||1;
-function resize(){const r=$('wrap').getBoundingClientRect(),d=d1();cv.width=r.width*d;cv.height=r.height*d;cv.style.width=r.width+'px';cv.style.height=r.height+'px';draw()}
+const W=()=>plotCanvas.clientWidth,H=()=>plotCanvas.clientHeight,d1=()=>devicePixelRatio||1;
+function resize(){const r=$('wrap').getBoundingClientRect(),d=d1();plotCanvas.width=r.width*d;plotCanvas.height=r.height*d;plotCanvas.style.width=r.width+'px';plotCanvas.style.height=r.height+'px';draw()}
 addEventListener('resize',resize);
 const toS=p=>[p[0]*V.s+V.x,p[1]*V.s+V.y],toI=p=>[(p[0]-V.x)/V.s,(p[1]-V.y)/V.s];
 const fitV=()=>{V.s=Math.min(W()/iw,H()/ih);V.x=(W()-iw*V.s)/2;V.y=(H()-ih*V.s)/2};
@@ -2212,7 +2216,7 @@ function setTool(t){
   selectionPoly=[]; box=null;
   updateToolModeHint();
   document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
-  cv.style.cursor=t==='pan'?'grab':'crosshair';
+  plotCanvas.style.cursor=t==='pan'?'grab':'crosshair';
   draw();
 }
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
@@ -2279,18 +2283,18 @@ function click(sp){
 $('fin').onclick=finish;
 $('undo').onclick=undo;
 
-cv.addEventListener('pointerdown',e=>{
+plotCanvas.addEventListener('pointerdown',e=>{
   const sp=[e.offsetX,e.offsetY];
   const freehandMode = (tool==='A' && detectModeEl?.value==='poly') || (tool==='E' && eraseModeEl?.value==='poly');
   if(e.button===0 && img && freehandMode){
     e.preventDefault();
-    cv.setPointerCapture(e.pointerId);
+    plotCanvas.setPointerCapture(e.pointerId);
     freehandDrawing=true; drag=null; box=null; selectionPoly=[sp];
     if(tool==='A') $('dMsg').textContent='Sedang menggambar area deteksi bebas… lepaskan mouse untuk mulai deteksi.';
     else $('st').innerHTML='<span class="status-dot"></span><span>Sedang menggambar area hapus bebas… lepaskan mouse untuk menghapus</span>';
     draw(); return;
   }
-  cv.setPointerCapture(e.pointerId);
+  plotCanvas.setPointerCapture(e.pointerId);
   if(e.button===0&&img){
     if(tool==='M'){const h=findV(sp);if(h){snapshot();mv=h;return}}
     if(tool==='A' && detectModeEl?.value==='rect'){boxAction='detect';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
@@ -2298,7 +2302,7 @@ cv.addEventListener('pointerdown',e=>{
   }
   drag={x:e.offsetX,y:e.offsetY,ox:V.x,oy:V.y,moved:false,btn:e.button};
 });
-cv.addEventListener('pointermove',e=>{
+plotCanvas.addEventListener('pointermove',e=>{
   mouse=[e.offsetX,e.offsetY];
   if(freehandDrawing){
     const last=selectionPoly[selectionPoly.length-1], next=[e.offsetX,e.offsetY];
@@ -2320,7 +2324,7 @@ cv.addEventListener('pointermove',e=>{
   }
   draw();
 });
-cv.addEventListener('pointerup',e=>{
+plotCanvas.addEventListener('pointerup',e=>{
   if(freehandDrawing){
     freehandDrawing=false;
     if(selectionPoly.length>=3) finishSelection();
@@ -2338,10 +2342,10 @@ cv.addEventListener('pointerup',e=>{
   if(drag&&!drag.moved&&drag.btn===0)click([e.offsetX,e.offsetY]);
   drag=null;
 });
-cv.addEventListener('dblclick',()=>{if((tool==='P')&&cur.length){cur.pop();finish()}});
-cv.addEventListener('contextmenu',e=>e.preventDefault());
-cv.style.touchAction='none';
-cv.addEventListener('wheel',e=>{
+plotCanvas.addEventListener('dblclick',()=>{if((tool==='P')&&cur.length){cur.pop();finish()}});
+plotCanvas.addEventListener('contextmenu',e=>e.preventDefault());
+plotCanvas.style.touchAction='none';
+plotCanvas.addEventListener('wheel',e=>{
   e.preventDefault();
   if(!img)return;
   const k=e.deltaY<0?1.2:1/1.2,p=toI([e.offsetX,e.offsetY]);
@@ -2736,6 +2740,47 @@ function detectVerticesAndEdges(R){
   return segments.filter(s=>{let len=0;for(let i=1;i<s.pts.length;i++)len+=Math.hypot(s.pts[i][0]-s.pts[i-1][0],s.pts[i][1]-s.pts[i-1][1]);s.pts=s.pts.filter((p,i,a)=>i===0||i===a.length-1||Math.abs((p[0]-a[i-1][0])*(a[i+1][1]-p[1])-(p[1]-a[i-1][1])*(a[i+1][0]-p[0]))>1.5);return len>=Math.max(12,+$('dL').value*.35);});
 }
 
+function detectWithOpenCV(R){
+  const cvLib=window.cv;
+  if(!cvLib || !cvLib.Mat || !window.plotPetaOpenCVReady){
+    $('dMsg').textContent='OpenCV.js belum siap. Pastikan internet aktif, tunggu beberapa detik, lalu coba lagi.';
+    return [];
+  }
+  const sc=Math.min(1.0,2500/Math.max(R.w,R.h));
+  const w=Math.max(1,Math.round(R.w*sc)),h=Math.max(1,Math.round(R.h*sc));
+  const oc=document.createElement('canvas');oc.width=w;oc.height=h;
+  const octx=oc.getContext('2d',{willReadFrequently:true});
+  octx.fillStyle='#fff';octx.fillRect(0,0,w,h);octx.imageSmoothingQuality='high';
+  octx.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
+  let src=null,gray=null,thresh=null,linesMat=null,kernel=null;
+  const detectedSegments=[];
+  try{
+    src=cvLib.imread(oc);gray=new cvLib.Mat();thresh=new cvLib.Mat();linesMat=new cvLib.Mat();
+    cvLib.cvtColor(src,gray,cvLib.COLOR_RGBA2GRAY,0);
+    // Adaptive threshold handles uneven paper background better than a single global threshold.
+    cvLib.adaptiveThreshold(gray,thresh,255,cvLib.ADAPTIVE_THRESH_GAUSSIAN_C,cvLib.THRESH_BINARY_INV,15,5);
+    kernel=cvLib.getStructuringElement(cvLib.MORPH_RECT,new cvLib.Size(2,2));
+    cvLib.morphologyEx(thresh,thresh,cvLib.MORPH_CLOSE,kernel);
+    const minLineLength=Math.max(10,Math.round((+$('dL').value||120)*sc*.35));
+    const maxLineGap=Math.max(3,Math.round((+$('dG').value||12)*sc));
+    const houghThreshold=Math.max(10,Math.round((+$('dT').value||40)*.7));
+    cvLib.HoughLinesP(thresh,linesMat,1,Math.PI/180,houghThreshold,minLineLength,maxLineGap);
+    for(let i=0;i<linesMat.rows;i++){
+      const k=linesMat.data32S[i*4],l=linesMat.data32S[i*4+1],m=linesMat.data32S[i*4+2],n=linesMat.data32S[i*4+3];
+      const x1=k/sc+R.x,y1=l/sc+R.y,x2=m/sc+R.x,y2=n/sc+R.y;
+      const len=Math.hypot(x2-x1,y2-y1);
+      if(len>=Math.max(10,(+$('dL').value||120)*.35))detectedSegments.push({k:'P',pts:[[x1,y1],[x2,y2]],len});
+    }
+    return detectedSegments;
+  }catch(err){
+    console.error('OpenCV detection error:',err);
+    $('dMsg').textContent='Deteksi OpenCV gagal: '+(err?.message||err);
+    return [];
+  }finally{
+    for(const m of [src,gray,thresh,linesMat,kernel])if(m&&typeof m.delete==='function')m.delete();
+  }
+}
+
 function detect(R){
   const T=+$('dT').value,minL=+$('dL').value,gapF=+$('dG').value;
   const sc=Math.min(.5,2400/Math.max(R.w,R.h)),w=Math.max(16,Math.round(R.w*sc)),h=Math.max(16,Math.round(R.h*sc));
@@ -2979,9 +3024,15 @@ function runDet(R,poly=null){
   $('dMsg').textContent='Mendeteksi...';
   setTimeout(()=>{
     try{
-      cand=$('detectMethod')?.value==='graph' ? detectVerticesAndEdges(R) : detect(R);
+      const method=$('detectMethod')?.value||'hough';
+      if(method==='opencv' && (!window.plotPetaOpenCVReady || !window.cv || !window.cv.Mat)){
+        $('dMsg').textContent='OpenCV.js belum siap. Pastikan internet aktif, tunggu beberapa detik, lalu coba lagi.';
+        draw();return;
+      }
+      cand=method==='graph' ? detectVerticesAndEdges(R) : method==='opencv' ? detectWithOpenCV(R) : detect(R);
       // poly dan kandidat sama-sama dalam koordinat gambar. Garis diterima jika minimal separuh titiknya berada di dalam area.
       if(poly && poly.length>=3) cand=cand.filter(c=>{let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;return n>=c.pts.length/2});
+      if(method==='opencv' && !cand.length && /^Deteksi OpenCV gagal:/.test($('dMsg').textContent)) { draw();return; }
       $('dMsg').textContent=cand.length+' kandidat garis batas. Smart Filter aktif. Magnet otomatis mengikuti toggle dan radius; segmen panjang (>150 px) dilindungi dari merging/snapping. Periksa kandidat sebelum diterima.';
     }catch(x){$('dMsg').textContent='Deteksi gagal: '+x.message}
     draw();
