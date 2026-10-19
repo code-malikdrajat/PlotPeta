@@ -2177,9 +2177,10 @@ function makePacked1BitPreview(page, maxSide=5000){
   const w=Number(page.width),h=Number(page.height),data=page.data;
   if(!data || !w || !h) throw new Error('Data raster TIFF tidak tersedia');
   const rowBytes=Math.ceil(w/8);
-  // UTIF dapat mengembalikan data packed 1-bit atau expanded 8-bit.
-  if(data.length < rowBytes*h) throw new Error('Data TIFF 1-bit tidak lengkap atau format packing tidak didukung');
-  if(data.length !== rowBytes*h) throw new Error('Raster TIFF tidak tersimpan dalam format 1-bit packed yang diharapkan');
+  // Beberapa versi decoder mengembangkan piksel 1-bit menjadi satu byte/piksel.
+  const expanded8Bit=data.length>=w*h;
+  if(!expanded8Bit && data.length < rowBytes*h) throw new Error('Data TIFF 1-bit tidak lengkap atau format packing tidak didukung');
+  if(!expanded8Bit && data.length !== rowBytes*h) throw new Error('Panjang raster TIFF 1-bit tidak sesuai dengan dimensi gambar');
   const scale=Math.min(1,maxSide/Math.max(w,h));
   const pw=Math.max(1,Math.round(w*scale)),ph=Math.max(1,Math.round(h*scale));
   const canvas=document.createElement('canvas');canvas.width=pw;canvas.height=ph;
@@ -2190,8 +2191,9 @@ function makePacked1BitPreview(page, maxSide=5000){
     const sy=Math.min(h-1,Math.floor(y*h/ph));
     for(let x=0;x<pw;x++){
       const sx=Math.min(w-1,Math.floor(x*w/pw));
-      const byte=data[sy*rowBytes+(sx>>3)];
-      const bit=(byte>>(7-(sx&7)))&1;
+      let bit;
+      if(expanded8Bit){bit=data[sy*w+sx] ? 1 : 0;}
+      else {const byte=data[sy*rowBytes+(sx>>3)];bit=(byte>>(7-(sx&7)))&1;}
       // Photometric 0 = WhiteIsZero, 1 = BlackIsZero.
       const black=photometric===0 ? bit===0 : bit===1;
       const i=(y*pw+x)*4, v=black?0:255;
@@ -2208,9 +2210,15 @@ async function loadTiffFile(file){
     const U=await ensureUTIF(),buffer=await file.arrayBuffer(),pages=U.decode(buffer);
     if(!pages||!pages.length) throw new Error('TIFF tidak memiliki halaman gambar');
     const page=pages[0];
-    const w=Number(page.width),h=Number(page.height),pixels=w*h;
-    if(!w||!h||!Number.isFinite(pixels)) throw new Error('Dimensi TIFF tidak valid');
+    // UTIF.js menyimpan dimensi TIFF di tag 256/257; page.width/page.height
+    // belum tentu terisi sampai decodeImage dipanggil. Baca tag sebagai fallback.
+    const tagValue=(tag)=>{const v=page['t'+tag];return Array.isArray(v)||ArrayBuffer.isView(v)?Number(v[0]):Number(v);};
+    let w=Number(page.width)||tagValue(256),h=Number(page.height)||tagValue(257);
+    if(!Number.isSafeInteger(w)||!Number.isSafeInteger(h)||w<1||h<1) throw new Error('Dimensi TIFF tidak valid (tag ImageWidth/ImageLength tidak terbaca)');
+    const pixels=w*h;
     U.decodeImage(buffer,page);
+    // Ambil kembali dimensi setelah decoder mengisi metadata.
+    w=Number(page.width)||w;h=Number(page.height)||h;
     let loadedImage,shownW,shownH,notice='';
     if(pixels>150000000){
       // Untuk TIFF 1-bit besar: downsample langsung dari raster packed agar tidak
