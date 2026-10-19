@@ -2701,10 +2701,11 @@ function movePt(sp){
   dirty=true;
 }
 
-// Graph-based Vertex-to-Edge tracing: adaptive local threshold, Zhang-Suen thinning,
-// then walk skeleton pixels between endpoints/junctions. Output preserves curved polylines.
+// Graph-based Vertex-to-Edge tracing: higher-resolution scan (up to 0.8 scale / 3000 px),
+// adaptive local threshold, Zhang-Suen thinning, then walk skeleton pixels between endpoints/junctions.
+// Keeps curved polylines; junction clusters are consolidated to reduce duplicate vertices.
 function detectVerticesAndEdges(R){
-  const sc=Math.min(.6,2000/Math.max(R.w,R.h)),w=Math.max(32,Math.round(R.w*sc)),h=Math.max(32,Math.round(R.h*sc)),N=w*h;
+  const sc=Math.min(.8,3000/Math.max(R.w,R.h)),w=Math.max(32,Math.round(R.w*sc)),h=Math.max(32,Math.round(R.h*sc)),N=w*h;
   const oc=document.createElement('canvas');oc.width=w;oc.height=h;const ctx=oc.getContext('2d',{willReadFrequently:true});
   ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
   const rgba=ctx.getImageData(0,0,w,h).data,gray=new Uint8Array(N);let hist=new Uint32Array(256);
