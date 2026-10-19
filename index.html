@@ -1816,6 +1816,13 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       </div>
       <input id="dG" type="range" min="10" max="120" value="50" style="width:100%">
 
+      <div class="slider-row">
+        <span>Abaikan gumpalan kecil (OpenCV)</span>
+        <span class="slider-val" id="val_inkBlob">18 px²</span>
+      </div>
+      <input id="inkBlob" type="range" min="0" max="100" value="18" step="2" style="width:100%">
+      <div class="mu" style="margin-top:3px">Menyaring komponen tinta kecil yang cenderung menyerupai tulisan. Komponen memanjang tetap dipertahankan agar garis batas pendek/putus-putus tidak mudah hilang. Nilai 0 menonaktifkan filter ini.</div>
+
       <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0">
         <input id="autoMagToggle" type="checkbox" checked style="width:auto">
         <span>Aktifkan Magnet Otomatis (lindungi garis berkelok)</span>
@@ -2837,6 +2844,25 @@ function detectWithOpenCV(R){
     cvLib.cvtColor(src,gray,cvLib.COLOR_RGBA2GRAY,0);
     // Adaptive threshold handles uneven paper background better than a single global threshold.
     cvLib.adaptiveThreshold(gray,thresh,255,cvLib.ADAPTIVE_THRESH_GAUSSIAN_C,cvLib.THRESH_BINARY_INV,15,5);
+    // Filter small compact ink components before closing/Hough. Elongated components
+    // are retained so short boundary fragments and dashed boundary segments survive.
+    const blobLimit=Math.max(0,Math.round(+$('inkBlob')?.value||0));
+    if(blobLimit>0 && typeof cvLib.connectedComponentsWithStats==='function'){
+      let labels=null,stats=null,centroids=null;
+      try{
+        const count=cvLib.connectedComponentsWithStats(thresh,labels=new cvLib.Mat(),stats=new cvLib.Mat(),centroids=new cvLib.Mat(),8,cvLib.CV_32S);
+        const remove=new Uint8Array(count);
+        for(let label=1;label<count;label++){
+          const row=label*stats.cols;
+          const left=stats.data32S[row+cvLib.CC_STAT_LEFT],top=stats.data32S[row+cvLib.CC_STAT_TOP];
+          const cw=stats.data32S[row+cvLib.CC_STAT_WIDTH],ch=stats.data32S[row+cvLib.CC_STAT_HEIGHT],area=stats.data32S[row+cvLib.CC_STAT_AREA];
+          const elongation=Math.max(cw/Math.max(1,ch),ch/Math.max(1,cw));
+          if(area<=blobLimit && Math.max(cw,ch)<=Math.max(3,Math.round(blobLimit*.8)) && elongation<3.0)remove[label]=1;
+        }
+        const lp=labels.data32S,tp=thresh.data;
+        for(let i=0;i<lp.length;i++)if(remove[lp[i]])tp[i]=0;
+      }finally{for(const m of [labels,stats,centroids])if(m&&typeof m.delete==='function')m.delete();}
+    }
     kernel=cvLib.getStructuringElement(cvLib.MORPH_RECT,new cvLib.Size(2,2));
     cvLib.morphologyEx(thresh,thresh,cvLib.MORPH_CLOSE,kernel);
     const minLineLength=Math.max(8,Math.round((+$('dL').value||120)*sc*.18));
@@ -3255,6 +3281,7 @@ const sliderPairs = [
   ['dT', 'val_dT', ''],
   ['dL', 'val_dL', ' px'],
   ['dG', 'val_dG', ' px'],
+  ['inkBlob', 'val_inkBlob', ' px²'],
   ['magR', 'val_magR', ' px']
 ];
 sliderPairs.forEach(([sliderId, labelId, suffix]) => {
