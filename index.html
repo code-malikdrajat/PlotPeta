@@ -2797,34 +2797,99 @@ function detect(R){
     }
     if(!dup)out.push(q);
   }
-  const ln=out.map(q=>({p:[[q[0],q[1]],[q[2],q[3]]],k:q[4]}));
+  // Pemeriksaan piksel tinta sepanjang jalur, dipakai oleh merging dan snapping.
+  const checkPath=(x1,y1,x2,y2)=>{
+    const dist=Math.hypot(x2-x1,y2-y1);if(dist<1)return true;
+    let hits=0;const steps=Math.max(2,Math.ceil(dist));
+    for(let i=1;i<=steps;i++)if(at(x1+(x2-x1)*i/steps,y1+(y2-y1)*i/steps))hits++;
+    return hits/steps>0.25;
+  };
+  // --- 1. COLLINEAR MERGING (Menyambung garis putus searah) ---
+  // Gabungkan hanya fragmen yang hampir sejajar, dekat secara ortogonal, dan memiliki gap terbatas.
+  const segAngle=q=>Math.atan2(q[3]-q[1],q[2]-q[0]);
+  const mergeAngleLimit=8*Math.PI/180;
+  const mergeOffsetLimit=4;
+  const mergeGapLimit=40;
+  let merged=true, mergePass=0;
+  while(merged && mergePass++ < 12){
+    merged=false;
+    outerMerge: for(let i=0;i<out.length;i++){
+      for(let j=i+1;j<out.length;j++){
+        const a=out[i], b=out[j];
+        const ax=a[2]-a[0], ay=a[3]-a[1], al=Math.hypot(ax,ay);
+        const bx=b[2]-b[0], by=b[3]-b[1], bl=Math.hypot(bx,by);
+        if(al<1e-6||bl<1e-6)continue;
+        let dAngle=Math.abs(segAngle(a)-segAngle(b))%Math.PI;
+        if(dAngle>Math.PI/2)dAngle=Math.PI-dAngle;
+        if(dAngle>=mergeAngleLimit)continue;
+        const ux=ax/al, uy=ay/al, nx=-uy, ny=ux;
+        const ortho1=Math.abs((b[0]-a[0])*ny-(b[1]-a[1])*nx);
+        const ortho2=Math.abs((b[2]-a[0])*ny-(b[3]-a[1])*nx);
+        if(Math.max(ortho1,ortho2)>mergeOffsetLimit)continue;
+        // Project B onto A's axis and calculate the actual empty gap (not endpoint distance).
+        const t0=(b[0]-a[0])*ux+(b[1]-a[1])*uy;
+        const t1=(b[2]-a[0])*ux+(b[3]-a[1])*uy;
+        const blo=Math.min(t0,t1), bhi=Math.max(t0,t1);
+        const gap=Math.max(0, blo-al, -bhi);
+        if(gap>mergeGapLimit)continue;
+        // Do not bridge a gap unless the image has enough dark pixels along the connecting path.
+        const aEnds=[[a[0],a[1]],[a[2],a[3]]], bEnds=[[b[0],b[1]],[b[2],b[3]]];
+        let pair=null, pairD=Infinity;
+        for(const pa of aEnds)for(const pb of bEnds){
+          const d=Math.hypot(pa[0]-pb[0],pa[1]-pb[1]);
+          if(d<pairD){pairD=d;pair=[pa,pb]}
+        }
+        if(pairD>1 && !checkPath(pair[0][0],pair[0][1],pair[1][0],pair[1][1]))continue;
+        // Use the two extreme endpoints along A's axis to make one continuous segment.
+        const pts=[ [a[0],a[1]], [a[2],a[3]], [b[0],b[1]], [b[2],b[3]] ];
+        let minP=pts[0], maxP=pts[0], minT=Infinity, maxT=-Infinity;
+        for(const p of pts){const t=(p[0]-a[0])*ux+(p[1]-a[1])*uy;if(t<minT){minT=t;minP=p}if(t>maxT){maxT=t;maxP=p}}
+        const mergedLength=Math.hypot(maxP[0]-minP[0],maxP[1]-minP[1]);
+        out[i]=[minP[0],minP[1],maxP[0],maxP[1],'P',mergedLength];
+        out.splice(j,1);merged=true;break outerMerge;
+      }
+    }
+  }
+
+  // --- 2. INTERSECTION SNAPPING PRESISI TINGGI ---
+  const ln=out.map(q=>({k:q[4],p:[[q[0],q[1]],[q[2],q[3]]]}));
   const lineX=(a,b)=>{
-    const[x1,y1]=a.p[0],[x2,y2]=a.p[1],[x3,y3]=b.p[0],[x4,y4]=b.p[1],d=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+    const [x1,y1]=a.p[0], [x2,y2]=a.p[1], [x3,y3]=b.p[0], [x4,y4]=b.p[1];
+    const d=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
     if(Math.abs(d)<1e-9)return null;
     const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/d;
-    return[x1+t*(x2-x1),y1+t*(y2-y1)];
+    return [x1+t*(x2-x1),y1+t*(y2-y1)];
   };
-  const R2=8;
-  for(const a of ln)for(const e of a.p){
-    let best=null,bd=R2;
-    for(const b of ln){
-      if(b===a)continue;
-      const X=lineX(a,b);
-      if(!X)continue;
-      const d=Math.hypot(X[0]-e[0],X[1]-e[1]);
-      if(d>=bd)continue;
-      const bx=b.p[1][0]-b.p[0][0],by=b.p[1][1]-b.p[0][1],Lb=Math.hypot(bx,by),tb=((X[0]-b.p[0][0])*bx+(X[1]-b.p[0][1])*by)/Lb;
-      if(tb<-R2||tb>Lb+R2)continue;
-      const ax=a.p[1][0]-a.p[0][0],ay=a.p[1][1]-a.p[0][1];
-      if(Math.abs(ax*by-ay*bx)/(Math.hypot(ax,ay)*Lb)<.17)continue;
-      bd=d;best=X;
+  const R2=14;
+  for(const a of ln){
+    for(const e of a.p){
+      let best=null,bd=R2;
+      for(const b of ln){
+        if(b===a)continue;
+        const X=lineX(a,b);if(!X)continue;
+        const d=Math.hypot(X[0]-e[0],X[1]-e[1]);if(d>=bd)continue;
+        const bx=b.p[1][0]-b.p[0][0],by=b.p[1][1]-b.p[0][1],Lb=Math.hypot(bx,by);
+        if(Lb<1e-9)continue;
+        const tb=((X[0]-b.p[0][0])*bx+(X[1]-b.p[0][1])*by)/Lb;
+        if(tb < -R2 || tb > Lb+R2)continue;
+        const ax=a.p[1][0]-a.p[0][0],ay=a.p[1][1]-a.p[0][1],La=Math.hypot(ax,ay);
+        if(!La||Math.abs(ax*by-ay*bx)/(La*Lb)<0.15)continue;
+        if(checkPath(e[0],e[1],X[0],X[1])){bd=d;best=X;}
+      }
+      if(best){e[0]=best[0];e[1]=best[1];}
     }
-    if(best){e[0]=best[0];e[1]=best[1]}
   }
+  // --- 3. ENDPOINT CLUSTERING (MAGNET OTOMATIS) ---
+  // Satukan ujung-ujung yang dekat; tetap gunakan radius terbatas agar sudut bidang
+  // yang berbeda tidak mudah ikut tergabung.
   const E=ln.flatMap(a=>a.p),dn=new Set();
+  const snapRadius=16;
   for(const e of E){
     if(dn.has(e))continue;
-    const g=E.filter(q=>!dn.has(q)&&Math.hypot(q[0]-e[0],q[1]-e[1])<3),mx=g.reduce((z,q)=>z+q[0],0)/g.length,my=g.reduce((z,q)=>z+q[1],0)/g.length;
+    const g=E.filter(q=>!dn.has(q)&&Math.hypot(q[0]-e[0],q[1]-e[1])<snapRadius);
+    if(!g.length)continue;
+    const mx=g.reduce((z,q)=>z+q[0],0)/g.length;
+    const my=g.reduce((z,q)=>z+q[1],0)/g.length;
     g.forEach(q=>{q[0]=mx;q[1]=my;dn.add(q)});
   }
   return ln.map(a=>({k:a.k,pts:a.p.map(q=>[q[0]/sc+R.x,q[1]/sc+R.y])}));
@@ -2853,7 +2918,7 @@ function runDet(R,poly=null){
       cand=detect(R);
       // poly dan kandidat sama-sama dalam koordinat gambar. Garis diterima jika minimal separuh titiknya berada di dalam area.
       if(poly && poly.length>=3) cand=cand.filter(c=>{let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;return n>=c.pts.length/2});
-      $('dMsg').textContent=cand.length+' kandidat garis batas. Smart Filter aktif: kandidat ganda yang sejajar, berdekatan, dan bertumpang-tindih disaring. Terima semua atau buang, lalu koreksi dengan Hapus dan Geser titik.';
+      $('dMsg').textContent=cand.length+' kandidat garis batas. Smart Filter, Collinear Merging, dan Intersection Snapping aktif. Fragmen segaris bercelah kecil digabung dan ujung dekat persimpangan diselaraskan. Periksa kandidat sebelum diterima.';
     }catch(x){$('dMsg').textContent='Deteksi gagal: '+x.message}
     draw();
   },40);
