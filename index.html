@@ -12,6 +12,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- OpenCV.js: runtime initialization flag; image detection remains in the browser -->
+<script>window.plotPetaOpenCVReady = false; window.Module = window.Module || {}; window.Module.onRuntimeInitialized = function(){ window.plotPetaOpenCVReady = true; };</script>
+<script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
 <style>
 :root {
   --bg-app: #0c0f17;
@@ -1571,15 +1574,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
         </svg>
         <span>Garis penuh</span>
       <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
-
-      <button data-tool="D" title="Digitasi garis putus-putus (dashed line)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="4" y1="19" x2="20" y2="5" stroke-dasharray="3 3"></line>
-        </svg>
-        <span>Garis putus</span>
-      <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
-
-      <button data-tool="T" title="Tambahkan teks nomor hak dan surat ukur">
+<button data-tool="T" title="Tambahkan teks nomor hak dan surat ukur">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="4 7 4 4 20 4 20 7"></polyline>
           <line x1="9" y1="20" x2="15" y2="20"></line>
@@ -1642,7 +1637,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
   
   <!-- Canvas Viewport -->
   <div id="wrap">
-    <canvas id="cv"></canvas>
+    <canvas id="plotCanvas"></canvas>
 
     <!-- Bilah favorit: tampil di atas peta, tetap terlihat walau laci dilipat -->
     <div id="favoriteBar" class="favorite-bar hide" role="toolbar" aria-label="Alat favorit"></div>
@@ -1776,7 +1771,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       </div>
       <div class="g2">
         <label class="mu">Garis penuh<input id="lP" value="020100" style="margin-top:3px"></label>
-        <label class="mu">Garis putus<input id="lD" value="020300" style="margin-top:3px"></label>
+        <input id="lD" value="020300" type="hidden">
         <label class="mu">Nomor M<input id="lM" value="080203" style="margin-top:3px"></label>
         <label class="mu">Su<input id="lSu" value="080202" style="margin-top:3px"></label>
       </div>
@@ -1794,7 +1789,14 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <span>Deteksi Otomatis</span>
         </h3>
       </div>
-      <div class="mu">Pilih <b>Deteksi otomatis</b>, lalu tarik kotak pada bagian peta. Garis kandidat akan tampil oranye.</div>
+      <div class="mu">Pilih metode deteksi, lalu tarik kotak pada bagian peta. Kandidat akan tampil oranye.</div>
+      <div class="slider-row" style="margin-top:10px"><span>Metode deteksi</span></div>
+      <select id="detectMethod" style="width:100%;padding:8px;border-radius:8px;background:var(--panel);color:inherit;border:1px solid var(--border)">
+        <option value="hough" selected>Hough + Smart Filter (garis lurus)</option>
+        <option value="graph">Graph tracing (kelokan / polylines)</option>
+        <option value="opencv">OpenCV.js (adaptive threshold + Hough)</option>
+      </select>
+      <div class="mu" style="margin-top:5px">Graph tracing mengikuti kerangka piksel; OpenCV memakai adaptive threshold dan Hough untuk segmen lurus. Keduanya tetap perlu diperiksa pada teks, simbol, dan persilangan.</div>
       
       <div class="slider-row">
         <span>Kepekaan</span>
@@ -1813,6 +1815,17 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
         <span class="slider-val" id="val_dG">50 px</span>
       </div>
       <input id="dG" type="range" min="10" max="120" value="50" style="width:100%">
+
+      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0">
+        <input id="autoMagToggle" type="checkbox" checked style="width:auto">
+        <span>Aktifkan Magnet Otomatis (lindungi garis berkelok)</span>
+      </label>
+
+      <div class="slider-row">
+        <span>Radius Magnet Otomatis</span>
+        <span class="slider-val" id="val_magR">40 px</span>
+      </div>
+      <input id="magR" type="range" min="10" max="80" value="40" style="width:100%">
 
       <div class="g2">
         <button class="pri" id="dOk">Terima semua</button>
@@ -2121,15 +2134,15 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 
 <script>
 const $=id=>document.getElementById(id);
-const cv=$('cv'),ctx=cv.getContext('2d');
+const plotCanvas=$('plotCanvas'),ctx=plotCanvas.getContext('2d');
 const LN={get P(){return $('lP').value.trim()||'020100'},get D(){return $('lD').value.trim()||'020300'}};
 let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=-1,mouse=null,drag=null,dirty=false,hist=[];
 let cal={pts:[],ok:false,M:null,mode:'local'};
 let cand=[],box=null,mv=null,polys=[],gaps=[];
 let selectionPoly=[], boxAction='detect', freehandDrawing=false;
 let mapName='';
-const W=()=>cv.clientWidth,H=()=>cv.clientHeight,d1=()=>devicePixelRatio||1;
-function resize(){const r=$('wrap').getBoundingClientRect(),d=d1();cv.width=r.width*d;cv.height=r.height*d;cv.style.width=r.width+'px';cv.style.height=r.height+'px';draw()}
+const W=()=>plotCanvas.clientWidth,H=()=>plotCanvas.clientHeight,d1=()=>devicePixelRatio||1;
+function resize(){const r=$('wrap').getBoundingClientRect(),d=d1();plotCanvas.width=r.width*d;plotCanvas.height=r.height*d;plotCanvas.style.width=r.width+'px';plotCanvas.style.height=r.height+'px';draw()}
 addEventListener('resize',resize);
 const toS=p=>[p[0]*V.s+V.x,p[1]*V.s+V.y],toI=p=>[(p[0]-V.x)/V.s,(p[1]-V.y)/V.s];
 const fitV=()=>{V.s=Math.min(W()/iw,H()/ih);V.x=(W()-iw*V.s)/2;V.y=(H()-ih*V.s)/2};
@@ -2279,7 +2292,7 @@ function setTool(t){
   selectionPoly=[]; box=null;
   updateToolModeHint();
   document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
-  cv.style.cursor=t==='pan'?'grab':'crosshair';
+  plotCanvas.style.cursor=t==='pan'?'grab':'crosshair';
   draw();
 }
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
@@ -2307,7 +2320,7 @@ function snapPt(p){
   }
   return best?best.slice():p;
 }
-function finish(){if(cur.length>=2){snapshot();lines.push({k:tool==='D'?'D':'P',pts:cur})}cur=[];stat();draw()}
+function finish(){if(cur.length>=2){snapshot();lines.push({k:'P',pts:cur})}cur=[];stat();draw()}
 function distSeg(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy;let t=L?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L:0;t=Math.max(0,Math.min(1,t));return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy)}
 function click(sp){
   if(!img)return;
@@ -2316,7 +2329,7 @@ function click(sp){
   if(tool==='A' && detectModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('dMsg').textContent='Batas area deteksi: '+selectionPoly.length+' titik. Tekan Enter untuk menjalankan deteksi.';draw();return}
   if(tool==='E' && eraseModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('st').innerHTML='<span class="status-dot"></span><span>Batas area hapus: '+selectionPoly.length+' titik — tekan Enter untuk menghapus</span>';draw();return}
   if(tool==='cal'){if(cal.pts.length<4){cal.pts.push(p);crs()}draw();return}
-  if(tool==='P'||tool==='D'){const q=snapPt(p);cur.push(q);if(cur.length>=3&&q[0]===cur[0][0]&&q[1]===cur[0][1]&&cur.length-1>0)finish();draw();return}
+  if(tool==='P'){const q=snapPt(p);cur.push(q);if(cur.length>=3&&q[0]===cur[0][0]&&q[1]===cur[0][1]&&cur.length-1>0)finish();draw();return}
   if(tool==='T'){snapshot();texts.push({p,no:'',su:''});selT=texts.length-1;tform(true);stat();draw();return}
   if(tool==='E'){
     if(eraseModeEl && eraseModeEl.value!=='click') return;
@@ -2346,18 +2359,18 @@ function click(sp){
 $('fin').onclick=finish;
 $('undo').onclick=undo;
 
-cv.addEventListener('pointerdown',e=>{
+plotCanvas.addEventListener('pointerdown',e=>{
   const sp=[e.offsetX,e.offsetY];
   const freehandMode = (tool==='A' && detectModeEl?.value==='poly') || (tool==='E' && eraseModeEl?.value==='poly');
   if(e.button===0 && img && freehandMode){
     e.preventDefault();
-    cv.setPointerCapture(e.pointerId);
+    plotCanvas.setPointerCapture(e.pointerId);
     freehandDrawing=true; drag=null; box=null; selectionPoly=[sp];
     if(tool==='A') $('dMsg').textContent='Sedang menggambar area deteksi bebas… lepaskan mouse untuk mulai deteksi.';
     else $('st').innerHTML='<span class="status-dot"></span><span>Sedang menggambar area hapus bebas… lepaskan mouse untuk menghapus</span>';
     draw(); return;
   }
-  cv.setPointerCapture(e.pointerId);
+  plotCanvas.setPointerCapture(e.pointerId);
   if(e.button===0&&img){
     if(tool==='M'){const h=findV(sp);if(h){snapshot();mv=h;return}}
     if(tool==='A' && detectModeEl?.value==='rect'){boxAction='detect';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
@@ -2365,7 +2378,7 @@ cv.addEventListener('pointerdown',e=>{
   }
   drag={x:e.offsetX,y:e.offsetY,ox:V.x,oy:V.y,moved:false,btn:e.button};
 });
-cv.addEventListener('pointermove',e=>{
+plotCanvas.addEventListener('pointermove',e=>{
   mouse=[e.offsetX,e.offsetY];
   if(freehandDrawing){
     const last=selectionPoly[selectionPoly.length-1], next=[e.offsetX,e.offsetY];
@@ -2387,7 +2400,7 @@ cv.addEventListener('pointermove',e=>{
   }
   draw();
 });
-cv.addEventListener('pointerup',e=>{
+plotCanvas.addEventListener('pointerup',e=>{
   if(freehandDrawing){
     freehandDrawing=false;
     if(selectionPoly.length>=3) finishSelection();
@@ -2405,10 +2418,10 @@ cv.addEventListener('pointerup',e=>{
   if(drag&&!drag.moved&&drag.btn===0)click([e.offsetX,e.offsetY]);
   drag=null;
 });
-cv.addEventListener('dblclick',()=>{if((tool==='P'||tool==='D')&&cur.length){cur.pop();finish()}});
-cv.addEventListener('contextmenu',e=>e.preventDefault());
-cv.style.touchAction='none';
-cv.addEventListener('wheel',e=>{
+plotCanvas.addEventListener('dblclick',()=>{if((tool==='P')&&cur.length){cur.pop();finish()}});
+plotCanvas.addEventListener('contextmenu',e=>e.preventDefault());
+plotCanvas.style.touchAction='none';
+plotCanvas.addEventListener('wheel',e=>{
   e.preventDefault();
   if(!img)return;
   const k=e.deltaY<0?1.2:1/1.2,p=toI([e.offsetX,e.offsetY]);
@@ -2538,9 +2551,9 @@ function draw(){
   };
   lines.forEach(l=>{
     path(l.pts);
-    ctx.strokeStyle=l.k==='D'?'#2a62d6':'#d62a2a';
+    ctx.strokeStyle='#d62a2a';
     ctx.lineWidth=1.8;
-    ctx.setLineDash(l.k==='D'?[7,5]:[]);
+    ctx.setLineDash([]);
     ctx.stroke();
     ctx.setLineDash([]);
   });
@@ -2566,7 +2579,7 @@ function draw(){
     ctx.strokeStyle='#0ea5e9';
     ctx.lineWidth=2;
     ctx.stroke();
-    if(mouse&&(tool==='P'||tool==='D')){
+    if(mouse&&(tool==='P')){
       const l=toS(cur[cur.length-1]);
       ctx.setLineDash([5,4]);
       ctx.beginPath();
@@ -2583,7 +2596,7 @@ function draw(){
       ctx.fill();
     });
   }
-  if(mouse&&(tool==='P'||tool==='D')){
+  if(mouse&&(tool==='P')){
     const q=snapPt(toI(mouse)),s=toS(q);
     ctx.strokeStyle='#10b981';
     ctx.lineWidth=1.8;
@@ -2612,7 +2625,7 @@ function draw(){
     path(c.pts);
     ctx.strokeStyle='#f59e0b';
     ctx.lineWidth=2;
-    ctx.setLineDash(c.k==='D'?[7,5]:[]);
+    ctx.setLineDash([]);
     ctx.stroke();
     ctx.setLineDash([]);
   });
@@ -2768,6 +2781,82 @@ function movePt(sp){
   dirty=true;
 }
 
+// Graph-based Vertex-to-Edge tracing: higher-resolution scan (up to 0.8 scale / 3000 px),
+// adaptive local threshold, Zhang-Suen thinning, then walk skeleton pixels between endpoints/junctions.
+// Keeps curved polylines; junction clusters are consolidated to reduce duplicate vertices.
+function detectVerticesAndEdges(R){
+  const sc=Math.min(.8,3000/Math.max(R.w,R.h)),w=Math.max(32,Math.round(R.w*sc)),h=Math.max(32,Math.round(R.h*sc)),N=w*h;
+  const oc=document.createElement('canvas');oc.width=w;oc.height=h;const ctx=oc.getContext('2d',{willReadFrequently:true});
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
+  const rgba=ctx.getImageData(0,0,w,h).data,gray=new Uint8Array(N);let hist=new Uint32Array(256);
+  for(let i=0;i<N;i++){const v=Math.round(.299*rgba[i*4]+.587*rgba[i*4+1]+.114*rgba[i*4+2]);gray[i]=v;hist[v]++;}
+  // Otsu global threshold, then local mean adjustment for faded/uneven scans.
+  let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];let sumB=0,wB=0,best=-1,thr=170;
+  for(let t=0;t<256;t++){wB+=hist[t];if(!wB)continue;const wF=N-wB;if(!wF)break;sumB+=t*hist[t];const d=sumB/wB-(sum-sumB)/wF;const score=wB*wF*d*d;if(score>best){best=score;thr=t;}}
+  const integral=new Float64Array((w+1)*(h+1));for(let y=0;y<h;y++){let row=0;for(let x=0;x<w;x++){row+=gray[y*w+x];integral[(y+1)*(w+1)+x+1]=integral[y*(w+1)+x+1]+row;}}
+  const bin=new Uint8Array(N),rad=12;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const x0=Math.max(0,x-rad),x1=Math.min(w,x+rad+1),y0=Math.max(0,y-rad),y1=Math.min(h,y+rad+1),area=(x1-x0)*(y1-y0);const mean=(integral[y1*(w+1)+x1]-integral[y0*(w+1)+x1]-integral[y1*(w+1)+x0]+integral[y0*(w+1)+x0])/area;const i=y*w+x;const localT=Math.max(65,Math.min(thr,mean-7));if(gray[i]<localT)bin[i]=1;}
+  // Remove isolated single pixels before thinning.
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(!bin[i])continue;let n=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(dx||dy)n+=bin[(y+dy)*w+x+dx];if(n===0)bin[i]=0;}
+  // Zhang-Suen skeletonization (bounded iterations to keep large scans responsive).
+  const mark=[];let changed=true,iter=0;
+  while(changed&&iter++<24){changed=false;for(let phase=0;phase<2;phase++){mark.length=0;for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(!bin[i])continue;const p=[bin[i-w],bin[i-w+1],bin[i+1],bin[i+w+1],bin[i+w],bin[i+w-1],bin[i-1],bin[i-w-1]];const B=p.reduce((a,b)=>a+b,0);if(B<2||B>6)continue;let A=0;for(let k=0;k<8;k++)if(p[k]===0&&p[(k+1)%8]===1)A++;if(A!==1)continue;if(phase===0?(p[0]*p[2]*p[4]!==0||p[2]*p[4]*p[6]!==0):(p[0]*p[2]*p[6]!==0||p[0]*p[4]*p[6]!==0))continue;mark.push(i);}if(mark.length){changed=true;for(const i of mark)bin[i]=0;}}}
+  const neigh=i=>{const x=i%w,y=(i/w)|0,a=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const xx=x+dx,yy=y+dy;if(xx>0&&yy>0&&xx<w-1&&yy<h-1&&bin[yy*w+xx])a.push(yy*w+xx);}return a;};
+  const degree=new Uint8Array(N),isV=new Uint8Array(N);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(bin[i]){degree[i]=neigh(i).length;if(degree[i]!==2)isV[i]=1;}}
+  // Collapse adjacent junction pixels into one representative vertex to avoid tiny duplicate edges.
+  const vSeen=new Uint8Array(N),vertices=[];for(let i=0;i<N;i++){if(!isV[i]||vSeen[i])continue;const q=[i],cluster=[];vSeen[i]=1;for(let qi=0;qi<q.length;qi++){const u=q[qi];cluster.push(u);for(const v of neigh(u))if(isV[v]&&!vSeen[v]){vSeen[v]=1;q.push(v);}}const rep=cluster.reduce((a,b)=>a+b,0)/cluster.length;vertices.push({id:Math.round(rep),members:new Set(cluster)});}
+  const vertexOf=new Int32Array(N);vertexOf.fill(-1);vertices.forEach((v,id)=>v.members.forEach(p=>vertexOf[p]=id));
+  const visited=new Set(),segments=[];const edgeKey=(a,b)=>a<b?a+','+b:b+','+a;
+  const walk=(start,first)=>{let prev=start,curr=first,path=[start,first],steps=0;visited.add(edgeKey(start,first));while(steps++<Math.max(w,h)*2){const vi=vertexOf[curr];if(vi>=0&&curr!==start)break;const ns=neigh(curr).filter(n=>n!==prev&&!visited.has(edgeKey(curr,n)));if(!ns.length)break;let next=ns[0];if(ns.length>1){const px=curr%w,py=(curr/w)|0,ax=px-prev%w,ay=py-((prev/w)|0);let best=-Infinity;for(const n of ns){const bx=n%w-px,by=((n/w)|0)-py,score=(ax*bx+ay*by)/(Math.hypot(ax,ay)*Math.hypot(bx,by)+1e-9);if(score>best){best=score;next=n;}}}visited.add(edgeKey(curr,next));prev=curr;curr=next;path.push(curr);if(vertexOf[curr]>=0)break;}
+    if(path.length>=6){const pts=path.map(p=>[((p%w)/sc)+R.x,(((p/w)|0)/sc)+R.y]);segments.push({k:'P',pts});}};
+  for(let vi=0;vi<vertices.length;vi++){const v=vertices[vi];for(const m of v.members)for(const n of neigh(m)){if(vertexOf[n]===vi)continue;if(visited.has(edgeKey(m,n)))continue;walk(m,n);}}
+  // Also trace closed loops, which have no endpoint/junction vertices.
+  for(let i=0;i<N;i++)if(bin[i])for(const n of neigh(i)){if(visited.has(edgeKey(i,n)))continue;walk(i,n);}
+  // Drop tiny noisy traces and preserve natural bends; simplify only near-collinear intermediate points.
+  return segments.filter(s=>{let len=0;for(let i=1;i<s.pts.length;i++)len+=Math.hypot(s.pts[i][0]-s.pts[i-1][0],s.pts[i][1]-s.pts[i-1][1]);s.pts=s.pts.filter((p,i,a)=>i===0||i===a.length-1||Math.abs((p[0]-a[i-1][0])*(a[i+1][1]-p[1])-(p[1]-a[i-1][1])*(a[i+1][0]-p[0]))>1.5);return len>=Math.max(12,+$('dL').value*.35);});
+}
+
+function detectWithOpenCV(R){
+  const cvLib=window.cv;
+  if(!cvLib || !cvLib.Mat || !window.plotPetaOpenCVReady){
+    $('dMsg').textContent='OpenCV.js belum siap. Pastikan internet aktif, tunggu beberapa detik, lalu coba lagi.';
+    return [];
+  }
+  const sc=Math.min(1.0,2500/Math.max(R.w,R.h));
+  const w=Math.max(1,Math.round(R.w*sc)),h=Math.max(1,Math.round(R.h*sc));
+  const oc=document.createElement('canvas');oc.width=w;oc.height=h;
+  const octx=oc.getContext('2d',{willReadFrequently:true});
+  octx.fillStyle='#fff';octx.fillRect(0,0,w,h);octx.imageSmoothingQuality='high';
+  octx.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
+  let src=null,gray=null,thresh=null,linesMat=null,kernel=null;
+  const detectedSegments=[];
+  try{
+    src=cvLib.imread(oc);gray=new cvLib.Mat();thresh=new cvLib.Mat();linesMat=new cvLib.Mat();
+    cvLib.cvtColor(src,gray,cvLib.COLOR_RGBA2GRAY,0);
+    // Adaptive threshold handles uneven paper background better than a single global threshold.
+    cvLib.adaptiveThreshold(gray,thresh,255,cvLib.ADAPTIVE_THRESH_GAUSSIAN_C,cvLib.THRESH_BINARY_INV,15,5);
+    kernel=cvLib.getStructuringElement(cvLib.MORPH_RECT,new cvLib.Size(2,2));
+    cvLib.morphologyEx(thresh,thresh,cvLib.MORPH_CLOSE,kernel);
+    const minLineLength=Math.max(10,Math.round((+$('dL').value||120)*sc*.35));
+    const maxLineGap=Math.max(3,Math.round((+$('dG').value||12)*sc));
+    const houghThreshold=Math.max(10,Math.round((+$('dT').value||40)*.7));
+    cvLib.HoughLinesP(thresh,linesMat,1,Math.PI/180,houghThreshold,minLineLength,maxLineGap);
+    for(let i=0;i<linesMat.rows;i++){
+      const k=linesMat.data32S[i*4],l=linesMat.data32S[i*4+1],m=linesMat.data32S[i*4+2],n=linesMat.data32S[i*4+3];
+      const x1=k/sc+R.x,y1=l/sc+R.y,x2=m/sc+R.x,y2=n/sc+R.y;
+      const len=Math.hypot(x2-x1,y2-y1);
+      if(len>=Math.max(10,(+$('dL').value||120)*.35))detectedSegments.push({k:'P',pts:[[x1,y1],[x2,y2]],len});
+    }
+    return detectedSegments;
+  }catch(err){
+    console.error('OpenCV detection error:',err);
+    $('dMsg').textContent='Deteksi OpenCV gagal: '+(err?.message||err);
+    return [];
+  }finally{
+    for(const m of [src,gray,thresh,linesMat,kernel])if(m&&typeof m.delete==='function')m.delete();
+  }
+}
+
 function detect(R){
   const T=+$('dT').value,minL=+$('dL').value,gapF=+$('dG').value;
   const sc=Math.min(.5,2400/Math.max(R.w,R.h)),w=Math.max(16,Math.round(R.w*sc)),h=Math.max(16,Math.round(R.h*sc));
@@ -2814,7 +2903,7 @@ function detect(R){
   const pk=[];
   for(const c of cd){
     if(pk.length>1500)break;
-    if(!pk.some(p=>Math.abs(p[1]-c[1])<=4&&Math.abs(p[2]-c[2])<=4))pk.push(c);
+    if(!pk.some(p=>Math.abs(p[1]-c[1])<=8&&Math.abs(p[2]-c[2])<=8))pk.push(c);
   }
   const segs=[],G=gapF*sc,Lm=minL*sc;
   for(const[,t,rr]of pk){
@@ -2848,51 +2937,147 @@ function detect(R){
         cov+=at(x,y);
         for(const d of[-6,-5,5,6])sd+=at(x+nx*d,y+ny*d)}
       cov/=M;sd/=4*M;
-      if(cov>=.5&&sd<.18)segs.push([p1[0],p1[1],p2[0],p2[1],cov>.93?'P':'D',L]);
+      if(cov>=.5&&sd<.18)segs.push([p1[0],p1[1],p2[0],p2[1],'P',L]);
     }
   }
   segs.sort((a,b)=>b[5]-a[5]);
   const along=(x,y,q)=>{const dx=q[2]-q[0],dy=q[3]-q[1],L=Math.hypot(dx,dy);return[((x-q[0])*dy-(y-q[1])*dx)/L,((x-q[0])*dx+(y-q[1])*dy)/L,L]};
+  // Smart Filter: buang kandidat yang hampir sejajar, terlalu dekat, dan tumpang-tindih.
+  // Toleransi bekerja pada citra skala deteksi, bukan koordinat layar.
   const out=[];
+  const angleDiff=(a,b)=>{let d=Math.abs(a-b)%Math.PI;return Math.min(d,Math.PI-d)};
   for(const q of segs){
+    const qdx=q[2]-q[0], qdy=q[3]-q[1], qlen=Math.hypot(qdx,qdy);
+    if(qlen<Math.max(8,Lm))continue;
+    const qa=Math.atan2(qdy,qdx);
     let dup=false;
     for(const o3 of out){
-      const a=along(q[0],q[1],o3),b=along(q[2],q[3],o3);
-      if(Math.abs(a[0])<4&&Math.abs(b[0])<4&&Math.max(a[1],b[1])>0&&Math.min(a[1],b[1])<a[2]){dup=true;break}
+      const odx=o3[2]-o3[0], ody=o3[3]-o3[1], olen=Math.hypot(odx,ody);
+      if(!olen)continue;
+      const oa=Math.atan2(ody,odx);
+      if(angleDiff(qa,oa)>Math.PI/30)continue; // sudut berbeda > 6°: pertahankan
+      const nx=-ody/olen, ny=odx/olen;
+      const d1=Math.abs((q[0]-o3[0])*nx+(q[1]-o3[1])*ny);
+      const d2=Math.abs((q[2]-o3[0])*nx+(q[3]-o3[1])*ny);
+      if(Math.max(d1,d2)>7)continue; // jarak antar garis terlalu besar
+      const ux=odx/olen, uy=ody/olen;
+      const a1=(q[0]-o3[0])*ux+(q[1]-o3[1])*uy;
+      const a2=(q[2]-o3[0])*ux+(q[3]-o3[1])*uy;
+      const overlap=Math.max(0,Math.min(olen,Math.max(a1,a2))-Math.max(0,Math.min(a1,a2)));
+      const shorter=Math.min(qlen,olen);
+      const overlapRatio=shorter>0?overlap/shorter:0;
+      if(overlapRatio>=0.45){dup=true;break;}
     }
     if(!dup)out.push(q);
   }
-  const ln=out.map(q=>({p:[[q[0],q[1]],[q[2],q[3]]],k:q[4]}));
+  // Pemeriksaan piksel tinta sepanjang jalur, dipakai oleh merging dan snapping.
+  const checkPath=(x1,y1,x2,y2)=>{
+    const dist=Math.hypot(x2-x1,y2-y1);if(dist<1)return true;
+    let hits=0;const steps=Math.max(2,Math.ceil(dist));
+    for(let i=1;i<=steps;i++)if(at(x1+(x2-x1)*i/steps,y1+(y2-y1)*i/steps))hits++;
+    return hits/steps>0.25;
+  };
+  // Magnet otomatis opsional. Segmen panjang (>150 px) dikecualikan sebagai
+  // perlindungan konservatif bagi jalan/sungai berkelok; bukan deteksi kurva sempurna.
+  const useAutoMag=$('autoMagToggle')?.checked ?? true;
+  if(useAutoMag){
+  const isProtected=q=>Math.hypot(q[2]-q[0],q[3]-q[1])>150;
+  // --- 1. COLLINEAR MERGING (Menyambung garis putus searah) ---
+  // Gabungkan hanya fragmen yang hampir sejajar, dekat secara ortogonal, dan memiliki gap terbatas.
+  const segAngle=q=>Math.atan2(q[3]-q[1],q[2]-q[0]);
+  const mergeAngleLimit=8*Math.PI/180;
+  const mergeOffsetLimit=4;
+  const mergeGapLimit=40;
+  let merged=true, mergePass=0;
+  while(merged && mergePass++ < 12){
+    merged=false;
+    outerMerge: for(let i=0;i<out.length;i++){
+      for(let j=i+1;j<out.length;j++){
+        const a=out[i], b=out[j];
+        if(isProtected(a)||isProtected(b))continue;
+        const ax=a[2]-a[0], ay=a[3]-a[1], al=Math.hypot(ax,ay);
+        const bx=b[2]-b[0], by=b[3]-b[1], bl=Math.hypot(bx,by);
+        if(al<1e-6||bl<1e-6)continue;
+        let dAngle=Math.abs(segAngle(a)-segAngle(b))%Math.PI;
+        if(dAngle>Math.PI/2)dAngle=Math.PI-dAngle;
+        if(dAngle>=mergeAngleLimit)continue;
+        const ux=ax/al, uy=ay/al, nx=-uy, ny=ux;
+        const ortho1=Math.abs((b[0]-a[0])*ny-(b[1]-a[1])*nx);
+        const ortho2=Math.abs((b[2]-a[0])*ny-(b[3]-a[1])*nx);
+        if(Math.max(ortho1,ortho2)>mergeOffsetLimit)continue;
+        // Project B onto A's axis and calculate the actual empty gap (not endpoint distance).
+        const t0=(b[0]-a[0])*ux+(b[1]-a[1])*uy;
+        const t1=(b[2]-a[0])*ux+(b[3]-a[1])*uy;
+        const blo=Math.min(t0,t1), bhi=Math.max(t0,t1);
+        const gap=Math.max(0, blo-al, -bhi);
+        if(gap>mergeGapLimit)continue;
+        // Do not bridge a gap unless the image has enough dark pixels along the connecting path.
+        const aEnds=[[a[0],a[1]],[a[2],a[3]]], bEnds=[[b[0],b[1]],[b[2],b[3]]];
+        let pair=null, pairD=Infinity;
+        for(const pa of aEnds)for(const pb of bEnds){
+          const d=Math.hypot(pa[0]-pb[0],pa[1]-pb[1]);
+          if(d<pairD){pairD=d;pair=[pa,pb]}
+        }
+        if(pairD>1 && !checkPath(pair[0][0],pair[0][1],pair[1][0],pair[1][1]))continue;
+        // Use the two extreme endpoints along A's axis to make one continuous segment.
+        const pts=[ [a[0],a[1]], [a[2],a[3]], [b[0],b[1]], [b[2],b[3]] ];
+        let minP=pts[0], maxP=pts[0], minT=Infinity, maxT=-Infinity;
+        for(const p of pts){const t=(p[0]-a[0])*ux+(p[1]-a[1])*uy;if(t<minT){minT=t;minP=p}if(t>maxT){maxT=t;maxP=p}}
+        const mergedLength=Math.hypot(maxP[0]-minP[0],maxP[1]-minP[1]);
+        out[i]=[minP[0],minP[1],maxP[0],maxP[1],'P',mergedLength];
+        out.splice(j,1);merged=true;break outerMerge;
+      }
+    }
+  }
+
+  // --- 2. INTERSECTION SNAPPING PRESISI TINGGI ---
+  const ln=out.map(q=>({k:q[4],p:[[q[0],q[1]],[q[2],q[3]]],len:Math.hypot(q[2]-q[0],q[3]-q[1])}));
   const lineX=(a,b)=>{
-    const[x1,y1]=a.p[0],[x2,y2]=a.p[1],[x3,y3]=b.p[0],[x4,y4]=b.p[1],d=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+    const [x1,y1]=a.p[0], [x2,y2]=a.p[1], [x3,y3]=b.p[0], [x4,y4]=b.p[1];
+    const d=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
     if(Math.abs(d)<1e-9)return null;
     const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/d;
-    return[x1+t*(x2-x1),y1+t*(y2-y1)];
+    return [x1+t*(x2-x1),y1+t*(y2-y1)];
   };
-  const R2=8;
-  for(const a of ln)for(const e of a.p){
-    let best=null,bd=R2;
-    for(const b of ln){
-      if(b===a)continue;
-      const X=lineX(a,b);
-      if(!X)continue;
-      const d=Math.hypot(X[0]-e[0],X[1]-e[1]);
-      if(d>=bd)continue;
-      const bx=b.p[1][0]-b.p[0][0],by=b.p[1][1]-b.p[0][1],Lb=Math.hypot(bx,by),tb=((X[0]-b.p[0][0])*bx+(X[1]-b.p[0][1])*by)/Lb;
-      if(tb<-R2||tb>Lb+R2)continue;
-      const ax=a.p[1][0]-a.p[0][0],ay=a.p[1][1]-a.p[0][1];
-      if(Math.abs(ax*by-ay*bx)/(Math.hypot(ax,ay)*Lb)<.17)continue;
-      bd=d;best=X;
+  const userMagR=+($('magR')?.value || 40);
+  const R2=userMagR;
+  for(const a of ln){
+    if(a.len>150)continue;
+    for(const e of a.p){
+      let best=null,bd=R2;
+      for(const b of ln){
+        if(b===a||b.len>150)continue;
+        const X=lineX(a,b);if(!X)continue;
+        const d=Math.hypot(X[0]-e[0],X[1]-e[1]);if(d>=bd)continue;
+        const bx=b.p[1][0]-b.p[0][0],by=b.p[1][1]-b.p[0][1],Lb=Math.hypot(bx,by);
+        if(Lb<1e-9)continue;
+        const tb=((X[0]-b.p[0][0])*bx+(X[1]-b.p[0][1])*by)/Lb;
+        if(tb < -R2 || tb > Lb+R2)continue;
+        const ax=a.p[1][0]-a.p[0][0],ay=a.p[1][1]-a.p[0][1],La=Math.hypot(ax,ay);
+        if(!La||Math.abs(ax*by-ay*bx)/(La*Lb)<0.15)continue;
+        if(checkPath(e[0],e[1],X[0],X[1])){bd=d;best=X;}
+      }
+      if(best){e[0]=best[0];e[1]=best[1];}
     }
-    if(best){e[0]=best[0];e[1]=best[1]}
   }
-  const E=ln.flatMap(a=>a.p),dn=new Set();
+  // --- 3. ENDPOINT CLUSTERING (MAGNET OTOMATIS) ---
+  // Satukan ujung-ujung yang dekat; tetap gunakan radius terbatas agar sudut bidang
+  // yang berbeda tidak mudah ikut tergabung.
+  const E=ln.filter(a=>a.len<=150).flatMap(a=>a.p),dn=new Set();
+  const snapRadius=userMagR;
   for(const e of E){
     if(dn.has(e))continue;
-    const g=E.filter(q=>!dn.has(q)&&Math.hypot(q[0]-e[0],q[1]-e[1])<3),mx=g.reduce((z,q)=>z+q[0],0)/g.length,my=g.reduce((z,q)=>z+q[1],0)/g.length;
+    const g=E.filter(q=>!dn.has(q)&&Math.hypot(q[0]-e[0],q[1]-e[1])<snapRadius);
+    if(!g.length)continue;
+    const mx=g.reduce((z,q)=>z+q[0],0)/g.length;
+    const my=g.reduce((z,q)=>z+q[1],0)/g.length;
     g.forEach(q=>{q[0]=mx;q[1]=my;dn.add(q)});
   }
   return ln.map(a=>({k:a.k,pts:a.p.map(q=>[q[0]/sc+R.x,q[1]/sc+R.y])}));
+  } else {
+    // Magnet nonaktif: kembalikan kandidat hasil deteksi tanpa merging/snapping.
+    return out.map(q=>({k:q[4],pts:[[q[0]/sc+R.x,q[1]/sc+R.y],[q[2]/sc+R.x,q[3]/sc+R.y]]}));
+  }
 }
 
 function pointInPolygon(pt,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];const intersect=((yi>pt[1])!==(yj>pt[1]))&&(pt[0]<(xj-xi)*(pt[1]-yi)/(yj-yi+1e-12)+xi);if(intersect)inside=!inside;}return inside;}
@@ -2915,11 +3100,16 @@ function runDet(R,poly=null){
   $('dMsg').textContent='Mendeteksi...';
   setTimeout(()=>{
     try{
-      cand=detect(R);
+      const method=$('detectMethod')?.value||'hough';
+      if(method==='opencv' && (!window.plotPetaOpenCVReady || !window.cv || !window.cv.Mat)){
+        $('dMsg').textContent='OpenCV.js belum siap. Pastikan internet aktif, tunggu beberapa detik, lalu coba lagi.';
+        draw();return;
+      }
+      cand=method==='graph' ? detectVerticesAndEdges(R) : method==='opencv' ? detectWithOpenCV(R) : detect(R);
       // poly dan kandidat sama-sama dalam koordinat gambar. Garis diterima jika minimal separuh titiknya berada di dalam area.
       if(poly && poly.length>=3) cand=cand.filter(c=>{let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;return n>=c.pts.length/2});
-      const nd=cand.filter(c=>c.k==='D').length;
-      $('dMsg').textContent=cand.length+' garis kandidat ('+(cand.length-nd)+' penuh, '+nd+' putus-putus). Terima semua atau buang, lalu koreksi dengan Hapus dan Geser titik.';
+      if(method==='opencv' && !cand.length && /^Deteksi OpenCV gagal:/.test($('dMsg').textContent)) { draw();return; }
+      $('dMsg').textContent=cand.length+' kandidat garis batas. Smart Filter aktif. Magnet otomatis mengikuti toggle dan radius; segmen panjang (>150 px) dilindungi dari merging/snapping. Periksa kandidat sebelum diterima.';
     }catch(x){$('dMsg').textContent='Deteksi gagal: '+x.message}
     draw();
   },40);
@@ -2927,7 +3117,7 @@ function runDet(R,poly=null){
 $('dOk').onclick=()=>{
   if(!cand.length)return;
   snapshot();
-  cand.forEach(c=>lines.push({k:c.k,pts:c.pts}));
+  cand.forEach(c=>lines.push({k:'P',pts:c.pts}));
   cand=[];
   $('dMsg').textContent='Kandidat diterima sebagai garis.';
   stat();
@@ -3048,7 +3238,8 @@ $('pDel').onclick=()=>{polys=[];gaps=[];$('pMsg').textContent='';draw()};
 const sliderPairs = [
   ['dT', 'val_dT', ''],
   ['dL', 'val_dL', ' px'],
-  ['dG', 'val_dG', ' px']
+  ['dG', 'val_dG', ' px'],
+  ['magR', 'val_magR', ' px']
 ];
 sliderPairs.forEach(([sliderId, labelId, suffix]) => {
   const s = $(sliderId), l = $(labelId);
