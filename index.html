@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>PlotPeta &bull; Digitasi Peta Bidang Tanah ke DXF AutoCAD</title>
+<title>PlotPeta v3 &bull; Digitasi Peta Bidang Tanah ke DXF AutoCAD</title>
 <meta name="description" content="PlotPeta: Digitasi peta bidang tanah, kalibrasi koordinat, deteksi garis otomatis, dan ekspor ke DXF AutoCAD">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -350,7 +350,6 @@ kbd {
 
 /* Snap Toggle Switch */
 .switch-label {
-  width:104px; min-width:104px; height:30px; box-sizing:border-box;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -401,25 +400,6 @@ kbd {
 .switch-label input[type="checkbox"]:checked::after {
   transform: translateX(12px);
 }
-
-.snap-mode-options { display:flex; flex-direction:column; gap:6px; width:190px; padding:8px; border:1px solid var(--border); border-radius:9px; background:var(--bg-card); color:var(--text-muted); font-size:11px; }
-.snap-mode-options > label { display:flex; flex-direction:column; gap:4px; }
-.snap-mode-options input[type="range"] { width:100%; padding:0; }
-.snap-targets { display:flex; flex-direction:column; gap:4px; }
-.snap-targets label { display:flex; align-items:center; gap:6px; cursor:pointer; }
-.snap-targets input { margin:0; }
- .snap-distance-control { display:inline-flex; align-items:center; box-sizing:border-box; height:36px; min-height:36px; width:150px; min-width:150px; padding:8px 11px; border:1px solid #405168; border-radius:9px; background:#26384d; color:#eef5fc; font-size:12px; font-weight:500; transition:all 0.15s ease; }
-.snap-distance-control:hover { background:#314860; color:#fff; border-color:#48627c; }
-.snap-distance-control label { display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:4px; width:100%; line-height:1; white-space:nowrap; }
-.snap-distance-control input[type="range"] { width:34px; min-width:34px; padding:0; margin:0; }
-.snap-target-options .snap-targets { display:flex; flex-direction:column; gap:5px; }
-.snap-target-options .snap-targets label { display:flex; align-items:center; gap:6px; font-weight:500; cursor:pointer; }
-.snap-target-options .snap-targets input { margin:0; }
-
-
-.line-mode-options,.snap-target-options { display:none; }
-.line-mode-options.mode-visible,.snap-target-options.mode-visible { display:flex; flex-direction:column; gap:6px; }
-.tool-mode-options select { width:100%; }
 
 /* Inputs & Form Controls */
 input, textarea, select {
@@ -1374,7 +1354,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 .tool-mode-options select { width:100%; min-width:0; font-size:11px; padding:7px 6px; }
 .tool-mode-hint { color:var(--text-dim); font-size:10px; line-height:1.45; }
 #main.drawer-collapsed .tool-mode-options { display:none; }
-@media (max-width:680px) { .tool-mode-options { display:none; } .tool-mode-options.mode-visible { display:flex; flex-direction:column; } }
+@media (max-width:680px) { .tool-mode-options { display:none; } }
 /* Header layout: account tools and login are grouped on the right */
 .header-tagline { color:var(--text-muted); font-size:11px; white-space:nowrap; margin-right:8px; }
 #bar { position:relative; padding-right:560px; }
@@ -1471,11 +1451,6 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       <span>Snap</span>
       <input id="snap" type="checkbox" checked>
     </label>
-    <div class="snap-distance-control" aria-label="Jarak Magnet (Snap)">
-      <label>Magnet <strong><span id="snapDistanceValue">12</span> px</strong>
-        <input id="snapDistance" type="range" min="1" max="40" value="12" step="1" aria-label="Jarak magnet dalam piksel layar">
-      </label>
-    </div>
 
     <!-- Token Pill Badge (Logged In) -->
     <div class="token-pill" id="tokenPill" style="display:none" title="Saldo token Anda (1 download DXF = 1 token)">
@@ -1596,9 +1571,6 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
         </svg>
         <span>Garis penuh</span>
       <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
-      <div class="tool-mode-options line-mode-options line-full-options" aria-label="Metode Garis Penuh">
-        <label>Metode Garis Penuh<select id="lineFullMode" title="Pilih metode menggambar garis penuh"><option value="click">Klik titik satu per satu</option><option value="close">Klik titik + tutup otomatis di titik awal</option></select></label><div class="tool-mode-hint" id="lineFullHint">Klik titik-titik pada peta; klik ganda untuk menyelesaikan garis.</div>
-      </div>
 
       <button data-tool="D" title="Digitasi garis putus-putus (dashed line)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1606,9 +1578,6 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
         </svg>
         <span>Garis putus</span>
       <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
-      <div class="tool-mode-options line-mode-options line-dash-options" aria-label="Metode Garis Putus">
-        <label>Metode Garis Putus<select id="lineDashMode" title="Pilih metode menggambar garis putus"><option value="click">Klik titik satu per satu</option><option value="close">Klik titik + tutup otomatis di titik awal</option></select></label><div class="tool-mode-hint" id="lineDashHint">Klik titik-titik pada peta; klik ganda untuk menyelesaikan garis.</div>
-      </div>
 
       <button data-tool="T" title="Tambahkan teks nomor hak dan surat ukur">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1630,10 +1599,6 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
         </svg>
         <span>Geser titik</span>
       <span role="button" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
-      <div class="tool-mode-options snap-target-options" aria-label="Target Magnet untuk Geser Titik">
-        <div class="tool-mode-hint">Target magnet saat menggeser titik</div>
-        <div class="snap-targets"><label><input id="snapVertices" type="checkbox" checked> Titik</label><label><input id="snapMidpoints" type="checkbox" checked> Tengah Garis</label><label><input id="snapIntersections" type="checkbox" checked> Perpotongan</label></div>
-      </div>
 
       <button data-tool="A" title="Deteksi garis otomatis menggunakan AI/Computer Vision">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1649,9 +1614,6 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
             <option value="poly">Area bebas (tarik mouse)</option>
             <option value="all">Seluruh peta</option>
           </select>
-        </label>
-        <label>Objek yang dideteksi
-          <select id="detectTarget" title="Pilih hasil deteksi otomatis"><option value="both" selected>Garis dan bidang tanah</option><option value="lines">Garis saja</option></select>
         </label>
       </div>
 
@@ -1792,10 +1754,10 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <span>Poligon Bidang</span>
         </h3>
       </div>
-      <div class="mu">Sambungkan ujung garis yang berdekatan, hitung perpotongan, lalu bentuk poligon dari jaringan garis yang menutup. Garis asli tidak diubah; buat ulang setelah mengedit garis.</div>
+      <div class="mu">Dibuat dari ruang tertutup pada jaringan garis. Mulai dari toleransi 5 px; naikkan bertahap hanya jika banyak celah kecil yang belum tersambung. Buat ulang jika garis diubah.</div>
       <label class="mu" style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
-        <span>Toleransi sambung ujung (px)</span>
-        <input id="pTol" type="number" min="1" max="40" step="1" value="8" title="Jarak maksimum untuk menyatukan titik/ujung garis yang berdekatan" style="width:70px;text-align:center">
+        <span>Toleransi sambung (px) — mulai dari 5</span>
+        <input id="pTol" value="5" min="1" max="20" type="number" style="width:70px;text-align:center">
       </label>
       <div class="g2">
         <button class="pri" id="pMk">Buat poligon</button>
@@ -2245,11 +2207,8 @@ function setTool(t){
   draw();
 }
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
-const detectModeEl=$('detectMode'), detectTargetEl=$('detectTarget'), eraseModeEl=$('eraseMode'), toolModeHint=$('toolModeHint');
+const detectModeEl=$('detectMode'), eraseModeEl=$('eraseMode'), toolModeHint=$('toolModeHint');
 function updateToolModeHint(){
-  document.querySelector('.line-full-options')?.classList.toggle('mode-visible', tool==='P');
-  document.querySelector('.line-dash-options')?.classList.toggle('mode-visible', tool==='D');
-  document.querySelector('.snap-target-options')?.classList.toggle('mode-visible', tool==='M');
   document.querySelector('.detect-mode-options')?.classList.toggle('mode-visible', tool==='A');
   document.querySelector('.erase-mode-options')?.classList.toggle('mode-visible', tool==='E');
   if(!toolModeHint)return;
@@ -2257,7 +2216,7 @@ function updateToolModeHint(){
   else if(tool==='E') toolModeHint.textContent=eraseModeEl.value==='click'?'Klik teks atau segmen garis yang ingin dihapus.':eraseModeEl.value==='rect'?'Tarik kotak untuk menghapus objek/segmen di dalam area.':'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk menghapus.';
   else toolModeHint.textContent='Pilih alat Deteksi Otomatis atau Hapus untuk menampilkan pilihannya di bawah tombol.';
 }
-detectModeEl?.addEventListener('change',updateToolModeHint); detectTargetEl?.addEventListener('change',updateToolModeHint); eraseModeEl?.addEventListener('change',updateToolModeHint);
+detectModeEl?.addEventListener('change',updateToolModeHint); eraseModeEl?.addEventListener('change',updateToolModeHint);
 
 
 function snapPt(p){
@@ -2272,47 +2231,6 @@ function snapPt(p){
   }
   return best?best.slice():p;
 }
-function snapDistancePx(){ return Math.max(1, Number($('snapDistance')?.value || 12)); }
-function segmentIntersection(a,b,c,d){
-  const den=(a[0]-b[0])*(c[1]-d[1])-(a[1]-b[1])*(c[0]-d[0]);
-  if(Math.abs(den)<1e-9)return null;
-  const t=((a[0]-c[0])*(c[1]-d[1])-(a[1]-c[1])*(c[0]-d[0]))/den;
-  const u=-((a[0]-b[0])*(a[1]-c[1])-(a[1]-b[1])*(a[0]-c[0]))/den;
-  if(t < 0 || t > 1 || u < 0 || u > 1)return null;
-  return [a[0]+t*(b[0]-a[0]), a[1]+t*(b[1]-a[1])];
-}
-function snapCandidates(){
-  const candidates=[];
-  if($('snapVertices')?.checked){
-    cur.forEach(q=>candidates.push(q));
-    lines.forEach(l=>l.pts.forEach(q=>candidates.push(q)));
-  }
-  if($('snapMidpoints')?.checked){
-    const addMids=pts=>{for(let i=1;i<pts.length;i++)candidates.push([(pts[i-1][0]+pts[i][0])/2,(pts[i-1][1]+pts[i][1])/2]);};
-    lines.forEach(l=>addMids(l.pts)); addMids(cur);
-  }
-  if($('snapIntersections')?.checked){
-    const segs=[]; lines.forEach(l=>{for(let i=1;i<l.pts.length;i++)segs.push([l.pts[i-1],l.pts[i]])});
-    for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){
-      const q=segmentIntersection(segs[i][0],segs[i][1],segs[j][0],segs[j][1]); if(q)candidates.push(q);
-    }
-  }
-  return candidates;
-}
-function snapPt(p){
-  if(!$('snap').checked)return p;
-  const sp=toS(p), limit=snapDistancePx(); let best=null,bd=limit;
-  for(const q of snapCandidates()){
-    const s=toS(q),d=Math.hypot(s[0]-sp[0],s[1]-sp[1]);
-    if(d<=bd){bd=d;best=q;}
-  }
-  return best?best.slice():p;
-}
-$('snapDistance')?.addEventListener('input', e=>{const v=$('snapDistanceValue');if(v)v.textContent=e.target.value;});
-const lineFullModeEl=$('lineFullMode'), lineDashModeEl=$('lineDashMode');
-function syncLineModeHint(){const f=lineFullModeEl?.value==='close',d=lineDashModeEl?.value==='close';if($('lineFullHint'))$('lineFullHint').textContent=f?'Klik titik-titik; klik kembali titik awal untuk menutup garis, atau klik ganda untuk selesai.':'Klik titik-titik pada peta; klik ganda untuk menyelesaikan garis.';if($('lineDashHint'))$('lineDashHint').textContent=d?'Klik titik-titik; klik kembali titik awal untuk menutup garis, atau klik ganda untuk selesai.':'Klik titik-titik pada peta; klik ganda untuk menyelesaikan garis.';}
-lineFullModeEl?.addEventListener('change',syncLineModeHint);lineDashModeEl?.addEventListener('change',syncLineModeHint);syncLineModeHint();
-
 function finish(){if(cur.length>=2){snapshot();lines.push({k:tool==='D'?'D':'P',pts:cur})}cur=[];stat();draw()}
 function distSeg(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy;let t=L?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L:0;t=Math.max(0,Math.min(1,t));return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy)}
 function click(sp){
@@ -2322,7 +2240,7 @@ function click(sp){
   if(tool==='A' && detectModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('dMsg').textContent='Batas area deteksi: '+selectionPoly.length+' titik. Tekan Enter untuk menjalankan deteksi.';draw();return}
   if(tool==='E' && eraseModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('st').innerHTML='<span class="status-dot"></span><span>Batas area hapus: '+selectionPoly.length+' titik — tekan Enter untuk menghapus</span>';draw();return}
   if(tool==='cal'){if(cal.pts.length<4){cal.pts.push(p);crs()}draw();return}
-  if(tool==='P'||tool==='D'){const q=snapPt(p);cur.push(q);const closeMode=(tool==='P'?lineFullModeEl?.value:lineDashModeEl?.value)==='close';if(closeMode&&cur.length>=3&&q[0]===cur[0][0]&&q[1]===cur[0][1])finish();draw();return}
+  if(tool==='P'||tool==='D'){const q=snapPt(p);cur.push(q);if(cur.length>=3&&q[0]===cur[0][0]&&q[1]===cur[0][1]&&cur.length-1>0)finish();draw();return}
   if(tool==='T'){snapshot();texts.push({p,no:'',su:''});selT=texts.length-1;tform(true);stat();draw();return}
   if(tool==='E'){
     if(eraseModeEl && eraseModeEl.value!=='click') return;
@@ -2875,7 +2793,8 @@ function detect(R){
     const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/d;
     return[x1+t*(x2-x1),y1+t*(y2-y1)];
   };
-  const R2=8;
+  // V3: sambungkan ujung hanya dalam radius lebih ketat untuk mengurangi penggabungan bidang yang tidak berkaitan.
+  const R2=5;
   for(const a of ln)for(const e of a.p){
     let best=null,bd=R2;
     for(const b of ln){
@@ -2895,7 +2814,7 @@ function detect(R){
   const E=ln.flatMap(a=>a.p),dn=new Set();
   for(const e of E){
     if(dn.has(e))continue;
-    const g=E.filter(q=>!dn.has(q)&&Math.hypot(q[0]-e[0],q[1]-e[1])<3),mx=g.reduce((z,q)=>z+q[0],0)/g.length,my=g.reduce((z,q)=>z+q[1],0)/g.length;
+    const g=E.filter(q=>!dn.has(q)&&Math.hypot(q[0]-e[0],q[1]-e[1])<2),mx=g.reduce((z,q)=>z+q[0],0)/g.length,my=g.reduce((z,q)=>z+q[1],0)/g.length;
     g.forEach(q=>{q[0]=mx;q[1]=my;dn.add(q)});
   }
   return ln.map(a=>({k:a.k,pts:a.p.map(q=>[q[0]/sc+R.x,q[1]/sc+R.y])}));
@@ -2934,20 +2853,8 @@ $('dOk').onclick=()=>{
   if(!cand.length)return;
   snapshot();
   cand.forEach(c=>lines.push({k:c.k,pts:c.pts}));
-  const added=cand.length;
   cand=[];
-  if(detectTargetEl?.value==='both'){
-    try{
-      const result=polygonize();
-      polys=result.polys;
-      gaps=result.gaps;
-      $('dMsg').textContent=added+' garis diterima; deteksi bidang selesai: '+polys.length+' bidang tertutup ditemukan. Periksa batas bidang dan koreksi bila perlu.';
-    }catch(err){
-      $('dMsg').textContent=added+' garis diterima. Deteksi bidang belum berhasil: '+err.message+'. Gunakan tombol Buat Poligon untuk mencoba lagi.';
-    }
-  } else {
-    $('dMsg').textContent=added+' garis kandidat diterima.';
-  }
+  $('dMsg').textContent='Kandidat diterima sebagai garis.';
   stat();
   draw();
 };
@@ -3055,7 +2962,7 @@ $('pMk').onclick=()=>{
       const r=polygonize();
       polys=r.polys;
       gaps=r.gaps;
-      $('pMsg').textContent=polys.length+' poligon dibuat setelah menyambungkan titik dekat dan menghitung perpotongan. '+gaps.length+' ujung garis masih menggantung (cincin merah); jika bidang belum tertutup, periksa celah dan sesuaikan toleransi sambung.';
+      $('pMsg').textContent=polys.length+' poligon dibuat. '+gaps.length+' ujung garis menggantung (cincin merah), kemungkinan celah di pojok atau garis yang menjulur.';
     }catch(x){$('pMsg').textContent='Gagal: '+x.message}
     draw();
   },30);
