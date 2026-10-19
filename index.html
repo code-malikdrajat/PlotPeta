@@ -1806,6 +1806,11 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       </div>
       <input id="dG" type="range" min="10" max="120" value="50" style="width:100%">
 
+      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0">
+        <input id="autoMagToggle" type="checkbox" checked style="width:auto">
+        <span>Aktifkan Magnet Otomatis (lindungi garis berkelok)</span>
+      </label>
+
       <div class="slider-row">
         <span>Radius Magnet Otomatis</span>
         <span class="slider-val" id="val_magR">40 px</span>
@@ -2810,6 +2815,11 @@ function detect(R){
     for(let i=1;i<=steps;i++)if(at(x1+(x2-x1)*i/steps,y1+(y2-y1)*i/steps))hits++;
     return hits/steps>0.25;
   };
+  // Magnet otomatis opsional. Segmen panjang (>150 px) dikecualikan sebagai
+  // perlindungan konservatif bagi jalan/sungai berkelok; bukan deteksi kurva sempurna.
+  const useAutoMag=$('autoMagToggle')?.checked ?? true;
+  if(useAutoMag){
+  const isProtected=q=>Math.hypot(q[2]-q[0],q[3]-q[1])>150;
   // --- 1. COLLINEAR MERGING (Menyambung garis putus searah) ---
   // Gabungkan hanya fragmen yang hampir sejajar, dekat secara ortogonal, dan memiliki gap terbatas.
   const segAngle=q=>Math.atan2(q[3]-q[1],q[2]-q[0]);
@@ -2822,6 +2832,7 @@ function detect(R){
     outerMerge: for(let i=0;i<out.length;i++){
       for(let j=i+1;j<out.length;j++){
         const a=out[i], b=out[j];
+        if(isProtected(a)||isProtected(b))continue;
         const ax=a[2]-a[0], ay=a[3]-a[1], al=Math.hypot(ax,ay);
         const bx=b[2]-b[0], by=b[3]-b[1], bl=Math.hypot(bx,by);
         if(al<1e-6||bl<1e-6)continue;
@@ -2858,7 +2869,7 @@ function detect(R){
   }
 
   // --- 2. INTERSECTION SNAPPING PRESISI TINGGI ---
-  const ln=out.map(q=>({k:q[4],p:[[q[0],q[1]],[q[2],q[3]]]}));
+  const ln=out.map(q=>({k:q[4],p:[[q[0],q[1]],[q[2],q[3]]],len:Math.hypot(q[2]-q[0],q[3]-q[1])}));
   const lineX=(a,b)=>{
     const [x1,y1]=a.p[0], [x2,y2]=a.p[1], [x3,y3]=b.p[0], [x4,y4]=b.p[1];
     const d=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
@@ -2869,10 +2880,11 @@ function detect(R){
   const userMagR=+($('magR')?.value || 40);
   const R2=userMagR;
   for(const a of ln){
+    if(a.len>150)continue;
     for(const e of a.p){
       let best=null,bd=R2;
       for(const b of ln){
-        if(b===a)continue;
+        if(b===a||b.len>150)continue;
         const X=lineX(a,b);if(!X)continue;
         const d=Math.hypot(X[0]-e[0],X[1]-e[1]);if(d>=bd)continue;
         const bx=b.p[1][0]-b.p[0][0],by=b.p[1][1]-b.p[0][1],Lb=Math.hypot(bx,by);
@@ -2889,7 +2901,7 @@ function detect(R){
   // --- 3. ENDPOINT CLUSTERING (MAGNET OTOMATIS) ---
   // Satukan ujung-ujung yang dekat; tetap gunakan radius terbatas agar sudut bidang
   // yang berbeda tidak mudah ikut tergabung.
-  const E=ln.flatMap(a=>a.p),dn=new Set();
+  const E=ln.filter(a=>a.len<=150).flatMap(a=>a.p),dn=new Set();
   const snapRadius=userMagR;
   for(const e of E){
     if(dn.has(e))continue;
@@ -2900,6 +2912,10 @@ function detect(R){
     g.forEach(q=>{q[0]=mx;q[1]=my;dn.add(q)});
   }
   return ln.map(a=>({k:a.k,pts:a.p.map(q=>[q[0]/sc+R.x,q[1]/sc+R.y])}));
+  } else {
+    // Magnet nonaktif: kembalikan kandidat hasil deteksi tanpa merging/snapping.
+    return out.map(q=>({k:q[4],pts:[[q[0]/sc+R.x,q[1]/sc+R.y],[q[2]/sc+R.x,q[3]/sc+R.y]]}));
+  }
 }
 
 function pointInPolygon(pt,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];const intersect=((yi>pt[1])!==(yj>pt[1]))&&(pt[0]<(xj-xi)*(pt[1]-yi)/(yj-yi+1e-12)+xi);if(intersect)inside=!inside;}return inside;}
@@ -2925,7 +2941,7 @@ function runDet(R,poly=null){
       cand=detect(R);
       // poly dan kandidat sama-sama dalam koordinat gambar. Garis diterima jika minimal separuh titiknya berada di dalam area.
       if(poly && poly.length>=3) cand=cand.filter(c=>{let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;return n>=c.pts.length/2});
-      $('dMsg').textContent=cand.length+' kandidat garis batas. Smart Filter, Collinear Merging, dan Intersection Snapping aktif. Fragmen segaris bercelah kecil digabung dan ujung dekat persimpangan diselaraskan. Periksa kandidat sebelum diterima.';
+      $('dMsg').textContent=cand.length+' kandidat garis batas. Smart Filter aktif. Magnet otomatis mengikuti toggle dan radius; segmen panjang (>150 px) dilindungi dari merging/snapping. Periksa kandidat sebelum diterima.';
     }catch(x){$('dMsg').textContent='Deteksi gagal: '+x.message}
     draw();
   },40);
