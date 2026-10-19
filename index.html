@@ -12,6 +12,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- UTIF.js: decoder raster TIFF/TIF di browser -->
+<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
 <!-- OpenCV.js: runtime initialization flag; image detection remains in the browser -->
 <script>window.plotPetaOpenCVReady = false; window.Module = window.Module || {}; window.Module.onRuntimeInitialized = function(){ window.plotPetaOpenCVReady = true; };</script>
 <script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
@@ -2172,40 +2174,58 @@ function loadImg(src){
   im.src=src;
 }
 
-$('file').onchange=e=>{
-  const f=e.target.files[0];
-  if(!f)return;
-  if(!(/\.tiff?$/i.test(f.name)||f.type==='image/tiff')){
-    const r=new FileReader();
-    r.onload=()=>loadImg(r.result);
-    r.readAsDataURL(f);
-    return;
-  }
-  $('st').innerHTML='<span class="status-dot" style="background:#f59e0b"></span><span>Membaca TIF...</span>';
-  const run=()=>f.arrayBuffer().then(buf=>{
-    try{
-      const ifd=UTIF.decode(buf);
-      UTIF.decodeImage(buf,ifd[0]);
-      const w=ifd[0].width,h=ifd[0].height,c=document.createElement('canvas');
-      c.width=w;c.height=h;
-      c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(UTIF.toRGBA8(ifd[0])),w,h),0,0);
-      img=c;iw=w;ih=h;
-      fitV();
-      draw();
-      updateDropzone();
-      $('st').innerHTML='<span class="status-dot"></span><span>'+w+' &times; '+h+' px</span>';
-    }catch(x){
-      $('st').innerHTML='<span class="status-dot" style="background:#ef4444"></span><span>TIF gagal dibaca. Simpan peta sebagai JPG/PNG.</span>';
-    }
+async function ensureUTIF(){
+  if(window.UTIF) return window.UTIF;
+  await new Promise((resolve,reject)=>{
+    const existing=document.querySelector('script[data-plotpeta-utif]');
+    if(existing){existing.addEventListener('load',resolve,{once:true});existing.addEventListener('error',reject,{once:true});return;}
+    const script=document.createElement('script');
+    script.src='https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js';
+    script.dataset.plotpetaUtif='1'; script.onload=resolve; script.onerror=reject;
+    document.head.appendChild(script);
   });
-  if(window.UTIF)run();
-  else{
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/utif/3.1.0/UTIF.min.js';
-    s.onload=run;
-    s.onerror=()=>{$('st').innerHTML='<span class="status-dot" style="background:#ef4444"></span><span>Pembaca TIF tidak termuat. Simpan peta sebagai JPG/PNG.</span>';};
-    document.head.appendChild(s);
+  if(!window.UTIF) throw new Error('Pustaka UTIF tidak tersedia');
+  return window.UTIF;
+}
+
+async function loadTiffFile(file){
+  $('st').innerHTML='<span class="status-dot" style="background:#f59e0b"></span><span>Membaca TIFF...</span>';
+  try{
+    const UTIFlib=await ensureUTIF();
+    const buffer=await file.arrayBuffer();
+    const pages=UTIFlib.decode(buffer);
+    if(!pages||!pages.length) throw new Error('TIFF tidak memiliki halaman gambar');
+    // PlotPeta memakai halaman pertama dari TIFF multi-page.
+    const page=pages[0];
+    UTIFlib.decodeImage(buffer,page);
+    const w=Number(page.width),h=Number(page.height);
+    if(!w||!h||w*h>150000000) throw new Error('Ukuran TIFF terlalu besar untuk diproses browser');
+    const rgba=UTIFlib.toRGBA8(page);
+    const c=document.createElement('canvas'); c.width=w; c.height=h;
+    const ctx=c.getContext('2d',{willReadFrequently:false});
+    if(!ctx) throw new Error('Canvas tidak tersedia');
+    const pixels=new Uint8ClampedArray(rgba);
+    const imageData=ctx.createImageData(w,h); imageData.data.set(pixels);
+    ctx.putImageData(imageData,0,0);
+    img=c; iw=w; ih=h;
+    fitV(); draw(); updateDropzone();
+    $('st').innerHTML='<span class="status-dot"></span><span>'+w+' &times; '+h+' px · TIFF</span>';
+  }catch(err){
+    console.error('PlotPeta gagal membaca TIFF:',err);
+    $('st').innerHTML='<span class="status-dot" style="background:#ef4444"></span><span>TIFF gagal dibaca. Coba TIFF lain atau konversi ke PNG/JPG.</span>';
+    alert('File TIFF tidak dapat dibaca. Pastikan file tidak rusak dan ukurannya tidak melebihi kemampuan browser.');
   }
+}
+
+$('file').onchange=async e=>{
+  const f=e.target.files&&e.target.files[0];
+  if(!f)return;
+  const isTiff=/\.tiff?$/i.test(f.name)||/image\/tiff/i.test(f.type);
+  if(isTiff){await loadTiffFile(f);return;}
+  const r=new FileReader();
+  r.onload=()=>loadImg(r.result);
+  r.onerror=()=>{$('st').innerHTML='<span class="status-dot" style="background:#ef4444"></span><span>Gagal membaca file gambar.</span>';};
+  r.readAsDataURL(f);
 };
 
 setCoordMode('local');
@@ -2771,7 +2791,52 @@ function detectWithOpenCV(R){
       const len=Math.hypot(x2-x1,y2-y1);
       if(len>=Math.max(10,(+$('dL').value||120)*.35))detectedSegments.push({k:'P',pts:[[x1,y1],[x2,y2]],len});
     }
-    return detectedSegments;
+    // Post-processing konservatif: buang fragmen pendek, gabungkan garis kolinear,
+    // lalu snap ujung secara mutual-nearest agar tidak tertarik berantai ke teks/crosshair.
+    const minKeep=Math.max(12,(+$('dL').value||120)*0.35);
+    let segs=detectedSegments.filter(s=>s.len>=minKeep).map(s=>({k:s.k,pts:s.pts.map(p=>[p[0],p[1]]),len:s.len}));
+    const angleDiff=(a,b)=>{let d=Math.abs(a-b)%Math.PI;return Math.min(d,Math.PI-d)};
+    const angleOf=s=>Math.atan2(s.pts[1][1]-s.pts[0][1],s.pts[1][0]-s.pts[0][0]);
+    // Gabungkan hanya segmen yang hampir sejajar, dekat pada sumbu garis, dan tidak tumpang tindih jauh.
+    let changed=true,passes=0;
+    while(changed&&passes++<2){
+      changed=false;
+      outer: for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){
+        const a=segs[i],b=segs[j],aa=angleOf(a),ab=angleOf(b);
+        if(angleDiff(aa,ab)>8*Math.PI/180)continue;
+        const ux=Math.cos(aa),uy=Math.sin(aa),nx=-uy,ny=ux;
+        const amid=[(a.pts[0][0]+a.pts[1][0])/2,(a.pts[0][1]+a.pts[1][1])/2];
+        const bmid=[(b.pts[0][0]+b.pts[1][0])/2,(b.pts[0][1]+b.pts[1][1])/2];
+        if(Math.abs((bmid[0]-amid[0])*nx+(bmid[1]-amid[1])*ny)>4/sc)continue;
+        const ap=a.pts.map(p=>(p[0]-amid[0])*ux+(p[1]-amid[1])*uy).sort((x,y)=>x-y);
+        const bp=b.pts.map(p=>(p[0]-amid[0])*ux+(p[1]-amid[1])*uy).sort((x,y)=>x-y);
+        const gap=Math.max(0,Math.max(ap[0],bp[0])-Math.min(ap[1],bp[1]));
+        if(gap>Math.min(18/sc,Math.max(5/sc,(+$('dG').value||12)/sc)))continue;
+        const all=[...a.pts,...b.pts].sort((p,q)=>(p[0]-amid[0])*ux+(p[1]-amid[1])*uy-((q[0]-amid[0])*ux+(q[1]-amid[1])*uy));
+        segs[i]={k:'P',pts:[[all[0][0],all[0][1]],[all[all.length-1][0],all[all.length-1][1]]],len:Math.hypot(all[0][0]-all[all.length-1][0],all[0][1]-all[all.length-1][1])};
+        segs.splice(j,1);changed=true;break outer;
+      }
+    }
+    // Snap konservatif: hanya pasangan ujung mutual-nearest dari segmen berbeda.
+    const snapRadius=Math.min(18,Math.max(6,(+$('dG').value||12)*0.75));
+    const ends=[];
+    segs.forEach((seg,si)=>seg.pts.forEach((pt,pi)=>ends.push({si,pi,x:pt[0],y:pt[1]})));
+    const nearest=ends.map((e,idx)=>{
+      let best=-1,bd=snapRadius;
+      for(let j=0;j<ends.length;j++){
+        if(j===idx||ends[j].si===e.si)continue;
+        const d=Math.hypot(ends[j].x-e.x,ends[j].y-e.y);
+        if(d<bd){bd=d;best=j;}
+      }
+      return best;
+    });
+    const snapped=new Set();
+    for(let i=0;i<ends.length;i++){
+      const j=nearest[i];if(j<0||nearest[j]!==i||snapped.has(i)||snapped.has(j))continue;
+      const a=ends[i],b=ends[j],x=(a.x+b.x)/2,y=(a.y+b.y)/2;
+      segs[a.si].pts[a.pi]=[x,y];segs[b.si].pts[b.pi]=[x,y];snapped.add(i);snapped.add(j);
+    }
+    return segs.filter(s=>s.len>=minKeep);
   }catch(err){
     console.error('OpenCV detection error:',err);
     $('dMsg').textContent='Deteksi OpenCV gagal: '+(err?.message||err);
