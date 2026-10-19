@@ -12,9 +12,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<!-- OpenCV.js: runtime initialization flag; image detection remains in the browser -->
-<script>window.plotPetaOpenCVReady = false; window.Module = window.Module || {}; window.Module.onRuntimeInitialized = function(){ window.plotPetaOpenCVReady = true; };</script>
-<script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
 <style>
 :root {
   --bg-app: #0c0f17;
@@ -1791,12 +1788,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       </div>
       <div class="mu">Pilih metode deteksi, lalu tarik kotak pada bagian peta. Kandidat akan tampil oranye.</div>
       <div class="slider-row" style="margin-top:10px"><span>Metode deteksi</span></div>
-      <select id="detectMethod" style="width:100%;padding:8px;border-radius:8px;background:var(--panel);color:inherit;border:1px solid var(--border)">
-        <option value="hough" selected>Hough + Smart Filter (garis lurus)</option>
-        <option value="graph">Graph tracing (kelokan / polylines)</option>
-        <option value="opencv">OpenCV.js (adaptive threshold + Hough)</option>
-      </select>
-      <div class="mu" style="margin-top:5px">Graph tracing mengikuti kerangka piksel; OpenCV memakai adaptive threshold + Hough, lalu menekan segmen pendek yang tidak didukung jaringan garis (indikasi goresan tulisan). Garis batas tetap perlu diperiksa pada pratinjau.</div>
+      <div class="mu" style="margin-top:5px">Hough + Smart Filter mendeteksi kandidat garis lurus. Kandidat yang sejajar dan bertumpang tindih akan disaring agar satu jalur tidak digambar berulang. Periksa pratinjau sebelum menerima.</div>
       
       <div class="slider-row">
         <span>Kepekaan</span>
@@ -1815,13 +1807,6 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
         <span class="slider-val" id="val_dG">50 px</span>
       </div>
       <input id="dG" type="range" min="10" max="120" value="50" style="width:100%">
-
-      <div class="slider-row">
-        <span>Abaikan gumpalan kecil (OpenCV)</span>
-        <span class="slider-val" id="val_inkBlob">18 px²</span>
-      </div>
-      <input id="inkBlob" type="range" min="0" max="100" value="18" step="2" style="width:100%">
-      <div class="mu" style="margin-top:3px">Menyaring komponen tinta kecil yang cenderung menyerupai tulisan. Komponen memanjang tetap dipertahankan agar garis batas pendek/putus-putus tidak mudah hilang. Nilai 0 menonaktifkan filter ini.</div>
 
       <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0">
         <input id="autoMagToggle" type="checkbox" checked style="width:auto">
@@ -2788,117 +2773,6 @@ function movePt(sp){
   dirty=true;
 }
 
-// Graph-based Vertex-to-Edge tracing: higher-resolution scan (up to 0.8 scale / 3000 px),
-// adaptive local threshold, Zhang-Suen thinning, then walk skeleton pixels between endpoints/junctions.
-// Keeps curved polylines; junction clusters are consolidated to reduce duplicate vertices.
-function detectVerticesAndEdges(R){
-  const sc=Math.min(.8,3000/Math.max(R.w,R.h)),w=Math.max(32,Math.round(R.w*sc)),h=Math.max(32,Math.round(R.h*sc)),N=w*h;
-  const oc=document.createElement('canvas');oc.width=w;oc.height=h;const ctx=oc.getContext('2d',{willReadFrequently:true});
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
-  const rgba=ctx.getImageData(0,0,w,h).data,gray=new Uint8Array(N);let hist=new Uint32Array(256);
-  for(let i=0;i<N;i++){const v=Math.round(.299*rgba[i*4]+.587*rgba[i*4+1]+.114*rgba[i*4+2]);gray[i]=v;hist[v]++;}
-  // Otsu global threshold, then local mean adjustment for faded/uneven scans.
-  let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];let sumB=0,wB=0,best=-1,thr=170;
-  for(let t=0;t<256;t++){wB+=hist[t];if(!wB)continue;const wF=N-wB;if(!wF)break;sumB+=t*hist[t];const d=sumB/wB-(sum-sumB)/wF;const score=wB*wF*d*d;if(score>best){best=score;thr=t;}}
-  const integral=new Float64Array((w+1)*(h+1));for(let y=0;y<h;y++){let row=0;for(let x=0;x<w;x++){row+=gray[y*w+x];integral[(y+1)*(w+1)+x+1]=integral[y*(w+1)+x+1]+row;}}
-  const bin=new Uint8Array(N),rad=12;
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const x0=Math.max(0,x-rad),x1=Math.min(w,x+rad+1),y0=Math.max(0,y-rad),y1=Math.min(h,y+rad+1),area=(x1-x0)*(y1-y0);const mean=(integral[y1*(w+1)+x1]-integral[y0*(w+1)+x1]-integral[y1*(w+1)+x0]+integral[y0*(w+1)+x0])/area;const i=y*w+x;const localT=Math.max(65,Math.min(thr,mean-7));if(gray[i]<localT)bin[i]=1;}
-  // Remove isolated single pixels before thinning.
-  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(!bin[i])continue;let n=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(dx||dy)n+=bin[(y+dy)*w+x+dx];if(n===0)bin[i]=0;}
-  // Zhang-Suen skeletonization (bounded iterations to keep large scans responsive).
-  const mark=[];let changed=true,iter=0;
-  while(changed&&iter++<24){changed=false;for(let phase=0;phase<2;phase++){mark.length=0;for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(!bin[i])continue;const p=[bin[i-w],bin[i-w+1],bin[i+1],bin[i+w+1],bin[i+w],bin[i+w-1],bin[i-1],bin[i-w-1]];const B=p.reduce((a,b)=>a+b,0);if(B<2||B>6)continue;let A=0;for(let k=0;k<8;k++)if(p[k]===0&&p[(k+1)%8]===1)A++;if(A!==1)continue;if(phase===0?(p[0]*p[2]*p[4]!==0||p[2]*p[4]*p[6]!==0):(p[0]*p[2]*p[6]!==0||p[0]*p[4]*p[6]!==0))continue;mark.push(i);}if(mark.length){changed=true;for(const i of mark)bin[i]=0;}}}
-  const neigh=i=>{const x=i%w,y=(i/w)|0,a=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const xx=x+dx,yy=y+dy;if(xx>0&&yy>0&&xx<w-1&&yy<h-1&&bin[yy*w+xx])a.push(yy*w+xx);}return a;};
-  const degree=new Uint8Array(N),isV=new Uint8Array(N);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(bin[i]){degree[i]=neigh(i).length;if(degree[i]!==2)isV[i]=1;}}
-  // Collapse adjacent junction pixels into one representative vertex to avoid tiny duplicate edges.
-  const vSeen=new Uint8Array(N),vertices=[];for(let i=0;i<N;i++){if(!isV[i]||vSeen[i])continue;const q=[i],cluster=[];vSeen[i]=1;for(let qi=0;qi<q.length;qi++){const u=q[qi];cluster.push(u);for(const v of neigh(u))if(isV[v]&&!vSeen[v]){vSeen[v]=1;q.push(v);}}const rep=cluster.reduce((a,b)=>a+b,0)/cluster.length;vertices.push({id:Math.round(rep),members:new Set(cluster)});}
-  const vertexOf=new Int32Array(N);vertexOf.fill(-1);vertices.forEach((v,id)=>v.members.forEach(p=>vertexOf[p]=id));
-  const visited=new Set(),segments=[];const edgeKey=(a,b)=>a<b?a+','+b:b+','+a;
-  const walk=(start,first)=>{let prev=start,curr=first,path=[start,first],steps=0;visited.add(edgeKey(start,first));while(steps++<Math.max(w,h)*2){const vi=vertexOf[curr];if(vi>=0&&curr!==start)break;const ns=neigh(curr).filter(n=>n!==prev&&!visited.has(edgeKey(curr,n)));if(!ns.length)break;let next=ns[0];if(ns.length>1){const px=curr%w,py=(curr/w)|0,ax=px-prev%w,ay=py-((prev/w)|0);let best=-Infinity;for(const n of ns){const bx=n%w-px,by=((n/w)|0)-py,score=(ax*bx+ay*by)/(Math.hypot(ax,ay)*Math.hypot(bx,by)+1e-9);if(score>best){best=score;next=n;}}}visited.add(edgeKey(curr,next));prev=curr;curr=next;path.push(curr);if(vertexOf[curr]>=0)break;}
-    if(path.length>=6){const pts=path.map(p=>[((p%w)/sc)+R.x,(((p/w)|0)/sc)+R.y]);segments.push({k:'P',pts});}};
-  for(let vi=0;vi<vertices.length;vi++){const v=vertices[vi];for(const m of v.members)for(const n of neigh(m)){if(vertexOf[n]===vi)continue;if(visited.has(edgeKey(m,n)))continue;walk(m,n);}}
-  // Also trace closed loops, which have no endpoint/junction vertices.
-  for(let i=0;i<N;i++)if(bin[i])for(const n of neigh(i)){if(visited.has(edgeKey(i,n)))continue;walk(i,n);}
-  // Drop tiny noisy traces and preserve natural bends; simplify only near-collinear intermediate points.
-  return segments.filter(s=>{let len=0;for(let i=1;i<s.pts.length;i++)len+=Math.hypot(s.pts[i][0]-s.pts[i-1][0],s.pts[i][1]-s.pts[i-1][1]);s.pts=s.pts.filter((p,i,a)=>i===0||i===a.length-1||Math.abs((p[0]-a[i-1][0])*(a[i+1][1]-p[1])-(p[1]-a[i-1][1])*(a[i+1][0]-p[0]))>1.5);return len>=Math.max(12,+$('dL').value*.35);});
-}
-
-function detectWithOpenCV(R){
-  const cvLib=window.cv;
-  if(!cvLib || !cvLib.Mat || !window.plotPetaOpenCVReady){
-    $('dMsg').textContent='OpenCV.js belum siap. Pastikan internet aktif, tunggu beberapa detik, lalu coba lagi.';
-    return [];
-  }
-  const sc=Math.min(1.0,2500/Math.max(R.w,R.h));
-  const w=Math.max(1,Math.round(R.w*sc)),h=Math.max(1,Math.round(R.h*sc));
-  const oc=document.createElement('canvas');oc.width=w;oc.height=h;
-  const octx=oc.getContext('2d',{willReadFrequently:true});
-  octx.fillStyle='#fff';octx.fillRect(0,0,w,h);octx.imageSmoothingQuality='high';
-  octx.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
-  let src=null,gray=null,thresh=null,linesMat=null,kernel=null;
-  const detectedSegments=[];
-  // Suppresi tulisan berbasis geometri: jangan menghapus tinta dari gambar asli.
-  // Segmen pendek hanya dipertahankan bila terhubung/selaras dengan kandidat batas lain.
-  try{
-    src=cvLib.imread(oc);gray=new cvLib.Mat();thresh=new cvLib.Mat();linesMat=new cvLib.Mat();
-    cvLib.cvtColor(src,gray,cvLib.COLOR_RGBA2GRAY,0);
-    // Adaptive threshold handles uneven paper background better than a single global threshold.
-    cvLib.adaptiveThreshold(gray,thresh,255,cvLib.ADAPTIVE_THRESH_GAUSSIAN_C,cvLib.THRESH_BINARY_INV,15,5);
-    // Filter small compact ink components before closing/Hough. Elongated components
-    // are retained so short boundary fragments and dashed boundary segments survive.
-    const blobLimit=Math.max(0,Math.round(+$('inkBlob')?.value||0));
-    if(blobLimit>0 && typeof cvLib.connectedComponentsWithStats==='function'){
-      let labels=null,stats=null,centroids=null;
-      try{
-        const count=cvLib.connectedComponentsWithStats(thresh,labels=new cvLib.Mat(),stats=new cvLib.Mat(),centroids=new cvLib.Mat(),8,cvLib.CV_32S);
-        const remove=new Uint8Array(count);
-        for(let label=1;label<count;label++){
-          const row=label*stats.cols;
-          const left=stats.data32S[row+cvLib.CC_STAT_LEFT],top=stats.data32S[row+cvLib.CC_STAT_TOP];
-          const cw=stats.data32S[row+cvLib.CC_STAT_WIDTH],ch=stats.data32S[row+cvLib.CC_STAT_HEIGHT],area=stats.data32S[row+cvLib.CC_STAT_AREA];
-          const elongation=Math.max(cw/Math.max(1,ch),ch/Math.max(1,cw));
-          if(area<=blobLimit && Math.max(cw,ch)<=Math.max(3,Math.round(blobLimit*.8)) && elongation<3.0)remove[label]=1;
-        }
-        const lp=labels.data32S,tp=thresh.data;
-        for(let i=0;i<lp.length;i++)if(remove[lp[i]])tp[i]=0;
-      }finally{for(const m of [labels,stats,centroids])if(m&&typeof m.delete==='function')m.delete();}
-    }
-    kernel=cvLib.getStructuringElement(cvLib.MORPH_RECT,new cvLib.Size(2,2));
-    cvLib.morphologyEx(thresh,thresh,cvLib.MORPH_CLOSE,kernel);
-    const minLineLength=Math.max(8,Math.round((+$('dL').value||120)*sc*.18));
-    const maxLineGap=Math.max(3,Math.round((+$('dG').value||12)*sc));
-    const houghThreshold=Math.max(10,Math.round((+$('dT').value||40)*.7));
-    cvLib.HoughLinesP(thresh,linesMat,1,Math.PI/180,houghThreshold,minLineLength,maxLineGap);
-    for(let i=0;i<linesMat.rows;i++){
-      const k=linesMat.data32S[i*4],l=linesMat.data32S[i*4+1],m=linesMat.data32S[i*4+2],n=linesMat.data32S[i*4+3];
-      const x1=k/sc+R.x,y1=l/sc+R.y,x2=m/sc+R.x,y2=n/sc+R.y;
-      const len=Math.hypot(x2-x1,y2-y1);
-      if(len>=Math.max(8,(+$('dL').value||120)*.18))detectedSegments.push({k:'P',pts:[[x1,y1],[x2,y2]],len,angle:Math.atan2(y2-y1,x2-x1)});
-    }
-    // Skor dukungan jaringan: segmen pendek yang menyerupai goresan huruf ditekan,
-    // kecuali ujungnya dekat atau arahnya selaras dengan kandidat batas lain.
-    const minKeep=Math.max(18,(+$('dL').value||120)*.32);
-    const linkDist=Math.max(10,(+$('dG').value||50)*.55);
-    const angleDiff=(a,b)=>{let d=Math.abs(a-b)%(Math.PI);return Math.min(d,Math.PI-d);};
-    const kept=detectedSegments.filter((a,i,all)=>{
-      if(a.len>=minKeep)return true;
-      const [a1,a2]=a.pts;
-      for(let j=0;j<all.length;j++){if(i===j)continue;const b=all[j],[b1,b2]=b.pts;
-        const near=Math.min(Math.hypot(a1[0]-b1[0],a1[1]-b1[1]),Math.hypot(a1[0]-b2[0],a1[1]-b2[1]),Math.hypot(a2[0]-b1[0],a2[1]-b1[1]),Math.hypot(a2[0]-b2[0],a2[1]-b2[1]));
-        if(near<=linkDist && angleDiff(a.angle,b.angle)<=Math.PI/12)return true;
-      }
-      return false;
-    });
-    return kept.map(({k,pts})=>({k,pts}));
-  }catch(err){
-    console.error('OpenCV detection error:',err);
-    $('dMsg').textContent='Deteksi OpenCV gagal: '+(err?.message||err);
-    return [];
-  }finally{
-    for(const m of [src,gray,thresh,linesMat,kernel])if(m&&typeof m.delete==='function')m.delete();
-  }
-}
-
 function detect(R){
   const T=+$('dT').value,minL=+$('dL').value,gapF=+$('dG').value;
   const sc=Math.min(.5,2400/Math.max(R.w,R.h)),w=Math.max(16,Math.round(R.w*sc)),h=Math.max(16,Math.round(R.h*sc));
@@ -2984,7 +2858,7 @@ function detect(R){
   }
   segs.sort((a,b)=>b[5]-a[5]);
   const along=(x,y,q)=>{const dx=q[2]-q[0],dy=q[3]-q[1],L=Math.hypot(dx,dy);return[((x-q[0])*dy-(y-q[1])*dx)/L,((x-q[0])*dx+(y-q[1])*dy)/L,L]};
-  // Smart Filter: buang kandidat yang hampir sejajar, terlalu dekat, dan tumpang-tindih.
+  // Smart Filter: larang kandidat Hough yang sejajar dan bertumpang-tindih pada jalur yang sama; pertahankan persilangan nyata.
   // Toleransi bekerja pada citra skala deteksi, bukan koordinat layar.
   const out=[];
   const angleDiff=(a,b)=>{let d=Math.abs(a-b)%Math.PI;return Math.min(d,Math.PI-d)};
@@ -3008,7 +2882,7 @@ function detect(R){
       const overlap=Math.max(0,Math.min(olen,Math.max(a1,a2))-Math.max(0,Math.min(a1,a2)));
       const shorter=Math.min(qlen,olen);
       const overlapRatio=shorter>0?overlap/shorter:0;
-      if(overlapRatio>=0.45){dup=true;break;}
+      if(overlapRatio>=0.20){dup=true;break;}
     }
     if(!dup)out.push(q);
   }
@@ -3142,15 +3016,9 @@ function runDet(R,poly=null){
   $('dMsg').textContent='Mendeteksi...';
   setTimeout(()=>{
     try{
-      const method=$('detectMethod')?.value||'hough';
-      if(method==='opencv' && (!window.plotPetaOpenCVReady || !window.cv || !window.cv.Mat)){
-        $('dMsg').textContent='OpenCV.js belum siap. Pastikan internet aktif, tunggu beberapa detik, lalu coba lagi.';
-        draw();return;
-      }
-      cand=method==='graph' ? detectVerticesAndEdges(R) : method==='opencv' ? detectWithOpenCV(R) : detect(R);
+      cand=detect(R);
       // poly dan kandidat sama-sama dalam koordinat gambar. Garis diterima jika minimal separuh titiknya berada di dalam area.
       if(poly && poly.length>=3) cand=cand.filter(c=>{let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;return n>=c.pts.length/2});
-      if(method==='opencv' && !cand.length && /^Deteksi OpenCV gagal:/.test($('dMsg').textContent)) { draw();return; }
       $('dMsg').textContent=cand.length+' kandidat garis. Filter geometri menekan goresan pendek yang tidak selaras dengan jaringan; tulisan tidak dihapus dari gambar. Tetap periksa pratinjau sebelum menerima karena sebagian tulisan/garis batas bisa mirip.';
     }catch(x){$('dMsg').textContent='Deteksi gagal: '+x.message}
     draw();
@@ -3281,7 +3149,6 @@ const sliderPairs = [
   ['dT', 'val_dT', ''],
   ['dL', 'val_dL', ' px'],
   ['dG', 'val_dG', ' px'],
-  ['inkBlob', 'val_inkBlob', ' px²'],
   ['magR', 'val_magR', ' px']
 ];
 sliderPairs.forEach(([sliderId, labelId, suffix]) => {
