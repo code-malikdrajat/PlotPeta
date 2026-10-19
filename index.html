@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>PlotPeta v3 &bull; Digitasi Peta Bidang Tanah ke DXF AutoCAD</title>
+<title>PlotPeta &bull; Digitasi Peta Bidang Tanah ke DXF AutoCAD</title>
 <meta name="description" content="PlotPeta: Digitasi peta bidang tanah, kalibrasi koordinat, deteksi garis otomatis, dan ekspor ke DXF AutoCAD">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1431,7 +1431,6 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
     </button>
   </div>
 
-  <!-- CAD tools moved into the left drawer -->
   <!-- Actions, Cloud, Token & Profile -->
   <div class="bar-right">
     <button id="fin" title="Selesai menggambar satu rangkaian garis (Enter)">
@@ -1754,10 +1753,10 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <span>Poligon Bidang</span>
         </h3>
       </div>
-      <div class="mu">Dibuat dari ruang tertutup pada jaringan garis. Mulai dari toleransi 5 px; naikkan bertahap hanya jika banyak celah kecil yang belum tersambung. Buat ulang jika garis diubah.</div>
+      <div class="mu">Dibuat otomatis dari ruang tertutup di jaringan garis. Buat ulang jika garis diubah.</div>
       <label class="mu" style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
-        <span>Toleransi sambung (px) — mulai dari 5</span>
-        <input id="pTol" value="5" min="1" max="20" type="number" style="width:70px;text-align:center">
+        <span>Toleransi sambung (px)</span>
+        <input id="pTol" value="8" style="width:70px;text-align:center">
       </label>
       <div class="g2">
         <button class="pri" id="pMk">Buat poligon</button>
@@ -2723,14 +2722,19 @@ function detect(R){
     for(let t=0;t<NT;t++)acc[t*RW+Math.round(x*cs[t]+y*sn[t])+diag]++;
   }
   const thr=minL*sc*.45/st,cd=[];
-  for(let t=0;t<NT;t++)for(let q=1;q<RW-1;q++){
+  const nmsRadiusT = 4; // Toleransi sudut (semakin besar semakin sedikit garis ganda yang paralel)
+  const nmsRadiusQ = 6; // Toleransi jarak (semakin besar semakin sedikit tumpang tindih untuk ketebalan garis)
+
+  for(let t=0;t<NT;t++)for(let q=nmsRadiusQ;q<RW-nmsRadiusQ;q++){
     const v=acc[t*RW+q];
     if(v<thr)continue;
     let mx=true;
-    for(let dt=-1;dt<=1&&mx;dt++){
+    for(let dt=-nmsRadiusT;dt<=nmsRadiusT&&mx;dt++){
       const tt=t+dt;
       if(tt<0||tt>=NT)continue;
-      for(let dq=-1;dq<=1;dq++){if((dt||dq)&&acc[tt*RW+q+dq]>v){mx=false;break}}
+      for(let dq=-nmsRadiusQ;dq<=nmsRadiusQ;dq++){
+        if((dt||dq)&&acc[tt*RW+q+dq]>v){mx=false;break;}
+      }
     }
     if(mx)cd.push([v,t,q-diag]);
   }
@@ -2777,12 +2781,25 @@ function detect(R){
   }
   segs.sort((a,b)=>b[5]-a[5]);
   const along=(x,y,q)=>{const dx=q[2]-q[0],dy=q[3]-q[1],L=Math.hypot(dx,dy);return[((x-q[0])*dy-(y-q[1])*dx)/L,((x-q[0])*dx+(y-q[1])*dy)/L,L]};
+  const dupTolerance = 6; // Jarak maksimal antar garis paralel untuk dianggap duplikat (dalam piksel gambar)
+  
   const out=[];
   for(const q of segs){
     let dup=false;
-    for(const o3 of out){
-      const a=along(q[0],q[1],o3),b=along(q[2],q[3],o3);
-      if(Math.abs(a[0])<4&&Math.abs(b[0])<4&&Math.max(a[1],b[1])>0&&Math.min(a[1],b[1])<a[2]){dup=true;break}
+    for(let i = 0; i < out.length; i++){
+      const o3 = out[i];
+      const a = along(q[0],q[1],o3), b = along(q[2],q[3],o3);
+      
+      // Cek apakah garis 'q' sejajar dan tumpang tindih dengan 'o3'
+      if(Math.abs(a[0]) < dupTolerance && Math.abs(b[0]) < dupTolerance && Math.max(a[1],b[1]) > 0 && Math.min(a[1],b[1]) < a[2]){
+        dup=true;
+        
+        // Jika segmen baru (q) lebih panjang, gantikan segmen lama (o3)
+        if (q[5] > o3[5]) {
+            out[i] = q;
+        }
+        break;
+      }
     }
     if(!dup)out.push(q);
   }
@@ -2793,8 +2810,7 @@ function detect(R){
     const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/d;
     return[x1+t*(x2-x1),y1+t*(y2-y1)];
   };
-  // V3: sambungkan ujung hanya dalam radius lebih ketat untuk mengurangi penggabungan bidang yang tidak berkaitan.
-  const R2=5;
+  const R2=8;
   for(const a of ln)for(const e of a.p){
     let best=null,bd=R2;
     for(const b of ln){
@@ -2814,7 +2830,7 @@ function detect(R){
   const E=ln.flatMap(a=>a.p),dn=new Set();
   for(const e of E){
     if(dn.has(e))continue;
-    const g=E.filter(q=>!dn.has(q)&&Math.hypot(q[0]-e[0],q[1]-e[1])<2),mx=g.reduce((z,q)=>z+q[0],0)/g.length,my=g.reduce((z,q)=>z+q[1],0)/g.length;
+    const g=E.filter(q=>!dn.has(q)&&Math.hypot(q[0]-e[0],q[1]-e[1])<3),mx=g.reduce((z,q)=>z+q[0],0)/g.length,my=g.reduce((z,q)=>z+q[1],0)/g.length;
     g.forEach(q=>{q[0]=mx;q[1]=my;dn.add(q)});
   }
   return ln.map(a=>({k:a.k,pts:a.p.map(q=>[q[0]/sc+R.x,q[1]/sc+R.y])}));
@@ -2908,7 +2924,7 @@ function polygonize(){
   }
   const E=new Set(),adj=new Map(),add=(u,w)=>{
     if(u===w)return;
-    const k=u<w?u+','+w:w+','+u;
+    const k=u<w?u+u+','+w:w+','+u;
     if(E.has(k))return;
     E.add(k);
     (adj.get(u)||adj.set(u,[]).get(u)).push(w);
