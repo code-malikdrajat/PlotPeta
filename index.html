@@ -2186,17 +2186,39 @@ function makePacked1BitPreview(page, maxSide=5000){
   const canvas=document.createElement('canvas');canvas.width=pw;canvas.height=ph;
   const c=canvas.getContext('2d',{willReadFrequently:false});
   const image=c.createImageData(pw,ph),out=image.data;
-  const photometric=Number(page.t273===undefined?page.photometric:page.photometric);
+  // Tentukan polaritas dari tag TIFF bila tersedia, lalu validasi dengan
+  // mayoritas sampel raster. Pemindai peta sering memakai WhiteIsZero,
+  // dan beberapa decoder tidak mengekspos photometric dengan konsisten.
+  const tagPhoto=page.t262;
+  const photoValue=Number(Array.isArray(tagPhoto)||ArrayBuffer.isView(tagPhoto)?tagPhoto[0]:(tagPhoto===undefined?page.photometric:tagPhoto));
+  let ones=0,zeros=0;
+  const sampleStep=Math.max(1,Math.floor(Math.max(w,h)/256));
+  for(let sy=0;sy<h;sy+=sampleStep){
+    for(let sx=0;sx<w;sx+=sampleStep){
+      let bit;
+      if(expanded8Bit){bit=Number(data[sy*w+sx])>127?1:0;}
+      else {const byte=data[sy*rowBytes+(sx>>3)];bit=(byte>>(7-(sx&7)))&1;}
+      if(bit)ones++;else zeros++;
+    }
+  }
+  // Untuk peta scan, warna latar biasanya warna dominan. Gunakan metadata
+  // TIFF jika valid; jika metadata hilang/tidak masuk akal, latar dominan menang.
+  let whiteBit;
+  if(photoValue===0) whiteBit=0;       // WhiteIsZero: sample 0 = putih
+  else if(photoValue===1) whiteBit=1;  // BlackIsZero: sample 1 = putih pada data packed yang didekode UTIF
+  else whiteBit=ones>=zeros?1:0;
+  // Jika metadata berlawanan dengan mayoritas raster secara ekstrem, decoder
+  // kemungkinan sudah menormalisasi data; koreksi agar latar tetap putih.
+  if(Math.max(ones,zeros)>=(ones+zeros)*0.8) whiteBit=ones>zeros?1:0;
   for(let y=0;y<ph;y++){
     const sy=Math.min(h-1,Math.floor(y*h/ph));
     for(let x=0;x<pw;x++){
       const sx=Math.min(w-1,Math.floor(x*w/pw));
       let bit;
-      if(expanded8Bit){bit=data[sy*w+sx] ? 1 : 0;}
+      if(expanded8Bit){bit=Number(data[sy*w+sx])>127?1:0;}
       else {const byte=data[sy*rowBytes+(sx>>3)];bit=(byte>>(7-(sx&7)))&1;}
-      // Photometric 0 = WhiteIsZero, 1 = BlackIsZero.
-      const black=photometric===0 ? bit===0 : bit===1;
-      const i=(y*pw+x)*4, v=black?0:255;
+      const v=bit===whiteBit?255:0;
+      const i=(y*pw+x)*4;
       out[i]=out[i+1]=out[i+2]=v;out[i+3]=255;
     }
   }
