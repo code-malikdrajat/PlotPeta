@@ -12,9 +12,71 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<!-- OpenCV.js: runtime initialization flag; image detection remains in the browser -->
-<script>window.plotPetaOpenCVReady = false; window.Module = window.Module || {}; window.Module.onRuntimeInitialized = function(){ window.plotPetaOpenCVReady = true; };</script>
-<script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
+<!-- OpenCV.js: dimuat malas (lazy) hanya saat metode deteksi OpenCV dipakai.
+     Urutan sumber: salinan sendiri di vendor/opencv.js (disarankan), lalu docs.opencv.org sebagai cadangan. -->
+<script>
+window.plotPetaOpenCVReady = false;
+window.PLOTPETA_OPENCV_SOURCES = ['vendor/opencv.js', 'https://docs.opencv.org/4.8.0/opencv.js'];
+window.plotPetaLoadOpenCV = (function(){
+  let promise = null;
+  const isReady = () => !!(window.cv && window.cv.Mat);
+  function loadScript(src){
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src; s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => { s.remove(); reject(new Error('gagal memuat ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+  function waitReady(timeoutMs){
+    return new Promise((resolve, reject) => {
+      const t0 = Date.now();
+      (function poll(){
+        if (isReady()) return resolve();
+        if (Date.now() - t0 > timeoutMs) return reject(new Error('inisialisasi OpenCV terlalu lama'));
+        setTimeout(poll, 100);
+      })();
+    });
+  }
+  return function(){
+    if (isReady()) { window.plotPetaOpenCVReady = true; return Promise.resolve(); }
+    if (promise) return promise;
+    promise = (async () => {
+      let lastErr = null;
+      for (const src of window.PLOTPETA_OPENCV_SOURCES) {
+        try {
+          window.Module = window.Module || {};
+          window.Module.onRuntimeInitialized = () => { window.plotPetaOpenCVReady = true; };
+          await loadScript(src);
+          if (window.cv && !window.cv.Mat) window.cv.onRuntimeInitialized = () => { window.plotPetaOpenCVReady = true; };
+          await waitReady(/^https?:/.test(src) ? 90000 : 45000);
+          window.plotPetaOpenCVReady = true;
+          return;
+        } catch (e) { lastErr = e; }
+      }
+      promise = null;
+      throw lastErr || new Error('OpenCV.js tidak dapat dimuat');
+    })();
+    return promise;
+  };
+})();
+// Mulai mengunduh begitu pengguna memilih metode OpenCV, supaya biasanya sudah siap saat kotak area ditarik.
+document.addEventListener('DOMContentLoaded', function(){
+  const sel = document.getElementById('detectMethod');
+  if (!sel) return;
+  sel.addEventListener('change', function(){
+    if (sel.value !== 'opencv') return;
+    const msg = document.getElementById('dMsg');
+    if (msg && !window.plotPetaOpenCVReady) msg.textContent = 'Memuat OpenCV.js (sekitar 9 MB, hanya sekali)...';
+    window.plotPetaLoadOpenCV().then(function(){
+      if (msg) msg.textContent = 'OpenCV.js siap. Tarik kotak pada bagian peta.';
+    }).catch(function(e){
+      if (msg) msg.textContent = 'OpenCV.js gagal dimuat (' + e.message + '). Pakai metode Hough atau Graph.';
+    });
+  });
+});
+</script>
 <style>
 :root {
   --bg-app: #0c0f17;
@@ -1796,7 +1858,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
         <option value="graph">Graph tracing (kelokan / polylines)</option>
         <option value="opencv">OpenCV.js (adaptive threshold + Hough)</option>
       </select>
-      <div class="mu" style="margin-top:5px">Graph tracing mengikuti kerangka piksel; OpenCV memakai adaptive threshold + Hough, lalu menekan segmen pendek yang tidak didukung jaringan garis (indikasi goresan tulisan). Garis batas tetap perlu diperiksa pada pratinjau.</div>
+      <div class="mu" style="margin-top:5px">Graph tracing mengikuti kerangka piksel; OpenCV memakai adaptive threshold dan Hough untuk segmen lurus. Keduanya tetap perlu diperiksa pada teks, simbol, dan persilangan.</div>
       
       <div class="slider-row">
         <span>Kepekaan</span>
@@ -1817,11 +1879,11 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       <input id="dG" type="range" min="10" max="120" value="50" style="width:100%">
 
       <div class="slider-row">
-        <span>Abaikan gumpalan kecil (OpenCV)</span>
-        <span class="slider-val" id="val_inkBlob">18 px²</span>
+        <span>Filter tulisan (OpenCV)</span>
+        <span class="slider-val" id="val_dTxt">50%</span>
       </div>
-      <input id="inkBlob" type="range" min="0" max="100" value="18" step="2" style="width:100%">
-      <div class="mu" style="margin-top:3px">Menyaring komponen tinta kecil yang cenderung menyerupai tulisan. Komponen memanjang tetap dipertahankan agar garis batas pendek/putus-putus tidak mudah hilang. Nilai 0 menonaktifkan filter ini.</div>
+      <input id="dTxt" type="range" min="0" max="100" value="50" style="width:100%">
+      <div class="mu" style="margin-top:2px">Membuang tulisan tangan, angka, dan bintik berdasarkan bentuknya (garis batas lurus dipertahankan). Makin tinggi makin ketat; 0 = mati. Jika garis putus-putus di sudut ikut hilang, turunkan nilainya. Hanya berlaku untuk metode OpenCV.</div>
 
       <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0">
         <input id="autoMagToggle" type="checkbox" checked style="width:auto">
@@ -1834,11 +1896,23 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       </div>
       <input id="magR" type="range" min="10" max="80" value="40" style="width:100%">
 
+      <div class="slider-row">
+        <span>Jarak sambung maks (otomatis)</span>
+        <span class="slider-val" id="val_linkMax">120 px</span>
+      </div>
+      <input id="linkMax" type="range" min="0" max="400" step="10" value="120" style="width:100%">
+      <div class="mu" style="margin-top:2px">Dua ujung garis yang arahnya saling melanjutkan disambung otomatis sampai jarak ini (0 = mati). Sisanya: klik nomor ujung pertama, lalu nomor ujung kedua.</div>
+      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:8px 0">
+        <input id="numToggle" type="checkbox" checked style="width:auto">
+        <span>Tampilkan nomor ujung garis</span>
+      </label>
+
       <div class="g2">
         <button class="pri" id="dOk">Terima semua</button>
         <button id="dNo">Buang</button>
       </div>
       <button id="dAll" style="margin-top:8px;width:100%">Deteksi seluruh peta</button>
+      <button id="dUnlink" style="margin-top:8px;width:100%">Batal sambung terakhir</button>
       <div class="mu" id="dMsg"></div>
     </div>
 
@@ -2146,6 +2220,7 @@ const LN={get P(){return $('lP').value.trim()||'020100'},get D(){return $('lD').
 let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=-1,mouse=null,drag=null,dirty=false,hist=[];
 let cal={pts:[],ok:false,M:null,mode:'local'};
 let cand=[],box=null,mv=null,polys=[],gaps=[];
+let linkSel=null,candUndo=[];
 let selectionPoly=[], boxAction='detect', freehandDrawing=false;
 let mapName='';
 const W=()=>plotCanvas.clientWidth,H=()=>plotCanvas.clientHeight,d1=()=>devicePixelRatio||1;
@@ -2380,6 +2455,10 @@ plotCanvas.addEventListener('pointerdown',e=>{
   plotCanvas.setPointerCapture(e.pointerId);
   if(e.button===0&&img){
     if(tool==='M'){const h=findV(sp);if(h){snapshot();mv=h;return}}
+    if(tool==='A' && cand.length && cand[0].nums && ($('numToggle')?$('numToggle').checked:true)){
+      const hit=findEnd(sp);
+      if(hit){e.preventDefault();handleEndClick(hit);return}
+    }
     if(tool==='A' && detectModeEl?.value==='rect'){boxAction='detect';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
     if(tool==='E' && eraseModeEl?.value==='rect'){boxAction='erase';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
   }
@@ -2636,6 +2715,18 @@ function draw(){
     ctx.stroke();
     ctx.setLineDash([]);
   });
+  if(($('numToggle')?$('numToggle').checked:true)&&cand.length&&cand[0].nums){
+    ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    cand.forEach((c,ci)=>{for(let ei=0;ei<2;ei++){
+      const n=c.nums[ei];if(!n)continue;
+      const p=toS(ei===0?c.pts[0]:c.pts[c.pts.length-1]);
+      const sel=linkSel&&linkSel.ci===ci&&linkSel.ei===ei;
+      ctx.beginPath();ctx.arc(p[0],p[1],10,0,7);ctx.fillStyle=sel?'#ef4444':'#7c3aed';ctx.fill();
+      ctx.lineWidth=1.5;ctx.strokeStyle='#fff';ctx.stroke();
+      ctx.fillStyle='#fff';ctx.fillText(String(n),p[0],p[1]+.5);
+    }});
+    ctx.textAlign='start';ctx.textBaseline='alphabetic';
+  }
   if(tool==='M')lines.forEach(l=>l.pts.forEach(p=>{
     const s=toS(p);
     ctx.strokeStyle='#0ea5e9';
@@ -2823,10 +2914,144 @@ function detectVerticesAndEdges(R){
   return segments.filter(s=>{let len=0;for(let i=1;i<s.pts.length;i++)len+=Math.hypot(s.pts[i][0]-s.pts[i-1][0],s.pts[i][1]-s.pts[i-1][1]);s.pts=s.pts.filter((p,i,a)=>i===0||i===a.length-1||Math.abs((p[0]-a[i-1][0])*(a[i+1][1]-p[1])-(p[1]-a[i-1][1])*(a[i+1][0]-p[0]))>1.5);return len>=Math.max(12,+$('dL').value*.35);});
 }
 
+// Susun segmen 2-titik menjadi jalur (polyline) lewat simpul bersama.
+// segs: [[[x,y],[x,y]],...]. tol: jarak dianggap satu simpul. attachTol: ujung yang menempel di tengah garis lain tidak dianggap bebas.
+function plotPetaBuildChains(segs,tol,attachTol){
+  const nodes=[],edges=[];
+  const nodeOf=(x,y)=>{
+    for(let i=0;i<nodes.length;i++){const n=nodes[i];if(Math.hypot(n.x-x,n.y-y)<=tol)return i;}
+    nodes.push({x,y,edges:[]});return nodes.length-1;
+  };
+  segs.forEach((s,si)=>{
+    const a=nodeOf(s[0][0],s[0][1]),b=nodeOf(s[1][0],s[1][1]);
+    if(a===b)return;
+    edges.push({a,b,si,used:false});
+    const id=edges.length-1;nodes[a].edges.push(id);nodes[b].edges.push(id);
+  });
+  const other=(e,n)=>e.a===n?e.b:e.a;
+  const attached=(n)=>{
+    if(!attachTol)return false;
+    const own=edges[nodes[n].edges[0]].si,px=nodes[n].x,py=nodes[n].y;
+    for(let i=0;i<segs.length;i++){
+      if(i===own)continue;
+      const [a,b]=segs[i],vx=b[0]-a[0],vy=b[1]-a[1],L2=vx*vx+vy*vy;if(L2<1e-9)continue;
+      const t=Math.max(0,Math.min(1,((px-a[0])*vx+(py-a[1])*vy)/L2));
+      if(Math.hypot(px-(a[0]+vx*t),py-(a[1]+vy*t))<=attachTol)return true;
+    }
+    return false;
+  };
+  const chains=[];
+  const walk=(start,eid)=>{
+    const pts=[[nodes[start].x,nodes[start].y]];
+    let n=start,id=eid;
+    for(;;){
+      const e=edges[id];e.used=true;
+      const m=other(e,n);pts.push([nodes[m].x,nodes[m].y]);n=m;
+      if(nodes[n].edges.length!==2)return {pts,a:start,b:n,closed:false};
+      const nx=nodes[n].edges.find(x=>x!==id);
+      if(edges[nx].used)return {pts,a:start,b:n,closed:n===start};
+      id=nx;
+    }
+  };
+  const push=r=>{
+    const freeEnd=n=>nodes[n].edges.length===1&&!attached(n);
+    chains.push({k:'P',pts:r.pts,closed:r.closed,free:r.closed?[false,false]:[freeEnd(r.a),freeEnd(r.b)],nums:[0,0]});
+  };
+  for(let n=0;n<nodes.length;n++){
+    if(nodes[n].edges.length===2)continue;
+    for(const id of nodes[n].edges)if(!edges[id].used)push(walk(n,id));
+  }
+  for(let id=0;id<edges.length;id++)if(!edges[id].used)push(walk(edges[id].a,id));
+  return chains;
+}
+// Beri nomor ujung bebas: jalur diurutkan dari kiri-atas; titik 1 di ujung kiri-atas jalur itu.
+function plotPetaNumberEnds(chains){
+  chains.forEach(c=>{
+    const a=c.pts[0],b=c.pts[c.pts.length-1];
+    if(!c.closed&&(b[1]<a[1]-1e-6||(Math.abs(b[1]-a[1])<=1e-6&&b[0]<a[0]))){c.pts.reverse();c.free=[c.free[1],c.free[0]];}
+    let mx=Infinity,my=Infinity;for(const q of c.pts){if(q[0]<mx)mx=q[0];if(q[1]<my)my=q[1];}
+    c._k=[my,mx];
+  });
+  const order=chains.map((_,i)=>i).sort((i,j)=>{
+    const a=chains[i]._k,b=chains[j]._k;
+    return Math.round(a[0]/80)-Math.round(b[0]/80)||a[1]-b[1];
+  });
+  let n=0;
+  for(const i of order){const c=chains[i];c.nums=[0,0];if(c.closed)continue;if(c.free[0])c.nums[0]=++n;if(c.free[1])c.nums[1]=++n;}
+  return n;
+}
+// Sambung dua ujung bebas (ei/ej: 0 = ujung awal, 1 = ujung akhir). Mengubah chains di tempat.
+function plotPetaJoinEnds(chains,ci,ei,cj,ej){
+  if(ci===cj){
+    const c=chains[ci];if(c.closed||ei===ej)return false;
+    c.pts.push(c.pts[0].slice());c.closed=true;c.free=[false,false];
+    plotPetaNumberEnds(chains);return true;
+  }
+  const A=chains[ci],B=chains[cj];
+  const pa=ei===1?A.pts.slice():A.pts.slice().reverse(),fa=ei===1?A.free.slice():A.free.slice().reverse();
+  const pb=ej===0?B.pts.slice():B.pts.slice().reverse(),fb=ej===0?B.free.slice():B.free.slice().reverse();
+  const merged={k:'P',pts:pa.concat(pb),closed:false,free:[fa[0],fb[1]],nums:[0,0]};
+  chains.splice(Math.max(ci,cj),1);chains.splice(Math.min(ci,cj),1);chains.push(merged);
+  plotPetaNumberEnds(chains);return true;
+}
+// Filter tulisan: label gumpalan piksel (8-tetangga), ukur kelurusan tiap gumpalan lewat PCA,
+// lalu buang yang bukan goresan lurus (tulisan tangan, angka, bintik). Tanpa OCR.
+// bin = Uint8Array biner (0 / >0), diubah di tempat. strength 0..100. sc = skala kerja terhadap gambar asli.
+function plotPetaFilterStrokes(bin,W,H,strength,sc){
+  const N=W*H,lab=new Int32Array(N),parent=[0];
+  let next=1;
+  const find=a=>{while(parent[a]!==a){parent[a]=parent[parent[a]];a=parent[a];}return a;};
+  for(let y=0,i=0;y<H;y++){
+    for(let x=0;x<W;x++,i++){
+      if(!bin[i])continue;
+      let l=0,c;
+      if(x>0){c=lab[i-1];if(c)l=c;}
+      if(y>0){
+        if(x>0){c=lab[i-W-1];if(c){if(!l)l=c;else{const a=find(l),b=find(c);if(a!==b){if(a<b)parent[b]=a;else parent[a]=b;}}}}
+        c=lab[i-W];if(c){if(!l)l=c;else{const a=find(l),b=find(c);if(a!==b){if(a<b)parent[b]=a;else parent[a]=b;}}}
+        if(x<W-1){c=lab[i-W+1];if(c){if(!l)l=c;else{const a=find(l),b=find(c);if(a!==b){if(a<b)parent[b]=a;else parent[a]=b;}}}}
+      }
+      if(!l){l=next++;parent.push(l);}
+      lab[i]=l;
+    }
+  }
+  const cnt=new Float64Array(next),sx=new Float64Array(next),sy=new Float64Array(next),
+        sxx=new Float64Array(next),syy=new Float64Array(next),sxy=new Float64Array(next),
+        x0=new Int32Array(next).fill(1<<30),y0=new Int32Array(next).fill(1<<30),
+        x1=new Int32Array(next).fill(-1),y1=new Int32Array(next).fill(-1);
+  for(let y=0,i=0;y<H;y++){
+    for(let x=0;x<W;x++,i++){
+      const l=lab[i];if(!l)continue;
+      const r=find(l);lab[i]=r;
+      cnt[r]++;sx[r]+=x;sy[r]+=y;sxx[r]+=x*x;syy[r]+=y*y;sxy[r]+=x*y;
+      if(x<x0[r])x0[r]=x;if(x>x1[r])x1[r]=x;if(y<y0[r])y0[r]=y;if(y>y1[r])y1[r]=y;
+    }
+  }
+  const rmax=0.11-0.10*Math.max(0,Math.min(100,strength))/100;
+  const noise=Math.max(3,Math.round(12*sc)),huge=300*sc;
+  const keep=new Uint8Array(next);
+  let kept=0,total=0;
+  for(let r=1;r<next;r++){
+    if(parent[r]!==r||!cnt[r])continue;
+    total++;
+    const bb=Math.max(x1[r]-x0[r]+1,y1[r]-y0[r]+1);
+    if(bb>=huge){keep[r]=1;kept++;continue;}      // gumpalan sangat besar = jaringan garis, jangan disentuh
+    if(bb<noise)continue;                          // bintik / noise kertas
+    const c=cnt[r],mx=sx[r]/c,my=sy[r]/c;
+    const m20=sxx[r]/c-mx*mx+1/12,m02=syy[r]/c-my*my+1/12,m11=sxy[r]/c-mx*my;
+    const t=Math.sqrt(((m20-m02)/2)**2+m11*m11);
+    const l1=(m20+m02)/2+t,l2=Math.max((m20+m02)/2-t,1e-6);
+    const len=Math.sqrt(12*l1),sp=Math.sqrt(l2);
+    if(sp/Math.max(len,1e-6)<=rmax){keep[r]=1;kept++;}
+  }
+  for(let i=0;i<N;i++){const l=lab[i];if(l&&!keep[l])bin[i]=0;}
+  return {total,kept};
+}
+
 function detectWithOpenCV(R){
   const cvLib=window.cv;
   if(!cvLib || !cvLib.Mat || !window.plotPetaOpenCVReady){
-    $('dMsg').textContent='OpenCV.js belum siap. Pastikan internet aktif, tunggu beberapa detik, lalu coba lagi.';
+    $('dMsg').textContent='OpenCV.js belum siap. Coba lagi sebentar lagi.';
     return [];
   }
   const sc=Math.min(1.0,2500/Math.max(R.w,R.h));
@@ -2837,35 +3062,16 @@ function detectWithOpenCV(R){
   octx.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
   let src=null,gray=null,thresh=null,linesMat=null,kernel=null;
   const detectedSegments=[];
-  // Suppresi tulisan berbasis geometri: jangan menghapus tinta dari gambar asli.
-  // Segmen pendek hanya dipertahankan bila terhubung/selaras dengan kandidat batas lain.
   try{
     src=cvLib.imread(oc);gray=new cvLib.Mat();thresh=new cvLib.Mat();linesMat=new cvLib.Mat();
     cvLib.cvtColor(src,gray,cvLib.COLOR_RGBA2GRAY,0);
     // Adaptive threshold handles uneven paper background better than a single global threshold.
     cvLib.adaptiveThreshold(gray,thresh,255,cvLib.ADAPTIVE_THRESH_GAUSSIAN_C,cvLib.THRESH_BINARY_INV,15,5);
-    // Filter small compact ink components before closing/Hough. Elongated components
-    // are retained so short boundary fragments and dashed boundary segments survive.
-    const blobLimit=Math.max(0,Math.round(+$('inkBlob')?.value||0));
-    if(blobLimit>0 && typeof cvLib.connectedComponentsWithStats==='function'){
-      let labels=null,stats=null,centroids=null;
-      try{
-        const count=cvLib.connectedComponentsWithStats(thresh,labels=new cvLib.Mat(),stats=new cvLib.Mat(),centroids=new cvLib.Mat(),8,cvLib.CV_32S);
-        const remove=new Uint8Array(count);
-        for(let label=1;label<count;label++){
-          const row=label*stats.cols;
-          const left=stats.data32S[row+cvLib.CC_STAT_LEFT],top=stats.data32S[row+cvLib.CC_STAT_TOP];
-          const cw=stats.data32S[row+cvLib.CC_STAT_WIDTH],ch=stats.data32S[row+cvLib.CC_STAT_HEIGHT],area=stats.data32S[row+cvLib.CC_STAT_AREA];
-          const elongation=Math.max(cw/Math.max(1,ch),ch/Math.max(1,cw));
-          if(area<=blobLimit && Math.max(cw,ch)<=Math.max(3,Math.round(blobLimit*.8)) && elongation<3.0)remove[label]=1;
-        }
-        const lp=labels.data32S,tp=thresh.data;
-        for(let i=0;i<lp.length;i++)if(remove[lp[i]])tp[i]=0;
-      }finally{for(const m of [labels,stats,centroids])if(m&&typeof m.delete==='function')m.delete();}
-    }
     kernel=cvLib.getStructuringElement(cvLib.MORPH_RECT,new cvLib.Size(2,2));
     cvLib.morphologyEx(thresh,thresh,cvLib.MORPH_CLOSE,kernel);
-    const minLineLength=Math.max(8,Math.round((+$('dL').value||120)*sc*.18));
+    const txtStrength=+($('dTxt')?$('dTxt').value:50);
+    if(txtStrength>0 && thresh.isContinuous()) plotPetaFilterStrokes(thresh.data,thresh.cols,thresh.rows,txtStrength,sc);
+    const minLineLength=Math.max(10,Math.round((+$('dL').value||120)*sc*.35));
     const maxLineGap=Math.max(3,Math.round((+$('dG').value||12)*sc));
     const houghThreshold=Math.max(10,Math.round((+$('dT').value||40)*.7));
     cvLib.HoughLinesP(thresh,linesMat,1,Math.PI/180,houghThreshold,minLineLength,maxLineGap);
@@ -2873,23 +3079,9 @@ function detectWithOpenCV(R){
       const k=linesMat.data32S[i*4],l=linesMat.data32S[i*4+1],m=linesMat.data32S[i*4+2],n=linesMat.data32S[i*4+3];
       const x1=k/sc+R.x,y1=l/sc+R.y,x2=m/sc+R.x,y2=n/sc+R.y;
       const len=Math.hypot(x2-x1,y2-y1);
-      if(len>=Math.max(8,(+$('dL').value||120)*.18))detectedSegments.push({k:'P',pts:[[x1,y1],[x2,y2]],len,angle:Math.atan2(y2-y1,x2-x1)});
+      if(len>=Math.max(10,(+$('dL').value||120)*.35))detectedSegments.push({k:'P',pts:[[x1,y1],[x2,y2]],len});
     }
-    // Skor dukungan jaringan: segmen pendek yang menyerupai goresan huruf ditekan,
-    // kecuali ujungnya dekat atau arahnya selaras dengan kandidat batas lain.
-    const minKeep=Math.max(18,(+$('dL').value||120)*.32);
-    const linkDist=Math.max(10,(+$('dG').value||50)*.55);
-    const angleDiff=(a,b)=>{let d=Math.abs(a-b)%(Math.PI);return Math.min(d,Math.PI-d);};
-    const kept=detectedSegments.filter((a,i,all)=>{
-      if(a.len>=minKeep)return true;
-      const [a1,a2]=a.pts;
-      for(let j=0;j<all.length;j++){if(i===j)continue;const b=all[j],[b1,b2]=b.pts;
-        const near=Math.min(Math.hypot(a1[0]-b1[0],a1[1]-b1[1]),Math.hypot(a1[0]-b2[0],a1[1]-b2[1]),Math.hypot(a2[0]-b1[0],a2[1]-b1[1]),Math.hypot(a2[0]-b2[0],a2[1]-b2[1]));
-        if(near<=linkDist && angleDiff(a.angle,b.angle)<=Math.PI/12)return true;
-      }
-      return false;
-    });
-    return kept.map(({k,pts})=>({k,pts}));
+    return detectedSegments;
   }catch(err){
     console.error('OpenCV detection error:',err);
     $('dMsg').textContent='Deteksi OpenCV gagal: '+(err?.message||err);
@@ -3023,99 +3215,207 @@ function detect(R){
   // perlindungan konservatif bagi jalan/sungai berkelok; bukan deteksi kurva sempurna.
   const useAutoMag=$('autoMagToggle')?.checked ?? true;
   if(useAutoMag){
-  const isProtected=q=>Math.hypot(q[2]-q[0],q[3]-q[1])>150;
-  // --- 1. COLLINEAR MERGING (Menyambung garis putus searah) ---
-  // Gabungkan hanya fragmen yang hampir sejajar, dekat secara ortogonal, dan memiliki gap terbatas.
-  const segAngle=q=>Math.atan2(q[3]-q[1],q[2]-q[0]);
-  const mergeAngleLimit=8*Math.PI/180;
-  const mergeOffsetLimit=4;
-  const mergeGapLimit=40;
-  let merged=true, mergePass=0;
-  while(merged && mergePass++ < 12){
-    merged=false;
-    outerMerge: for(let i=0;i<out.length;i++){
-      for(let j=i+1;j<out.length;j++){
-        const a=out[i], b=out[j];
-        if(isProtected(a)||isProtected(b))continue;
-        const ax=a[2]-a[0], ay=a[3]-a[1], al=Math.hypot(ax,ay);
-        const bx=b[2]-b[0], by=b[3]-b[1], bl=Math.hypot(bx,by);
-        if(al<1e-6||bl<1e-6)continue;
-        let dAngle=Math.abs(segAngle(a)-segAngle(b))%Math.PI;
-        if(dAngle>Math.PI/2)dAngle=Math.PI-dAngle;
-        if(dAngle>=mergeAngleLimit)continue;
-        const ux=ax/al, uy=ay/al, nx=-uy, ny=ux;
-        const ortho1=Math.abs((b[0]-a[0])*ny-(b[1]-a[1])*nx);
-        const ortho2=Math.abs((b[2]-a[0])*ny-(b[3]-a[1])*nx);
-        if(Math.max(ortho1,ortho2)>mergeOffsetLimit)continue;
-        // Project B onto A's axis and calculate the actual empty gap (not endpoint distance).
-        const t0=(b[0]-a[0])*ux+(b[1]-a[1])*uy;
-        const t1=(b[2]-a[0])*ux+(b[3]-a[1])*uy;
-        const blo=Math.min(t0,t1), bhi=Math.max(t0,t1);
-        const gap=Math.max(0, blo-al, -bhi);
-        if(gap>mergeGapLimit)continue;
-        // Do not bridge a gap unless the image has enough dark pixels along the connecting path.
-        const aEnds=[[a[0],a[1]],[a[2],a[3]]], bEnds=[[b[0],b[1]],[b[2],b[3]]];
-        let pair=null, pairD=Infinity;
-        for(const pa of aEnds)for(const pb of bEnds){
-          const d=Math.hypot(pa[0]-pb[0],pa[1]-pb[1]);
-          if(d<pairD){pairD=d;pair=[pa,pb]}
+  // ===== RAPIKAN: satu garis per tepi, tersambung di sudut =====
+  // 1) fragmen segaris (termasuk segmen panjang) digabung jadi satu garis dan dicocokkan ulang (PCA);
+  // 2) ujung garis ditarik ke titik potong terdekat dengan garis lain (termasuk garis panjang), dibatasi radius magnet;
+  // 3) ujung yang berdekatan disatukan; garis kembar dan sisa pendek yang terisolasi dibuang.
+  const userMagR=+($('magR')?.value || 40);
+  const R2=userMagR;
+  const segLen=s=>Math.hypot(s.p[1][0]-s.p[0][0],s.p[1][1]-s.p[0][1]);
+  let S=out.map(q=>({p:[[q[0],q[1]],[q[2],q[3]]],parts:[[q[0],q[1],q[2],q[3]]]}));
+  S.forEach(s=>{s.L=segLen(s);});
+  S.sort((a,b)=>b.L-a.L);
+  const refit=s=>{
+    let sw=0,mx=0,my=0;
+    for(const q of s.parts){const L=Math.hypot(q[2]-q[0],q[3]-q[1]);sw+=L;mx+=(q[0]+q[2])/2*L;my+=(q[1]+q[3])/2*L;}
+    mx/=sw;my/=sw;
+    let sxx=0,sxy=0,syy=0;
+    for(const q of s.parts){
+      const L=Math.hypot(q[2]-q[0],q[3]-q[1]);
+      for(const t of [0,.5,1]){const x=q[0]+(q[2]-q[0])*t-mx,y=q[1]+(q[3]-q[1])*t-my,w=L/3;sxx+=w*x*x;sxy+=w*x*y;syy+=w*y*y;}
+    }
+    const th=0.5*Math.atan2(2*sxy,sxx-syy),ux=Math.cos(th),uy=Math.sin(th);
+    let t0=Infinity,t1=-Infinity;
+    for(const q of s.parts)for(const k of [0,2]){const t=(q[k]-mx)*ux+(q[k+1]-my)*uy;if(t<t0)t0=t;if(t>t1)t1=t;}
+    s.p=[[mx+ux*t0,my+uy*t0],[mx+ux*t1,my+uy*t1]];s.L=t1-t0;
+  };
+  const mergeCos=Math.cos(8*Math.PI/180),mergeOff=7,mergeGap=40;
+  const canMerge=(A,B)=>{
+    const al=A.L,bl=B.L;if(al<1e-6||bl<1e-6)return false;
+    const ux=(A.p[1][0]-A.p[0][0])/al,uy=(A.p[1][1]-A.p[0][1])/al;
+    const bx=(B.p[1][0]-B.p[0][0])/bl,by=(B.p[1][1]-B.p[0][1])/bl;
+    if(Math.abs(ux*bx+uy*by)<mergeCos)return false;
+    const nx=-uy,ny=ux;
+    const s1=(B.p[0][0]-A.p[0][0])*nx+(B.p[0][1]-A.p[0][1])*ny;
+    const s2=(B.p[1][0]-A.p[0][0])*nx+(B.p[1][1]-A.p[0][1])*ny;
+    // Dua garis hampir sejajar yang saling memotong di tengah = satu tepi yang terdeteksi dua kali: toleransi jarak lebih longgar.
+    const crossDup=Math.abs(ux*bx+uy*by)>=Math.cos(6*Math.PI/180)&&s1*s2<0;
+    if(Math.max(Math.abs(s1),Math.abs(s2))>(crossDup?20:mergeOff))return false;
+    const t0=(B.p[0][0]-A.p[0][0])*ux+(B.p[0][1]-A.p[0][1])*uy;
+    const t1=(B.p[1][0]-A.p[0][0])*ux+(B.p[1][1]-A.p[0][1])*uy;
+    const blo=Math.min(t0,t1),bhi=Math.max(t0,t1);
+    const gap=Math.max(0,blo-al,-bhi);
+    if(gap>mergeGap)return false;
+    if(gap>2){ // jembatani celah hanya bila ada tinta di sepanjang celah
+      let ea,eb;
+      if(blo>al){ea=A.p[1];eb=t0<t1?B.p[0]:B.p[1];}else{ea=A.p[0];eb=t0<t1?B.p[1]:B.p[0];}
+      if(!checkPath(ea[0],ea[1],eb[0],eb[1]))return false;
+    }
+    return true;
+  };
+  const mergeAll=()=>{
+    const alive=S.map(()=>true);
+    for(let i=0;i<S.length;i++){
+      if(!alive[i])continue;
+      let changed=true,guard=0;
+      while(changed&&guard++<60){
+        changed=false;
+        for(let j=i+1;j<S.length;j++){
+          if(!alive[j]||!canMerge(S[i],S[j]))continue;
+          S[i].parts.push(...S[j].parts);alive[j]=false;refit(S[i]);changed=true;
         }
-        if(pairD>1 && !checkPath(pair[0][0],pair[0][1],pair[1][0],pair[1][1]))continue;
-        // Use the two extreme endpoints along A's axis to make one continuous segment.
-        const pts=[ [a[0],a[1]], [a[2],a[3]], [b[0],b[1]], [b[2],b[3]] ];
-        let minP=pts[0], maxP=pts[0], minT=Infinity, maxT=-Infinity;
-        for(const p of pts){const t=(p[0]-a[0])*ux+(p[1]-a[1])*uy;if(t<minT){minT=t;minP=p}if(t>maxT){maxT=t;maxP=p}}
-        const mergedLength=Math.hypot(maxP[0]-minP[0],maxP[1]-minP[1]);
-        out[i]=[minP[0],minP[1],maxP[0],maxP[1],'P',mergedLength];
-        out.splice(j,1);merged=true;break outerMerge;
       }
     }
-  }
-
-  // --- 2. INTERSECTION SNAPPING PRESISI TINGGI ---
-  const ln=out.map(q=>({k:q[4],p:[[q[0],q[1]],[q[2],q[3]]],len:Math.hypot(q[2]-q[0],q[3]-q[1])}));
+    S=S.filter((_,i)=>alive[i]);
+  };
+  // --- tarik ujung ke titik potong terdekat (garis panjang ikut, perpindahan dibatasi) ---
   const lineX=(a,b)=>{
-    const [x1,y1]=a.p[0], [x2,y2]=a.p[1], [x3,y3]=b.p[0], [x4,y4]=b.p[1];
+    const [x1,y1]=a.p[0],[x2,y2]=a.p[1],[x3,y3]=b.p[0],[x4,y4]=b.p[1];
     const d=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
     if(Math.abs(d)<1e-9)return null;
     const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/d;
     return [x1+t*(x2-x1),y1+t*(y2-y1)];
   };
-  const userMagR=+($('magR')?.value || 40);
-  const R2=userMagR;
-  for(const a of ln){
-    if(a.len>150)continue;
-    for(const e of a.p){
-      let best=null,bd=R2;
-      for(const b of ln){
-        if(b===a||b.len>150)continue;
-        const X=lineX(a,b);if(!X)continue;
-        const d=Math.hypot(X[0]-e[0],X[1]-e[1]);if(d>=bd)continue;
-        const bx=b.p[1][0]-b.p[0][0],by=b.p[1][1]-b.p[0][1],Lb=Math.hypot(bx,by);
-        if(Lb<1e-9)continue;
-        const tb=((X[0]-b.p[0][0])*bx+(X[1]-b.p[0][1])*by)/Lb;
-        if(tb < -R2 || tb > Lb+R2)continue;
-        const ax=a.p[1][0]-a.p[0][0],ay=a.p[1][1]-a.p[0][1],La=Math.hypot(ax,ay);
-        if(!La||Math.abs(ax*by-ay*bx)/(La*Lb)<0.15)continue;
-        if(checkPath(e[0],e[1],X[0],X[1])){bd=d;best=X;}
+  const snapAll=()=>{
+    const orig=S.map(s=>({p:[s.p[0].slice(),s.p[1].slice()],L:s.L}));
+    const moves=[];
+    for(let i=0;i<S.length;i++){
+      const a=orig[i];if(a.L<1e-6)continue;
+      const ax=a.p[1][0]-a.p[0][0],ay=a.p[1][1]-a.p[0][1];
+      const reach=Math.min(R2,0.35*a.L);
+      for(let k=0;k<2;k++){
+        const e=a.p[k];let best=null,bd=reach;
+        for(let j=0;j<S.length;j++){
+          if(j===i)continue;
+          const b=orig[j];if(b.L<1e-6)continue;
+          const bx=b.p[1][0]-b.p[0][0],by=b.p[1][1]-b.p[0][1];
+          if(Math.abs(ax*by-ay*bx)/(a.L*b.L)<0.15)continue;      // hampir sejajar: tidak berpotongan bermakna
+          const X=lineX(a,b);if(!X)continue;
+          const d=Math.hypot(X[0]-e[0],X[1]-e[1]);if(d>=bd)continue;
+          const tb=((X[0]-b.p[0][0])*bx+(X[1]-b.p[0][1])*by)/b.L;
+          if(tb<-R2||tb>b.L+R2)continue;
+          if(d>6&&!checkPath(e[0],e[1],X[0],X[1]))continue;
+          bd=d;best=X;
+        }
+        if(best)moves.push([i,k,best]);
       }
-      if(best){e[0]=best[0];e[1]=best[1];}
     }
-  }
-  // --- 3. ENDPOINT CLUSTERING (MAGNET OTOMATIS) ---
-  // Satukan ujung-ujung yang dekat; tetap gunakan radius terbatas agar sudut bidang
-  // yang berbeda tidak mudah ikut tergabung.
-  const E=ln.filter(a=>a.len<=150).flatMap(a=>a.p),dn=new Set();
-  const snapRadius=userMagR;
-  for(const e of E){
-    if(dn.has(e))continue;
-    const g=E.filter(q=>!dn.has(q)&&Math.hypot(q[0]-e[0],q[1]-e[1])<snapRadius);
-    if(!g.length)continue;
-    const mx=g.reduce((z,q)=>z+q[0],0)/g.length;
-    const my=g.reduce((z,q)=>z+q[1],0)/g.length;
-    g.forEach(q=>{q[0]=mx;q[1]=my;dn.add(q)});
-  }
-  return ln.map(a=>({k:a.k,pts:a.p.map(q=>[q[0]/sc+R.x,q[1]/sc+R.y])}));
+    for(const [i,k,X] of moves)S[i].p[k]=X;
+  };
+  // --- satukan ujung yang berdekatan agar benar-benar berbagi satu titik sudut ---
+  const clusterAll=()=>{
+    const rc=Math.min(userMagR,14);
+    const E=S.flatMap(s=>s.p),done=new Set();
+    for(const e of E){
+      if(done.has(e))continue;
+      const g=E.filter(q=>!done.has(q)&&Math.hypot(q[0]-e[0],q[1]-e[1])<rc);
+      if(!g.length)continue;
+      const mx=g.reduce((z,q)=>z+q[0],0)/g.length,my=g.reduce((z,q)=>z+q[1],0)/g.length;
+      g.forEach(q=>{q[0]=mx;q[1]=my;done.add(q);});
+    }
+    // buang garis yang runtuh jadi titik dan garis kembar (dua ujung sama)
+    const seen=new Set(),keepS=[];
+    for(const s of S){
+      s.L=segLen(s);
+      if(s.L<Math.max(4,Lm*0.4))continue;
+      const k1=Math.round(s.p[0][0])+','+Math.round(s.p[0][1])+'|'+Math.round(s.p[1][0])+','+Math.round(s.p[1][1]);
+      const k2=Math.round(s.p[1][0])+','+Math.round(s.p[1][1])+'|'+Math.round(s.p[0][0])+','+Math.round(s.p[0][1]);
+      if(seen.has(k1)||seen.has(k2))continue;
+      seen.add(k1);keepS.push(s);
+    }
+    S=keepS;
+  };
+  // --- buang ranting pendek: segmen pendek dengan ujung menggantung (bukan di tepi kotak deteksi) ---
+  const pruneAll=()=>{
+    const touch=(e,self)=>{
+      for(const o of S){
+        if(o===self)continue;
+        if(Math.hypot(o.p[0][0]-e[0],o.p[0][1]-e[1])<=8||Math.hypot(o.p[1][0]-e[0],o.p[1][1]-e[1])<=8)return true;
+        const vx=o.p[1][0]-o.p[0][0],vy=o.p[1][1]-o.p[0][1],L=Math.hypot(vx,vy);if(L<1e-6)continue;
+        const t=((e[0]-o.p[0][0])*vx+(e[1]-o.p[0][1])*vy)/(L*L);
+        if(t>=0&&t<=1&&Math.abs(vx*(e[1]-o.p[0][1])-vy*(e[0]-o.p[0][0]))/L<=8)return true;
+      }
+      return false;
+    };
+    const nearEdge=e=>e[0]<10||e[1]<10||e[0]>w-10||e[1]>h-10;
+    for(let pass=0;pass<2;pass++){
+      S=S.filter(s=>{
+        if(s.L>=Lm*1.5)return true;
+        const f0=!touch(s.p[0],s)&&!nearEdge(s.p[0]),f1=!touch(s.p[1],s)&&!nearEdge(s.p[1]);
+        return !(f0||f1);
+      });
+    }
+  };
+  // --- sambung otomatis: dua ujung bebas yang arahnya saling melanjutkan ---
+  const touchOf=(e,self)=>{
+    for(const o of S){
+      if(o===self)continue;
+      if(Math.hypot(o.p[0][0]-e[0],o.p[0][1]-e[1])<=8||Math.hypot(o.p[1][0]-e[0],o.p[1][1]-e[1])<=8)return true;
+      const vx=o.p[1][0]-o.p[0][0],vy=o.p[1][1]-o.p[0][1],L=Math.hypot(vx,vy);if(L<1e-6)continue;
+      const t=((e[0]-o.p[0][0])*vx+(e[1]-o.p[0][1])*vy)/(L*L);
+      if(t>=0&&t<=1&&Math.abs(vx*(e[1]-o.p[0][1])-vy*(e[0]-o.p[0][0]))/L<=8)return true;
+    }
+    return false;
+  };
+  const linkAll=()=>{
+    const linkMax=(+($('linkMax')?$('linkMax').value:120))*sc;
+    if(!(linkMax>0))return;
+    const cosCont=Math.cos(30*Math.PI/180);
+    const ends=[];
+    S.forEach((s,i)=>{for(let k=0;k<2;k++){
+      const e=s.p[k];if(touchOf(e,s))continue;
+      const o=s.p[1-k],dx=e[0]-o[0],dy=e[1]-o[1],L=Math.hypot(dx,dy)||1;
+      ends.push({i,k,e,ux:dx/L,uy:dy/L});
+    }});
+    const pairs=[];
+    for(let a=0;a<ends.length;a++)for(let b=a+1;b<ends.length;b++){
+      const A=ends[a],B=ends[b];if(A.i===B.i)continue;
+      const vx=B.e[0]-A.e[0],vy=B.e[1]-A.e[1],d=Math.hypot(vx,vy);
+      if(d>linkMax)continue;
+      if(d>1e-6){
+        if((A.ux*vx+A.uy*vy)/d<cosCont)continue;      // garis A tidak mengarah ke ujung B
+        if(-(B.ux*vx+B.uy*vy)/d<cosCont)continue;     // garis B tidak mengarah ke ujung A
+      }
+      pairs.push([d,a,b]);
+    }
+    pairs.sort((x,y)=>x[0]-y[0]);
+    const used=new Set(),bridges=[];
+    for(const [d,a,b] of pairs){
+      if(used.has(a)||used.has(b))continue;
+      used.add(a);used.add(b);
+      const A=ends[a],B=ends[b],sa=S[A.i],sb=S[B.i];
+      const X=lineX(sa,sb);
+      if(X&&d>1e-6&&Math.hypot(X[0]-A.e[0],X[1]-A.e[1])<=Math.max(d,12)&&Math.hypot(X[0]-B.e[0],X[1]-B.e[1])<=Math.max(d,12)){
+        sa.p[A.k]=X.slice();sb.p[B.k]=X.slice();           // sudut: kedua ujung bertemu di titik potong garis
+      }else if(d<=3){
+        const m=[(A.e[0]+B.e[0])/2,(A.e[1]+B.e[1])/2];sa.p[A.k]=m.slice();sb.p[B.k]=m.slice();
+      }else{
+        bridges.push({p:[sa.p[A.k].slice(),sb.p[B.k].slice()],parts:[],L:d,bridge:true}); // celah: jembatan lurus
+      }
+    }
+    for(const br of bridges)S.push(br);
+  };
+  // Dua putaran: gabung -> sambung -> satukan. Putaran kedua membereskan garis kembar yang baru muncul setelah ujung ditarik.
+  mergeAll();snapAll();clusterAll();
+  mergeAll();snapAll();clusterAll();
+  pruneAll();
+  linkAll();
+  const ln=S.map(s=>({k:'P',p:s.p,len:s.L}));
+  // Susun jadi jalur (polyline) bernomor di ujung bebas.
+  const segsImg=ln.map(a=>a.p.map(q=>[q[0]/sc+R.x,q[1]/sc+R.y]));
+  const chains=plotPetaBuildChains(segsImg,Math.max(1.5,1/sc),8/sc);
+  plotPetaNumberEnds(chains);
+  return chains;
   } else {
     // Magnet nonaktif: kembalikan kandidat hasil deteksi tanpa merging/snapping.
     return out.map(q=>({k:q[4],pts:[[q[0]/sc+R.x,q[1]/sc+R.y],[q[2]/sc+R.x,q[3]/sc+R.y]]}));
@@ -3140,18 +3440,26 @@ function finishSelection(){
 function runDet(R,poly=null){
   if(!img||R.w<20||R.h<20)return;
   $('dMsg').textContent='Mendeteksi...';
-  setTimeout(()=>{
+  setTimeout(async()=>{
     try{
       const method=$('detectMethod')?.value||'hough';
       if(method==='opencv' && (!window.plotPetaOpenCVReady || !window.cv || !window.cv.Mat)){
-        $('dMsg').textContent='OpenCV.js belum siap. Pastikan internet aktif, tunggu beberapa detik, lalu coba lagi.';
-        draw();return;
+        $('dMsg').textContent='Memuat OpenCV.js (sekitar 9 MB, hanya sekali)...';
+        try{ await window.plotPetaLoadOpenCV(); }
+        catch(e){
+          $('dMsg').textContent='OpenCV.js gagal dimuat ('+e.message+'). Periksa internet atau pakai metode Hough/Graph.';
+          draw();return;
+        }
+        $('dMsg').textContent='Mendeteksi...';
       }
       cand=method==='graph' ? detectVerticesAndEdges(R) : method==='opencv' ? detectWithOpenCV(R) : detect(R);
       // poly dan kandidat sama-sama dalam koordinat gambar. Garis diterima jika minimal separuh titiknya berada di dalam area.
       if(poly && poly.length>=3) cand=cand.filter(c=>{let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;return n>=c.pts.length/2});
+      if(cand.length&&cand[0].free)plotPetaNumberEnds(cand);
+      linkSel=null;candUndo=[];
       if(method==='opencv' && !cand.length && /^Deteksi OpenCV gagal:/.test($('dMsg').textContent)) { draw();return; }
-      $('dMsg').textContent=cand.length+' kandidat garis. Filter geometri menekan goresan pendek yang tidak selaras dengan jaringan; tulisan tidak dihapus dari gambar. Tetap periksa pratinjau sebelum menerima karena sebagian tulisan/garis batas bisa mirip.';
+      const nEnd=cand.reduce((z,c)=>z+((c.nums||[]).filter(Boolean).length),0);
+      $('dMsg').textContent=cand.length+' jalur kandidat garis batas'+(nEnd?(', '+nEnd+' ujung bebas bernomor. Klik dua nomor untuk menyambung manual.'):'. Smart Filter aktif.')+' Periksa kandidat sebelum diterima.';
     }catch(x){$('dMsg').textContent='Deteksi gagal: '+x.message}
     draw();
   },40);
@@ -3160,12 +3468,40 @@ $('dOk').onclick=()=>{
   if(!cand.length)return;
   snapshot();
   cand.forEach(c=>lines.push({k:'P',pts:c.pts}));
-  cand=[];
+  cand=[];linkSel=null;candUndo=[];
   $('dMsg').textContent='Kandidat diterima sebagai garis.';
   stat();
   draw();
 };
-$('dNo').onclick=()=>{cand=[];$('dMsg').textContent='';draw()};
+$('dNo').onclick=()=>{cand=[];linkSel=null;candUndo=[];$('dMsg').textContent='';draw()};
+// ===== nomor ujung garis: pilih dua nomor untuk menyambung =====
+function findEnd(sp){
+  let best=null,bd=14;
+  cand.forEach((c,ci)=>{for(let ei=0;ei<2;ei++){
+    if(!c.nums||!c.nums[ei])continue;
+    const p=toS(ei===0?c.pts[0]:c.pts[c.pts.length-1]),d=Math.hypot(p[0]-sp[0],p[1]-sp[1]);
+    if(d<bd){bd=d;best={ci,ei};}
+  }});
+  return best;
+}
+function handleEndClick(hit){
+  if(!linkSel){linkSel=hit;$('dMsg').textContent='Ujung '+cand[hit.ci].nums[hit.ei]+' dipilih. Klik nomor ujung lain untuk menyambung (Esc untuk batal).';draw();return}
+  if(linkSel.ci===hit.ci&&linkSel.ei===hit.ei){linkSel=null;$('dMsg').textContent='Pilihan dibatalkan.';draw();return}
+  const na=cand[linkSel.ci].nums[linkSel.ei],nb=cand[hit.ci].nums[hit.ei];
+  const backup=cand.map(c=>({k:c.k,pts:c.pts.map(q=>q.slice()),closed:c.closed,free:c.free.slice(),nums:c.nums.slice()}));
+  if(plotPetaJoinEnds(cand,linkSel.ci,linkSel.ei,hit.ci,hit.ei)){
+    candUndo.push(backup);
+    $('dMsg').textContent='Ujung '+na+' dan '+nb+' disambung. Nomor ujung disusun ulang.';
+  }else $('dMsg').textContent='Dua ujung itu tidak bisa disambung.';
+  linkSel=null;draw();
+}
+$('dUnlink').onclick=()=>{
+  if(!candUndo.length){$('dMsg').textContent='Tidak ada sambungan yang bisa dibatalkan.';return}
+  cand=candUndo.pop();linkSel=null;$('dMsg').textContent='Sambungan terakhir dibatalkan.';draw();
+};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&linkSel){linkSel=null;draw()}});
+$('numToggle')?.addEventListener('change',()=>draw());
+
 $('dAll').onclick=()=>{
   if(!img){$('dMsg').textContent='Buka peta dulu.';return}
   runDet({x:0,y:0,w:iw,h:ih});
@@ -3281,7 +3617,8 @@ const sliderPairs = [
   ['dT', 'val_dT', ''],
   ['dL', 'val_dL', ' px'],
   ['dG', 'val_dG', ' px'],
-  ['inkBlob', 'val_inkBlob', ' px²'],
+  ['dTxt', 'val_dTxt', '%'],
+  ['linkMax', 'val_linkMax', ' px'],
   ['magR', 'val_magR', ' px']
 ];
 sliderPairs.forEach(([sliderId, labelId, suffix]) => {
