@@ -4711,5 +4711,270 @@ window.addEventListener('load', () => {
 })();
 </script>
 
+     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<style>
+  .plotpeta-ocr-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
+    color: white;
+    border: 1px solid rgba(14,165,233,0.55);
+    border-radius: 9px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(14,165,233,0.25);
+  }
+  .plotpeta-ocr-btn:hover {
+    filter: brightness(1.08);
+  }
+  .plotpeta-ocr-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    font-size: 11px;
+    font-weight: 700;
+  }
+</style>
+
+<script>
+(function(){
+  const state = window.plotPetaOCRState || (window.plotPetaOCRState = {
+    loaded: false,
+    promise: null,
+    lastResult: null
+  });
+
+  function setStatus(msg){
+    const st = document.getElementById('st');
+    if (st) st.textContent = msg;
+    const dMsg = document.getElementById('dMsg');
+    if (dMsg) dMsg.textContent = msg;
+  }
+
+  function getCanvas(){
+    const wrap = document.getElementById('wrap');
+    if (!wrap) return null;
+    return wrap.querySelector('canvas') || document.querySelector('canvas');
+  }
+
+  function normalizeFieldText(raw){
+    if (!raw) return '';
+    const cleaned = String(raw)
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // ambil kandidat nomor bidang yang mirip "123/45", "B-12", "P-001", "No 55/ABC"
+    const m = cleaned.match(/[A-Za-z0-9\/\-\.\s]{4,40}/);
+    if (!m) return '';
+    const t = m[0].replace(/[^\w\/\-\.\s]/g, '').replace(/\s{2,}/g, ' ').trim();
+    return t.length >= 3 ? t : '';
+  }
+
+  function extractBestParcelCandidate(words){
+    if (!Array.isArray(words) || !words.length) return null;
+
+    const candidates = words
+      .map(w => {
+        const txt = normalizeFieldText(w.text || '');
+        if (!txt) return null;
+        const score = (
+          (/[0-9]/.test(txt) ? 2 : 0) +
+          (/[A-Za-z]/.test(txt) ? 1 : 0) +
+          (txt.includes('/') ? 2 : 0) +
+          (txt.includes('-') ? 1 : 0) +
+          (txt.length >= 4 ? 1 : 0)
+        );
+        return { text: txt, score, bbox: w.bbox || { x0: w.x0 || 0, y0: w.y0 || 0, width: w.width || 0, height: w.height || 0 } };
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.score + (b.text.length * 0.1)) - (a.score + (a.text.length * 0.1)));
+
+    return candidates[0] || null;
+  }
+
+  function drawPolygon(ctx, points, options){
+    const { strokeStyle = '#38bdf8', lineWidth = 2, fillStyle = 'rgba(56,189,248,0.08)' } = options || {};
+    if (!points || points.length < 2) return;
+    ctx.save();
+    ctx.beginPath();
+    points.forEach((p, idx) => {
+      if (idx === 0) ctx.moveTo(p[0], p[1]);
+      else ctx.lineTo(p[0], p[1]);
+    });
+    ctx.closePath();
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = lineWidth;
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawParcelNumberOverlay(candidate, canvas, shortText){
+    if (!canvas) return null;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    const rect = candidate.bbox;
+    const x = Math.max(0, rect.x0 || 0);
+    const y = Math.max(0, rect.y0 || 0);
+    const w = Math.max(18, rect.width || 60);
+    const h = Math.max(18, rect.height || 28);
+
+    const pad = 18;
+    const poly = [
+      [x - pad, y - pad],
+      [x + w + pad, y - pad],
+      [x + w + pad, y + h + pad],
+      [x - pad, y + h + pad],
+      [x - pad, y - pad]
+    ];
+
+    drawPolygon(ctx, poly, {
+      strokeStyle: '#22d3ee',
+      lineWidth: 2,
+      fillStyle: 'rgba(34,211,238,0.08)'
+    });
+
+    // garis mengikuti area bidang yang menempel nomor
+    const path = [
+      [x - pad, y + h + pad + 18],
+      [x + w * 0.25, y + h + pad + 6],
+      [x + w * 0.5, y + h + pad + 8],
+      [x + w * 0.75, y + h + pad + 2],
+      [x + w + pad, y + h + pad + 12]
+    ];
+    ctx.save();
+    ctx.beginPath();
+    path.forEach((p, idx) => idx === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]));
+    ctx.strokeStyle = '#34d399';
+    ctx.lineWidth = 2.2;
+    ctx.setLineDash([6, 6]);
+    ctx.stroke();
+    ctx.restore();
+
+    // label nomor bidang
+    ctx.save();
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillStyle = '#f8fafc';
+    ctx.strokeStyle = 'rgba(15, 23, 42, 0.8)';
+    ctx.lineWidth = 5;
+    ctx.strokeText(shortText, x - pad + 6, y - pad - 6);
+    ctx.fillText(shortText, x - pad + 6, y - pad - 6);
+    ctx.restore();
+
+    return {
+      text: shortText,
+      polygon: poly,
+      bbox: { x, y, width: w, height: h }
+    };
+  }
+
+  function addFieldNumberToAppData(shortText, bbox){
+    if (window.plotPetaState && Array.isArray(window.plotPetaState.texts)) {
+      window.plotPetaState.texts.push({
+        no: shortText,
+        su: '',
+        p: [bbox.x + bbox.width / 2, bbox.y + bbox.height / 2]
+      });
+    }
+    if (window.app && typeof window.app === 'object') {
+      if (!window.app.texts) window.app.texts = [];
+      window.app.texts.push({
+        no: shortText,
+        su: '',
+        p: [bbox.x + bbox.width / 2, bbox.y + bbox.height / 2]
+      });
+    }
+  }
+
+  function loadTesseract(){
+    if (state.loaded && window.Tesseract) return Promise.resolve();
+    if (state.promise) return state.promise;
+    state.promise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      script.async = true;
+      script.onload = () => {
+        state.loaded = true;
+        resolve();
+      };
+      script.onerror = () => reject(new Error('Gagal memuat Tesseract.js'));
+      document.head.appendChild(script);
+    });
+    return state.promise;
+  }
+
+  async function detectParcelOCR(){
+    const canvas = getCanvas();
+    if (!canvas) {
+      setStatus('Tidak ada canvas aktif untuk OCR.');
+      return;
+    }
+
+    try {
+      setStatus('OCR nomor bidang sedang berjalan...');
+      await loadTesseract();
+
+      const dataUrl = canvas.toDataURL('image/png');
+      const result = await Tesseract.recognize(dataUrl, 'eng+ind', {
+        logger: (m) => {
+          if (m && m.status === 'recognizing text') {
+            setStatus('OCR nomor bidang: ' + (m.progress * 100).toFixed(0) + '%');
+          }
+        }
+      });
+
+      const words = result.data.words || [];
+      const best = extractBestParcelCandidate(words);
+      if (!best) {
+        setStatus('Nomor bidang tidak terdeteksi. Coba crop area yang lebih jelas.');
+        return;
+      }
+
+      const shortText = String(best.text).replace(/\s+/g, ' ').trim();
+      state.lastResult = { text: shortText, bbox: best.bbox };
+
+      const overlay = drawParcelNumberOverlay(best, canvas, shortText);
+      if (overlay) {
+        addFieldNumberToAppData(shortText, overlay.bbox);
+      }
+
+      setStatus('Nomor bidang terdeteksi: ' + shortText);
+    } catch (err) {
+      console.error(err);
+      setStatus('OCR gagal: ' + (err && err.message ? err.message : 'unknown error'));
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    const barRight = document.querySelector('#bar .bar-right');
+    const bar = document.getElementById('bar');
+
+    if (!document.getElementById('plotpetaOcrBtn')) {
+      const btn = document.createElement('button');
+      btn.id = 'plotpetaOcrBtn';
+      btn.type = 'button';
+      btn.className = 'plotpeta-ocr-btn';
+      btn.innerHTML = '<span>OCR</span><span class="plotpeta-ocr-badge">No</span>';
+      btn.title = 'Deteksi nomor bidang otomatis';
+      btn.addEventListener('click', detectParcelOCR);
+      if (barRight) barRight.appendChild(btn);
+      else if (bar) bar.appendChild(btn);
+    }
+  });
+})();
+</script>
+     
 </body>
 </html>
