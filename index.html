@@ -1906,13 +1906,20 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
         <input id="numToggle" type="checkbox" checked style="width:auto">
         <span>Tampilkan nomor ujung garis</span>
       </label>
+      <div class="slider-row"><span>Klik pada kandidat untuk</span></div>
+      <select id="numMode" style="width:100%;padding:8px;border-radius:8px;background:var(--panel);color:inherit;border:1px solid var(--border)">
+        <option value="sambung" selected>Sambung ujung (klik 2 nomor)</option>
+        <option value="pangkas">Pangkas ujung sampai titik silang (klik 1 nomor)</option>
+        <option value="hapus">Hapus garis (klik garisnya)</option>
+      </select>
+      <div class="mu" style="margin:4px 0 8px">Pangkas: ujung yang menjulur melewati silangan dipotong tepat di titik silang terdekat. Hapus: klik garis yang salah (garis akan merah saat disorot).</div>
 
       <div class="g2">
         <button class="pri" id="dOk">Terima semua</button>
         <button id="dNo">Buang</button>
       </div>
       <button id="dAll" style="margin-top:8px;width:100%">Deteksi seluruh peta</button>
-      <button id="dUnlink" style="margin-top:8px;width:100%">Batal sambung terakhir</button>
+      <button id="dUnlink" style="margin-top:8px;width:100%">Batalkan sambung / pangkas / hapus terakhir</button>
       <div class="mu" id="dMsg"></div>
     </div>
 
@@ -2455,9 +2462,14 @@ plotCanvas.addEventListener('pointerdown',e=>{
   plotCanvas.setPointerCapture(e.pointerId);
   if(e.button===0&&img){
     if(tool==='M'){const h=findV(sp);if(h){snapshot();mv=h;return}}
-    if(tool==='A' && cand.length && cand[0].nums && ($('numToggle')?$('numToggle').checked:true)){
-      const hit=findEnd(sp);
-      if(hit){e.preventDefault();handleEndClick(hit);return}
+    if(tool==='A' && cand.length && cand[0].nums){
+      if(numMode()==='hapus'){
+        const sh=findSeg(sp);
+        if(sh){e.preventDefault();handleDeleteClick(sh);return}
+      }else if($('numToggle')?$('numToggle').checked:true){
+        const hit=findEnd(sp);
+        if(hit){e.preventDefault();handleEndClick(hit);return}
+      }
     }
     if(tool==='A' && detectModeEl?.value==='rect'){boxAction='detect';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
     if(tool==='E' && eraseModeEl?.value==='rect'){boxAction='erase';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
@@ -2727,6 +2739,11 @@ function draw(){
     }});
     ctx.textAlign='start';ctx.textBaseline='alphabetic';
   }
+  if(tool==='A'&&cand.length&&cand[0].nums&&numMode()==='hapus'&&mouse){
+    const h=findSeg(mouse);
+    if(h){const a=toS(cand[h.ci].pts[h.si]),b=toS(cand[h.ci].pts[h.si+1]);
+      ctx.strokeStyle='#ef4444';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();}
+  }
   if(tool==='M')lines.forEach(l=>l.pts.forEach(p=>{
     const s=toS(p);
     ctx.strokeStyle='#0ea5e9';
@@ -2993,6 +3010,50 @@ function plotPetaJoinEnds(chains,ci,ei,cj,ej){
   const merged={k:'P',pts:pa.concat(pb),closed:false,free:[fa[0],fb[1]],nums:[0,0]};
   chains.splice(Math.max(ci,cj),1);chains.splice(Math.min(ci,cj),1);chains.push(merged);
   plotPetaNumberEnds(chains);return true;
+}
+// ===== edit jalur: pangkas ujung sampai titik silang, hapus satu segmen =====
+function plotPetaRebuild(segs,tol,attachTol){
+  const ch=plotPetaBuildChains(segs,tol,attachTol);plotPetaNumberEnds(ch);return ch;
+}
+// Pangkas ujung bebas (ci,ei) sampai titik silang terdekat dengan segmen lain. Mengembalikan jalur baru, atau null bila tidak ada silangan.
+function plotPetaTrimEnd(chains,ci,ei,tol,attachTol){
+  const c=chains[ci];if(!c||c.closed)return null;
+  const n=c.pts.length,segs=[];let own=-1;
+  chains.forEach((ch,k)=>{for(let i=0;i<ch.pts.length-1;i++){
+    if(k===ci&&((ei===0&&i===0)||(ei===1&&i===n-2)))own=segs.length;
+    segs.push([ch.pts[i].slice(),ch.pts[i+1].slice()]);
+  }});
+  if(own<0)return null;
+  const a=segs[own],ax=a[1][0]-a[0][0],ay=a[1][1]-a[0][1],La=Math.hypot(ax,ay);
+  if(La<1e-9)return null;
+  const te=ei===0?0:1;let best=null;
+  for(let j=0;j<segs.length;j++){
+    if(j===own)continue;
+    const b=segs[j],bx=b[1][0]-b[0][0],by=b[1][1]-b[0][1],Lb=Math.hypot(bx,by);if(Lb<1e-9)continue;
+    const den=ax*by-ay*bx;if(Math.abs(den)/(La*Lb)<0.05)continue;           // hampir sejajar
+    const t=((b[0][0]-a[0][0])*by-(b[0][1]-a[0][1])*bx)/den;
+    const u=((b[0][0]-a[0][0])*ay-(b[0][1]-a[0][1])*ax)/den;
+    if(u<-tol/Lb||u>1+tol/Lb)continue;                                      // di luar segmen b
+    if(t<=0||t>=1)continue;                                                 // harus di dalam segmen a (menjulur melewati silangan)
+    const over=Math.abs(t-te)*La,left=Math.abs(t-(1-te))*La;
+    if(over<=tol||left<2*tol)continue;
+    if(!best||over<best.over)best={j,t,u,over,Lb};
+  }
+  if(!best)return null;
+  const b=segs[best.j];
+  let X=[a[0][0]+best.t*ax,a[0][1]+best.t*ay];
+  const out=segs.map(s=>[s[0].slice(),s[1].slice()]);
+  if(ei===0)out[own][0]=X.slice();else out[own][1]=X.slice();
+  if(best.u*best.Lb<=tol){X=b[0].slice();if(ei===0)out[own][0]=X.slice();else out[own][1]=X.slice();}
+  else if((1-best.u)*best.Lb<=tol){X=b[1].slice();if(ei===0)out[own][0]=X.slice();else out[own][1]=X.slice();}
+  else{out.splice(best.j,1,[b[0].slice(),X.slice()],[X.slice(),b[1].slice()]);}   // pecah garis yang disilang di titik temu
+  return {chains:plotPetaRebuild(out,tol,attachTol),X,over:best.over};
+}
+// Hapus satu segmen (indeks si pada jalur ci); jalur dibangun ulang.
+function plotPetaDeleteSeg(chains,ci,si,tol,attachTol){
+  const segs=[];
+  chains.forEach((ch,k)=>{for(let i=0;i<ch.pts.length-1;i++){if(k===ci&&i===si)continue;segs.push([ch.pts[i].slice(),ch.pts[i+1].slice()]);}});
+  return plotPetaRebuild(segs,tol,attachTol);
 }
 // Filter tulisan: label gumpalan piksel (8-tetangga), ukur kelurusan tiap gumpalan lewat PCA,
 // lalu buang yang bukan goresan lurus (tulisan tangan, angka, bintik). Tanpa OCR.
@@ -3405,9 +3466,42 @@ function detect(R){
     }
     for(const br of bridges)S.push(br);
   };
+  // --- potong otomatis kelebihan di belokan: dua garis bersudut lancip yang saling menyilang dekat ujung keduanya ---
+  const trimCrossAll=()=>{
+    for(let pass=0;pass<3;pass++){
+      const L=S.map(segLen),cand2=[];
+      for(let i=0;i<S.length;i++){
+        if(L[i]<1e-6)continue;
+        const a=S[i],ax=a.p[1][0]-a.p[0][0],ay=a.p[1][1]-a.p[0][1];
+        for(let j=i+1;j<S.length;j++){
+          if(L[j]<1e-6)continue;
+          const b=S[j],bx=b.p[1][0]-b.p[0][0],by=b.p[1][1]-b.p[0][1];
+          const den=ax*by-ay*bx,sinA=Math.abs(den)/(L[i]*L[j]);
+          if(sinA<0.10||sinA>0.57)continue;                  // hanya sudut lancip (~6° sampai ~35°)
+          const t=((b.p[0][0]-a.p[0][0])*by-(b.p[0][1]-a.p[0][1])*bx)/den;
+          const u=((b.p[0][0]-a.p[0][0])*ay-(b.p[0][1]-a.p[0][1])*ax)/den;
+          if(t<=0.02||t>=0.98||u<=0.02||u>=0.98)continue;     // harus silang di bagian dalam kedua garis
+          const oa=Math.min(t,1-t)*L[i],ob=Math.min(u,1-u)*L[j];
+          if(oa>Math.min(0.3*L[i],150)||ob>Math.min(0.3*L[j],150))continue;   // titik silang harus dekat ujung KEDUA garis
+          cand2.push({i,j,ka:t<0.5?0:1,kb:u<0.5?0:1,X:[a.p[0][0]+t*ax,a.p[0][1]+t*ay],cost:oa+ob});
+        }
+      }
+      cand2.sort((x,y)=>x.cost-y.cost);
+      const used=new Set();let changed=false;
+      for(const c of cand2){
+        const ka=c.i*2+c.ka,kb=c.j*2+c.kb;
+        if(used.has(ka)||used.has(kb))continue;
+        used.add(ka);used.add(kb);
+        S[c.i].p[c.ka]=c.X.slice();S[c.j].p[c.kb]=c.X.slice();changed=true;
+      }
+      if(!changed)break;
+    }
+    S.forEach(s=>{s.L=segLen(s);});
+  };
   // Dua putaran: gabung -> sambung -> satukan. Putaran kedua membereskan garis kembar yang baru muncul setelah ujung ditarik.
   mergeAll();snapAll();clusterAll();
   mergeAll();snapAll();clusterAll();
+  trimCrossAll();clusterAll();
   pruneAll();
   linkAll();
   const ln=S.map(s=>({k:'P',p:s.p,len:s.L}));
@@ -3484,11 +3578,35 @@ function findEnd(sp){
   }});
   return best;
 }
+const numMode=()=>$('numMode')?$('numMode').value:'sambung';
+const backupCand=()=>cand.map(c=>({k:c.k,pts:c.pts.map(q=>q.slice()),closed:c.closed,free:c.free.slice(),nums:c.nums.slice()}));
+function findSeg(sp){
+  let best=null,bd=8;
+  cand.forEach((c,ci)=>{for(let si=0;si<c.pts.length-1;si++){
+    const a=toS(c.pts[si]),b=toS(c.pts[si+1]),vx=b[0]-a[0],vy=b[1]-a[1],L2=vx*vx+vy*vy;
+    const t=L2<1e-9?0:Math.max(0,Math.min(1,((sp[0]-a[0])*vx+(sp[1]-a[1])*vy)/L2));
+    const d=Math.hypot(sp[0]-(a[0]+vx*t),sp[1]-(a[1]+vy*t));
+    if(d<bd){bd=d;best={ci,si};}
+  }});
+  return best;
+}
+function handleDeleteClick(h){
+  const backup=backupCand();
+  cand=plotPetaDeleteSeg(cand,h.ci,h.si,3,12);candUndo.push(backup);linkSel=null;
+  $('dMsg').textContent='Satu garis dihapus. '+cand.length+' jalur tersisa; nomor ujung disusun ulang.';draw();
+}
 function handleEndClick(hit){
+  if(numMode()==='pangkas'){
+    const n=cand[hit.ci].nums[hit.ei],backup=backupCand();
+    const r=plotPetaTrimEnd(cand,hit.ci,hit.ei,3,12);
+    if(!r){$('dMsg').textContent='Ujung '+n+' tidak menjulur melewati garis lain, tidak ada yang dipangkas.';return}
+    candUndo.push(backup);cand=r.chains;linkSel=null;
+    $('dMsg').textContent='Ujung '+n+' dipangkas '+Math.round(r.over)+' px sampai titik silang. Nomor ujung disusun ulang.';draw();return;
+  }
   if(!linkSel){linkSel=hit;$('dMsg').textContent='Ujung '+cand[hit.ci].nums[hit.ei]+' dipilih. Klik nomor ujung lain untuk menyambung (Esc untuk batal).';draw();return}
   if(linkSel.ci===hit.ci&&linkSel.ei===hit.ei){linkSel=null;$('dMsg').textContent='Pilihan dibatalkan.';draw();return}
   const na=cand[linkSel.ci].nums[linkSel.ei],nb=cand[hit.ci].nums[hit.ei];
-  const backup=cand.map(c=>({k:c.k,pts:c.pts.map(q=>q.slice()),closed:c.closed,free:c.free.slice(),nums:c.nums.slice()}));
+  const backup=backupCand();
   if(plotPetaJoinEnds(cand,linkSel.ci,linkSel.ei,hit.ci,hit.ei)){
     candUndo.push(backup);
     $('dMsg').textContent='Ujung '+na+' dan '+nb+' disambung. Nomor ujung disusun ulang.';
@@ -3496,9 +3614,10 @@ function handleEndClick(hit){
   linkSel=null;draw();
 }
 $('dUnlink').onclick=()=>{
-  if(!candUndo.length){$('dMsg').textContent='Tidak ada sambungan yang bisa dibatalkan.';return}
-  cand=candUndo.pop();linkSel=null;$('dMsg').textContent='Sambungan terakhir dibatalkan.';draw();
+  if(!candUndo.length){$('dMsg').textContent='Tidak ada perubahan yang bisa dibatalkan.';return}
+  cand=candUndo.pop();linkSel=null;$('dMsg').textContent='Perubahan terakhir dibatalkan.';draw();
 };
+$('numMode')?.addEventListener('change',()=>{linkSel=null;draw()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&linkSel){linkSel=null;draw()}});
 $('numToggle')?.addEventListener('change',()=>draw());
 
