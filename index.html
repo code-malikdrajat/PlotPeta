@@ -1883,7 +1883,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       </select>
       <div class="mu" style="margin-top:5px">Graph tracing mengikuti kerangka piksel; OpenCV memakai adaptive threshold dan Hough untuk segmen lurus. Keduanya tetap perlu diperiksa pada teks, simbol, dan persilangan.</div>
       
-      <div id="cleanControls">
+      <div id="cleanControls" style="display:block!important;visibility:visible!important;opacity:1!important">
         <div class="mu" style="margin:8px 0 6px"><b>Langkah 1 — Bersihkan latar.</b> Hasil pembersihan dipakai sebelum Hough dan OpenCV mendeteksi garis. Periksa pratinjau agar batas bidang tidak ikut terhapus.</div>
         <div class="slider-row">
           <span>Kepekatan garis (hapus latar)</span>
@@ -1892,7 +1892,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
         <input id="cleanD" type="range" min="20" max="120" value="70" style="width:100%">
         <label class="mu" style="display:flex;align-items:center;gap:8px;margin:8px 0">
           <input id="cleanShow" type="checkbox" style="width:auto">
-          <span>Pratinjau hasil bersih (garis hitam, tulisan biru)</span>
+          <span>Tampilkan hasil hapus latar (pratinjau: garis hitam, tulisan biru)</span>
         </label>
       </div>
       <div id="bidBox">
@@ -4028,7 +4028,13 @@ $('cleanShow')?.addEventListener('change',async()=>{
   draw();
 });
 $('bidNums')?.addEventListener('change',()=>draw());
-const syncBidBox=()=>{const m=$('detectMethod')?$('detectMethod').value:'';const b=$('bidBox');if(b)b.style.display=m==='bidang'?'':'none';};
+const syncBidBox=()=>{
+  const m=$('detectMethod')?$('detectMethod').value:'';
+  const b=$('bidBox'),c=$('cleanControls');
+  if(b)b.style.display=m==='bidang'?'':'none';
+  // Kontrol pembersihan harus selalu terlihat, termasuk pada Hough dan OpenCV.
+  if(c){c.style.display='block';c.style.visibility='visible';c.style.opacity='1';}
+};
 $('detectMethod')?.addEventListener('change',syncBidBox);syncBidBox();
 // ===== nomor ujung garis: pilih dua nomor untuk menyambung =====
 function findEnd(sp){
