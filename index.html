@@ -1793,6 +1793,43 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       </label>
     </div>
 
+    <!-- Box: Gambar Bantu (latar dihapus) -->
+    <div class="box">
+      <div class="box-header">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 15l5-5 4 4 3-3 6 6"></path></svg>
+          <span>Gambar Bantu</span>
+        </h3>
+        <span class="brand-badge">Pratinjau</span>
+      </div>
+      <div class="mu">Hapus latar belakang (kertas, noda, grid terang) agar garis terlihat jelas. Pengaturan dihitung otomatis dari gambar. Hanya tampilan: tidak disimpan ke proyek dan tidak memengaruhi ekspor DXF atau token.</div>
+      <label class="mu" style="display:block;margin-top:8px">Tampilan
+        <select id="auxMode" style="width:100%;margin-top:5px">
+          <option value="orig" selected>Asli</option>
+          <option value="aux">Bantu (latar dihapus)</option>
+          <option value="ov">Overlay (garis ditandai)</option>
+        </select>
+      </label>
+      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0 4px">
+        <input id="auxAuto" type="checkbox" checked style="width:auto">
+        <span>Parameter otomatis (analisis gambar)</span>
+      </label>
+      <div id="auxAutoInfo" style="font-size:11px;color:var(--accent);margin-bottom:6px;min-height:16px"></div>
+      <div id="auxManual" class="hide">
+      <div class="slider-row"><span>Kepekaan</span><span class="slider-val" id="val_auxT">35</span></div>
+      <input id="auxT" type="range" min="10" max="80" value="35" style="width:100%">
+      <div class="slider-row"><span>Tinta lemah (garis tipis)</span><span class="slider-val" id="val_auxWeak">55%</span></div>
+      <input id="auxWeak" type="range" min="30" max="100" value="55" style="width:100%">
+      <div class="mu" style="margin-top:2px">Makin kecil, makin banyak garis tipis dipertahankan, selama bersambung ke garis yang jelas. 100% = ambang tunggal.</div>
+      <div class="slider-row"><span>Buang bintik kecil</span><span class="slider-val" id="val_auxBlob">8 px</span></div>
+      <input id="auxBlob" type="range" min="0" max="60" value="8" style="width:100%">
+      <div class="slider-row"><span>Radius estimasi latar</span><span class="slider-val" id="val_auxR">20 px</span></div>
+      <input id="auxR" type="range" min="8" max="60" value="20" style="width:100%">
+      <button id="auxReset" style="margin-top:10px;width:100%">Kembalikan pengaturan</button>
+      </div>
+      <div class="mu" id="auxMsg" style="margin-top:8px"></div>
+    </div>
+
     <!-- Box 5: Deteksi Otomatis -->
     <div class="box">
       <div class="box-header">
@@ -2203,6 +2240,7 @@ let cal={pts:[],ok:false,M:null,mode:'local'};
 let cand=[],box=null,mv=null,polys=[],gaps=[];
 let selectionPoly=[], boxAction='detect', freehandDrawing=false;
 let mapName='';
+let auxMode='orig',auxCache=null,auxPending=false,auxTimer=null,autoAux=null;
 const W=()=>plotCanvas.clientWidth,H=()=>plotCanvas.clientHeight,d1=()=>devicePixelRatio||1;
 function resize(){const r=$('wrap').getBoundingClientRect(),d=d1();plotCanvas.width=r.width*d;plotCanvas.height=r.height*d;plotCanvas.style.width=r.width+'px';plotCanvas.style.height=r.height+'px';draw()}
 addEventListener('resize',resize);
@@ -2607,6 +2645,14 @@ function draw(){
   ctx.clearRect(0,0,W(),H());
   if(!img)return;
   ctx.drawImage(img,V.x,V.y,iw*V.s,ih*V.s);
+  if(auxMode!=='orig'){
+    if((!auxCache||auxCache.img!==img)&&!auxPending)scheduleAux(0);
+    const kind=auxMode==='aux'?'bt':'ov',acv=auxCache&&auxCache.img===img?auxCanvasOf(kind):null;
+    if(acv){
+      if(auxMode==='aux'){ctx.fillStyle='#fff';ctx.fillRect(V.x,V.y,iw*V.s,ih*V.s);}
+      ctx.drawImage(acv,V.x,V.y,iw*V.s,ih*V.s);
+    }
+  }
   const path=pts=>{
     ctx.beginPath();
     pts.forEach((p,i)=>{const s=toS(p);i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1])});
@@ -2765,7 +2811,7 @@ $('btnClearMap').onclick=async()=>{
     return;
   }
   if(!confirm('Hapus peta yang sedang terbuka beserta semua garis, poligon, teks, dan kalibrasinya? Proyek yang sudah disimpan di Cloud tidak ikut terhapus.')) return;
-  img=null; iw=0; ih=0; mapName='';
+  img=null; iw=0; ih=0; mapName=''; auxCache=null; autoAux=null;
   lines=[]; texts=[]; polys=[]; gaps=[]; cand=[]; cur=[]; hist=[];
   selT=-1; dirty=false; box=null; mv=null; drag=null; mouse=null;
   cal.pts=[]; cal.ok=false; cal.M=null;
@@ -3037,6 +3083,138 @@ function plotPetaNumberEnds(chains){
   for(const i of order){const c=chains[i];c.nums=[0,0];if(c.closed)continue;if(c.free[0])c.nums[0]=++n;if(c.free[1])c.nums[1]=++n;}
   return n;
 }
+// ===== GAMBAR BANTU: peta tinta bersama (dipakai pratinjau; nanti juga oleh detect) =====
+// Ambang ganda (hysteresis): tinta kuat selalu dipertahankan; tinta lemah (garis tipis) hanya
+// dipertahankan jika bersambung ke tinta kuat. Bintik kecil terisolasi dibuang.
+function buildInkMap(R,o){
+  o=o||{};
+  const T=o.T!=null?o.T:35,weakRatio=Math.min(1,Math.max(.2,o.weakRatio!=null?o.weakRatio:.55));
+  const minBlob=o.minBlob!=null?o.minBlob:8,r=Math.max(2,Math.round(o.radius!=null?o.radius:20));
+  const sc=Math.min(o.maxScale||1,(o.maxSide||2400)/Math.max(R.w,R.h));
+  const w=Math.max(16,Math.round(R.w*sc)),h=Math.max(16,Math.round(R.h*sc)),N=w*h;
+  const oc=document.createElement('canvas');oc.width=w;oc.height=h;
+  const o2=oc.getContext('2d',{willReadFrequently:true});
+  o2.fillStyle='#fff';o2.fillRect(0,0,w,h);o2.imageSmoothingQuality='high';
+  o2.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
+  const D=o2.getImageData(0,0,w,h).data,gr=new Float32Array(N);
+  for(let i=0;i<N;i++)gr[i]=.299*D[i*4]+.587*D[i*4+1]+.114*D[i*4+2];
+  const I=new Float64Array((w+1)*(h+1));
+  for(let y=0;y<h;y++){let rs=0;for(let x=0;x<w;x++){rs+=gr[y*w+x];I[(y+1)*(w+1)+x+1]=I[y*(w+1)+x+1]+rs}}
+  const ink=new Uint8Array(N),weak=new Uint8Array(N),Tw=T*weakRatio,stack=new Int32Array(N),hist=o.hist?new Uint32Array(128):null;
+  let sp=0;
+  for(let y=0;y<h;y++){
+    const y0=Math.max(0,y-r),y1=Math.min(h,y+r+1);
+    for(let x=0;x<w;x++){
+      const x0=Math.max(0,x-r),x1=Math.min(w,x+r+1);
+      const m=(I[y1*(w+1)+x1]-I[y0*(w+1)+x1]-I[y1*(w+1)+x0]+I[y0*(w+1)+x0])/((x1-x0)*(y1-y0));
+      const d=m-gr[y*w+x],i=y*w+x;
+      if(hist&&d>=0)hist[d>127?127:(d|0)]++;
+      if(d>T){ink[i]=1;stack[sp++]=i}else if(d>Tw)weak[i]=1;
+    }
+  }
+  // Hysteresis: tinta lemah yang bersambung ke tinta kuat ikut dipertahankan.
+  while(sp){
+    const i=stack[--sp],x=i%w,y=(i-x)/w;
+    for(let dy=-1;dy<=1;dy++){const yy=y+dy;if(yy<0||yy>=h)continue;
+      for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const xx=x+dx;if(xx<0||xx>=w)continue;
+        const j=yy*w+xx;if(weak[j]&&!ink[j]){ink[j]=1;stack[sp++]=j}}}
+  }
+  // Buang bintik kecil terisolasi (noda/debu scan).
+  if(minBlob>1){
+    const seen=new Uint8Array(N),list=new Int32Array(N);
+    for(let s0=0;s0<N;s0++){
+      if(!ink[s0]||seen[s0])continue;
+      let n=0;sp=0;stack[sp++]=s0;seen[s0]=1;
+      while(sp){
+        const i=stack[--sp];list[n++]=i;const x=i%w,y=(i-x)/w;
+        for(let dy=-1;dy<=1;dy++){const yy=y+dy;if(yy<0||yy>=h)continue;
+          for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const xx=x+dx;if(xx<0||xx>=w)continue;
+            const j=yy*w+xx;if(ink[j]&&!seen[j]){seen[j]=1;stack[sp++]=j}}}
+      }
+      if(n<minBlob)for(let k=0;k<n;k++)ink[list[k]]=0;
+    }
+  }
+  return{ink,w,h,sc,R,hist};
+}
+// Analisis otomatis parameter gambar bantu dari gambar itu sendiri (satuan: piksel pratinjau).
+function analyzeAux(){
+  const base={maxSide:2400,maxScale:1};
+  // 1) Tebal garis dominan dari peta tinta sementara.
+  const m0=buildInkMap({x:0,y:0,w:iw,h:ih},Object.assign({T:30,weakRatio:1,minBlob:0,radius:20},base));
+  const runs=new Uint32Array(31),{ink,w,h}=m0;
+  for(let y=0;y<h;y++){let n=0;for(let x=0;x<=w;x++){if(x<w&&ink[y*w+x])n++;else{if(n>=1&&n<=30)runs[n]++;n=0}}}
+  for(let x=0;x<w;x++){let n=0;for(let y=0;y<=h;y++){if(y<h&&ink[y*w+x])n++;else{if(n>=1&&n<=30)runs[n]++;n=0}}}
+  let tot=0;for(let i=1;i<=30;i++)tot+=runs[i];
+  let thick=2;if(tot){let c=0;for(let i=1;i<=30;i++){c+=runs[i];if(c>=tot/2){thick=i;break}}}
+  const radius=Math.max(10,Math.min(50,Math.round(thick*7)));
+  const blob=Math.max(4,Math.min(40,Math.round(1.5*thick*thick)));
+  // 2) Kepekaan dari histogram selisih (latar - piksel) dengan metode Otsu.
+  const m1=buildInkMap({x:0,y:0,w:iw,h:ih},Object.assign({T:30,weakRatio:1,minBlob:0,radius,hist:true},base));
+  const H=m1.hist;let sumAll=0,nAll=0;
+  for(let i=0;i<128;i++){sumAll+=i*H[i];nAll+=H[i]}
+  let wB=0,sB=0,best=-1,otsu=30;
+  for(let t=0;t<128;t++){
+    wB+=H[t];sB+=t*H[t];
+    const wF=nAll-wB;if(!wB||!wF)continue;
+    const mB=sB/wB,mF=(sumAll-sB)/wF,v=wB*wF*(mB-mF)*(mB-mF);
+    if(v>best){best=v;otsu=t}
+  }
+  const T=Math.max(15,Math.min(55,Math.round(otsu*0.8)));
+  // 3) Tinta lemah: makin banyak piksel di zona antara (pudar/anti-alias), makin rendah rasionya.
+  let mid=0,strong=0;
+  for(let i=0;i<128;i++){if(i>=T*0.5&&i<T)mid+=H[i];else if(i>=T)strong+=H[i]}
+  const ratio=strong?Math.min(1,mid/strong):1;
+  const weak=Math.max(.4,Math.min(.85,.85-.45*ratio));
+  return{T,weakRatio:weak,minBlob:blob,radius,thick};
+}
+function fillAuxSliders(p){
+  [['auxT',p.T,''],['auxWeak',Math.round(p.weakRatio*100),'%'],['auxBlob',p.minBlob,' px'],['auxR',p.radius,' px']].forEach(([id,v,suf])=>{
+    $(id).value=v;$('val_'+id).textContent=$(id).value+suf;
+  });
+}
+function syncAuxAuto(){
+  const auto=$('auxAuto').checked;
+  $('auxManual').classList.toggle('hide',auto);
+  if(auto){$('auxAutoInfo').textContent=autoAux&&autoAux.p?auxInfoText(autoAux.p):''}
+  else{$('auxAutoInfo').textContent='';if(autoAux&&autoAux.p)fillAuxSliders(autoAux.p)}
+}
+function auxInfoText(p){return'Auto → kepekaan '+p.T+', tinta lemah '+Math.round(p.weakRatio*100)+'%, bintik '+p.minBlob+' px, radius '+p.radius+' px (tebal garis ±'+p.thick+' px)'}
+function auxParams(){return{T:+$('auxT').value,weakRatio:+$('auxWeak').value/100,minBlob:+$('auxBlob').value,radius:+$('auxR').value}}
+function scheduleAux(delay){clearTimeout(auxTimer);auxPending=true;auxTimer=setTimeout(refreshAux,delay)}
+function refreshAux(){
+  auxPending=false;
+  if(!img||auxMode==='orig')return;
+  const msg=$('auxMsg');msg.textContent=($('auxAuto').checked&&(!autoAux||autoAux.img!==img))?'Menganalisis gambar...':'Membuat gambar bantu...';
+  const target=img;
+  setTimeout(()=>{
+    if(img!==target)return;
+    try{
+      let prm;
+      if($('auxAuto').checked){
+        if(!autoAux||autoAux.img!==target){msg.textContent='Menganalisis gambar...';autoAux={img:target,p:analyzeAux()}}
+        prm=autoAux.p;$('auxAutoInfo').textContent=auxInfoText(prm);
+      }else prm=auxParams();
+      const m=buildInkMap({x:0,y:0,w:iw,h:ih},Object.assign({},prm,{maxSide:2400,maxScale:1}));
+      auxCache={img:target,ink:m.ink,w:m.w,h:m.h,sc:m.sc,cv:{}};
+      let n=0;for(let i=0;i<m.ink.length;i++)n+=m.ink[i];
+      msg.textContent='Gambar bantu siap: '+(100*n/m.ink.length).toFixed(1)+'% piksel dianggap tinta (pratinjau '+m.w+'×'+m.h+' px).';
+    }catch(e){
+      auxCache={img:target,failed:true};
+      msg.textContent='Gambar bantu gagal dibuat: '+e.message;
+    }
+    draw();
+  },20);
+}
+function auxCanvasOf(kind){
+  const c=auxCache;if(!c||c.failed)return null;
+  if(c.cv[kind])return c.cv[kind];
+  const cv=document.createElement('canvas');cv.width=c.w;cv.height=c.h;
+  const x=cv.getContext('2d'),id=x.createImageData(c.w,c.h),d=id.data,ink=c.ink;
+  const col=kind==='ov'?[236,72,153,230]:[10,16,28,255];
+  for(let i=0;i<ink.length;i++)if(ink[i]){const k=i*4;d[k]=col[0];d[k+1]=col[1];d[k+2]=col[2];d[k+3]=col[3]}
+  x.putImageData(id,0,0);c.cv[kind]=cv;return cv;
+}
+
 function detect(R){
   const T=+$('dT').value,minL=+$('dL').value,gapF=+$('dG').value;
   const sc=Math.min(.5,2400/Math.max(R.w,R.h)),w=Math.max(16,Math.round(R.w*sc)),h=Math.max(16,Math.round(R.h*sc));
@@ -3593,6 +3771,21 @@ sliderPairs.forEach(([sliderId, labelId, suffix]) => {
   }
 });
 
+
+// Gambar bantu: pilihan tampilan dan slider
+$('auxMode').addEventListener('change',e=>{
+  if(e.target.value!=='orig'&&!img){$('auxMsg').textContent='Buka peta dulu.';e.target.value='orig';auxMode='orig';return}
+  auxMode=e.target.value;
+  if(auxMode==='orig'){$('auxMsg').textContent='';draw()}else scheduleAux(0);
+});
+[['auxT','val_auxT',''],['auxWeak','val_auxWeak','%'],['auxBlob','val_auxBlob',' px'],['auxR','val_auxR',' px']].forEach(([a,b,suf])=>{
+  $(a).addEventListener('input',()=>{$(b).textContent=$(a).value+suf;if(auxMode!=='orig'&&img)scheduleAux(250)});
+});
+$('auxAuto').addEventListener('change',()=>{syncAuxAuto();if(auxMode!=='orig'&&img)scheduleAux(0)});
+syncAuxAuto();
+$('auxReset').onclick=()=>{
+  [['auxT',35],['auxWeak',55],['auxBlob',8],['auxR',20]].forEach(([a,v])=>{$(a).value=v;$(a).dispatchEvent(new Event('input'))});
+};
 
 // Slider manual hanya tampil saat "Parameter otomatis" dimatikan.
 function syncManualSliders(){
