@@ -605,6 +605,10 @@ canvas {
 .canvas-btn:active {
   transform: scale(0.95);
 }
+.canvas-btn.on {
+  background: var(--accent);
+  color: #fff;
+}
 
 /* ==================== SIDEBAR ==================== */
 #side {
@@ -1595,7 +1599,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
         <span>Teks bidang</span>
       <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
-      <button data-tool="M" title="Geser titik simpul / vertex">
+      <button data-tool="M" title="Pindah titik: drag titik, klik garis untuk potong, 2x segmen untuk hapus, klik titik lalu klik tujuan untuk menambah garis">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="5 9 2 12 5 15"></polyline>
           <polyline points="9 5 12 2 15 5"></polyline>
@@ -1604,7 +1608,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <line x1="2" y1="12" x2="22" y2="12"></line>
           <line x1="12" y1="2" x2="12" y2="22"></line>
         </svg>
-        <span>Geser titik</span>
+        <span>Pindah Titik</span>
       <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <button data-tool="A" title="Deteksi garis otomatis menggunakan AI/Computer Vision">
@@ -1635,7 +1639,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       <div class="tool-mode-options erase-mode-options" aria-label="Metode Hapus">
         <label>Metode Hapus
           <select id="eraseMode" title="Pilih cara menghapus garis atau teks">
-            <option value="click">Klik objek / segmen</option>
+            <option value="click">Klik segmen</option>
             <option value="rect">Area kotak (tarik)</option>
             <option value="poly">Area bebas (tarik mouse)</option>
           </select>
@@ -1690,6 +1694,9 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 
     <!-- Floating Zoom Controls -->
     <div class="canvas-controls">
+      <button class="canvas-btn" id="btnMapLock" type="button" aria-pressed="false" aria-label="Kunci geser peta" title="Kunci geser peta (zoom tetap aktif)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 7.5-2"></path></svg>
+      </button>
       <button class="canvas-btn" id="btnZoomIn" title="Perbesar (Zoom In)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
       </button>
@@ -1793,43 +1800,6 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
       </label>
     </div>
 
-    <!-- Box: Gambar Bantu (latar dihapus) -->
-    <div class="box">
-      <div class="box-header">
-        <h3>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 15l5-5 4 4 3-3 6 6"></path></svg>
-          <span>Gambar Bantu</span>
-        </h3>
-        <span class="brand-badge">Pratinjau</span>
-      </div>
-      <div class="mu">Hapus latar belakang (kertas, noda, grid terang) agar garis terlihat jelas. Pengaturan dihitung otomatis dari gambar. Hanya tampilan: tidak disimpan ke proyek dan tidak memengaruhi ekspor DXF atau token.</div>
-      <label class="mu" style="display:block;margin-top:8px">Tampilan
-        <select id="auxMode" style="width:100%;margin-top:5px">
-          <option value="orig" selected>Asli</option>
-          <option value="aux">Bantu (latar dihapus)</option>
-          <option value="ov">Overlay (garis ditandai)</option>
-        </select>
-      </label>
-      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0 4px">
-        <input id="auxAuto" type="checkbox" checked style="width:auto">
-        <span>Parameter otomatis (analisis gambar)</span>
-      </label>
-      <div id="auxAutoInfo" style="font-size:11px;color:var(--accent);margin-bottom:6px;min-height:16px"></div>
-      <div id="auxManual" class="hide">
-      <div class="slider-row"><span>Kepekaan</span><span class="slider-val" id="val_auxT">35</span></div>
-      <input id="auxT" type="range" min="10" max="80" value="35" style="width:100%">
-      <div class="slider-row"><span>Tinta lemah (garis tipis)</span><span class="slider-val" id="val_auxWeak">55%</span></div>
-      <input id="auxWeak" type="range" min="30" max="100" value="55" style="width:100%">
-      <div class="mu" style="margin-top:2px">Makin kecil, makin banyak garis tipis dipertahankan, selama bersambung ke garis yang jelas. 100% = ambang tunggal.</div>
-      <div class="slider-row"><span>Buang bintik kecil</span><span class="slider-val" id="val_auxBlob">8 px</span></div>
-      <input id="auxBlob" type="range" min="0" max="60" value="8" style="width:100%">
-      <div class="slider-row"><span>Radius estimasi latar</span><span class="slider-val" id="val_auxR">20 px</span></div>
-      <input id="auxR" type="range" min="8" max="60" value="20" style="width:100%">
-      <button id="auxReset" style="margin-top:10px;width:100%">Kembalikan pengaturan</button>
-      </div>
-      <div class="mu" id="auxMsg" style="margin-top:8px"></div>
-    </div>
-
     <!-- Box 5: Deteksi Otomatis -->
     <div class="box">
       <div class="box-header">
@@ -1838,18 +1808,38 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
           <span>Deteksi Otomatis</span>
         </h3>
       </div>
-      <div class="mu">Pilih metode deteksi, lalu tarik kotak pada bagian peta. Kandidat akan tampil oranye.</div>
-      <div class="slider-row" style="margin-top:10px"><span>Metode deteksi</span></div>
-      <select id="detectMethod" style="width:100%;padding:8px;border-radius:8px;background:var(--panel);color:inherit;border:1px solid var(--border)">
-        <option value="hough" selected>Hough + Smart Filter (parameter otomatis)</option>
-      </select>
-      <div class="mu" style="margin-top:5px">Parameter kepekaan, panjang minimum, dan celah dianalisis otomatis dari gambar. Persilangan garis dipotong otomatis; garis dobel dibuang. Periksa kandidat sebelum diterima.</div>
+      <div class="mu">Tarik kotak pada bagian peta untuk mendeteksi. Kandidat akan tampil oranye.</div>
+      <div class="mu" style="margin-top:5px">Parameter kepekaan, panjang minimum, dan celah dianalisis otomatis dari gambar. Persilangan garis dipotong otomatis; garis dobel dibuang. Kandidat bisa diedit dengan Pindah Titik/Hapus sebelum diterima.</div>
 
       <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0 4px">
         <input id="autoParamToggle" type="checkbox" checked style="width:auto">
         <span>Parameter otomatis (analisis gambar)</span>
       </label>
       <div id="autoParamInfo" style="font-size:11px;color:var(--accent);margin-bottom:8px;min-height:16px"></div>
+
+      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0">
+        <input id="helperDetectToggle" type="checkbox" checked style="width:auto">
+        <span>Gunakan gambar bantu saat deteksi (hapus latar &amp; teks)</span>
+      </label>
+
+      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0">
+        <input id="helperViewToggle" type="checkbox" style="width:auto">
+        <span>Lihat gambar bantu (teks biru, garis hitam)</span>
+      </label>
+      <div class="mu" id="helperViewMsg" style="margin-top:-4px;margin-bottom:8px"></div>
+
+      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0 4px">
+        <input id="topoAutoToggle" type="checkbox" checked style="width:auto">
+        <span>Rapikan topologi hasil deteksi (join/extend/trim)</span>
+      </label>
+      <div id="topoManual" class="hide">
+        <div class="slider-row" style="margin-top:8px">
+          <span>Toleransi rapikan otomatis</span>
+          <span class="slider-val" id="val_topo">16 px</span>
+        </div>
+        <input id="topoTol" type="range" min="4" max="40" value="16" style="width:100%">
+        <div class="mu" style="margin-top:-4px;margin-bottom:8px">Menyambung ujung berdekatan, menutup undershoot, dan memotong overshoot pada kandidat deteksi.</div>
+      </div>
 
       <div id="manualBasicSliders" class="hide">
       <div class="slider-row">
@@ -2235,12 +2225,14 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 const $=id=>document.getElementById(id);
 const plotCanvas=$('plotCanvas'),ctx=plotCanvas.getContext('2d');
 const LN={get P(){return $('lP').value.trim()||'020100'},get D(){return $('lD').value.trim()||'020300'}};
-let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=-1,mouse=null,drag=null,dirty=false,hist=[];
+let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=-1,mouse=null,drag=null,dirty=false,hist=[],erasePick=null,mClickTimer=null,mClickPt=null,mvStart=null,mvMoved=false,addLinePick=null;
 let cal={pts:[],ok:false,M:null,mode:'local'};
-let cand=[],box=null,mv=null,polys=[],gaps=[];
+let cand=[],box=null,mv=null,polys=[],gaps=[],mapLocked=false;
+function editTarget(){return cand.length?cand:lines}
+function candMsg(){if(cand.length)$('dMsg').textContent=cand.length+' jalur kandidat. Kandidat bisa diedit dengan Pindah Titik/Hapus sebelum diterima.'}
+let helperPreview=null,helperPreviewImg=null,helperPreviewBusy=false;
 let selectionPoly=[], boxAction='detect', freehandDrawing=false;
 let mapName='';
-let auxMode='orig',auxCache=null,auxPending=false,auxTimer=null,autoAux=null;
 const W=()=>plotCanvas.clientWidth,H=()=>plotCanvas.clientHeight,d1=()=>devicePixelRatio||1;
 function resize(){const r=$('wrap').getBoundingClientRect(),d=d1();plotCanvas.width=r.width*d;plotCanvas.height=r.height*d;plotCanvas.style.width=r.width+'px';plotCanvas.style.height=r.height+'px';draw()}
 addEventListener('resize',resize);
@@ -2250,8 +2242,8 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const num=s=>{s=String(s).trim();s=/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)?s.replace(/\./g,'').replace(',','.'):s.replace(',','.');return parseFloat(s)};
 const f2=n=>n.toLocaleString('id-ID',{maximumFractionDigits:2,minimumFractionDigits:2});
 const toReal=p=>{if(cal.mode==='local')return [p[0],(ih||0)-p[1]];if(!cal.ok||!cal.M)return null;const m=cal.M;return[m[0]*p[0]+m[1]*p[1]+m[2],m[3]*p[0]+m[4]*p[1]+m[5]]};
-function snapshot(){hist.push(JSON.stringify({lines,texts}));if(hist.length>100)hist.shift();dirty=true}
-function undo(){if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;selT=-1;tform()}stat();draw()}
+function snapshot(){hist.push(JSON.stringify({lines,texts,cand}));if(hist.length>100)hist.shift();dirty=true}
+function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];selT=-1;tform();candMsg()}erasePick=null;addLinePick=null;stat();draw()}
 
 function updateDropzone(){
   const dz=$('dropzone');
@@ -2264,10 +2256,13 @@ function loadImg(src){
     img=im;
     iw=im.naturalWidth;
     ih=im.naturalHeight;
+    helperPreview=null;helperPreviewImg=null;erasePick=null;addLinePick=null;
+    if($('helperViewMsg'))$('helperViewMsg').textContent='';
     fitV();
     draw();
     updateDropzone();
     $('st').innerHTML='<span class="status-dot"></span><span>'+iw+' &times; '+ih+' px</span>';
+    if($('helperViewToggle')?.checked)refreshHelperView(true);
   };
   im.src=src;
 }
@@ -2367,7 +2362,8 @@ async function loadTiffFile(file){
       canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(rgba),w,h),0,0);
       loadedImage=canvas;shownW=w;shownH=h;
     }
-    img=loadedImage;iw=shownW;ih=shownH;fitV();draw();updateDropzone();
+    img=loadedImage;iw=shownW;ih=shownH;helperPreview=null;helperPreviewImg=null;erasePick=null;addLinePick=null;if($('helperViewMsg'))$('helperViewMsg').textContent='';fitV();draw();updateDropzone();
+    if($('helperViewToggle')?.checked)refreshHelperView(true);
     $('st').innerHTML='<span class="status-dot"></span><span>'+w.toLocaleString('id-ID')+' × '+h.toLocaleString('id-ID')+' px · TIFF'+(notice?' · pratinjau diperkecil':'')+'</span>';
     if(notice) alert(notice+' Kamu bisa mulai digitasi dari pratinjau. Untuk digitasi otomatis yang menelusuri semua piksel asli, diperlukan pemrosesan TIFF bertile beresolusi penuh; pratinjau ini tidak mempertahankan detail piksel terkecil.');
   }catch(err){
@@ -2386,13 +2382,24 @@ $('file').onchange=async e=>{
 
 setCoordMode('local');
 function setTool(t){
+  if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}
+  mv=null;mvStart=null;mvMoved=false;
   if(cur.length&&(t==='P'||t==='D'))finish();
   else cur=[];
   tool=t;
+  erasePick=null;addLinePick=null;
   selectionPoly=[]; box=null;
+  if(t==='E'&&eraseModeEl?.value==='click'&&!cand.length){
+    const n=ensureIntersectionPoints();
+    if(n)$('st').innerHTML='<span class="status-dot"></span><span>Titik persilangan dibuat: '+n+'.</span>';
+  }
+  if(t==='M'){
+    const n=cand.length?0:ensureIntersectionPoints();
+    $('st').innerHTML='<span class="status-dot"></span><span>Pindah Titik: drag titik, klik garis=potong, 2x segmen=hapus, klik titik lalu klik tujuan=tambah garis.'+(cand.length?' Kandidat deteksi bisa diedit sebelum diterima.':'')+(n?' Titik persilangan dibuat: '+n+'.':'')+'</span>';
+  }
   updateToolModeHint();
   document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
-  plotCanvas.style.cursor=t==='pan'?'grab':'crosshair';
+  plotCanvas.style.cursor=mapLocked&&t==='pan'?'not-allowed':t==='pan'?'grab':'crosshair';
   draw();
 }
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
@@ -2402,10 +2409,15 @@ function updateToolModeHint(){
   document.querySelector('.erase-mode-options')?.classList.toggle('mode-visible', tool==='E');
   if(!toolModeHint)return;
   if(tool==='A') toolModeHint.textContent=detectModeEl.value==='rect'?'Tarik kotak pada peta untuk mendeteksi garis.':detectModeEl.value==='poly'?'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk mendeteksi.':'Klik Deteksi seluruh peta pada panel kanan.';
-  else if(tool==='E') toolModeHint.textContent=eraseModeEl.value==='click'?'Klik teks atau segmen garis yang ingin dihapus.':eraseModeEl.value==='rect'?'Tarik kotak untuk menghapus objek/segmen di dalam area.':'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk menghapus.';
+  else if(tool==='E') toolModeHint.textContent=eraseModeEl.value==='click'?'Klik segmen garis yang ingin dihapus; bagian lain tetap.':eraseModeEl.value==='rect'?'Tarik kotak untuk menghapus objek/segmen di dalam area.':'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk menghapus.';
   else toolModeHint.textContent='Pilih alat Deteksi Otomatis atau Hapus untuk menampilkan pilihannya di bawah tombol.';
 }
-detectModeEl?.addEventListener('change',updateToolModeHint); eraseModeEl?.addEventListener('change',updateToolModeHint);
+detectModeEl?.addEventListener('change',updateToolModeHint); eraseModeEl?.addEventListener('change',()=>{erasePick=null;updateToolModeHint();draw()});
+$('topoTol')?.addEventListener('input',e=>{if($('val_topo'))$('val_topo').textContent=e.target.value+' px'});
+const topoAutoEl=$('topoAutoToggle'),topoManualEl=$('topoManual');
+const syncTopoManual=()=>topoManualEl?.classList.toggle('hide',!!topoAutoEl?.checked);
+topoAutoEl?.addEventListener('change',syncTopoManual);
+syncTopoManual();
 
 
 function snapPt(p){
@@ -2420,35 +2432,62 @@ function snapPt(p){
   }
   return best?best.slice():p;
 }
-function finish(){if(cur.length>=2){snapshot();lines.push({k:'P',pts:cur})}cur=[];stat();draw()}
-function distSeg(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy;let t=L?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L:0;t=Math.max(0,Math.min(1,t));return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy)}
+function finish(){if(cur.length>=2){snapshot();lines.push({k:'P',pts:cur});const n=ensureIntersectionPoints(true);if(n)$('st').innerHTML='<span class="status-dot"></span><span>Titik persilangan dibuat: '+n+'.</span>'}cur=[];stat();draw()}
+function nearestVertex(sp,preferLi=-1){
+  let best=null,bd=12;
+  lines.forEach((l,li)=>{
+    l.pts.forEach((p,pi)=>{
+      const s=toS(p),d=Math.hypot(s[0]-sp[0],s[1]-sp[1]);
+      if(d<bd-.001||(Math.abs(d-bd)<.001&&li===preferLi)){bd=d;best={li,pi}}
+    });
+  });
+  return best;
+}
 function click(sp){
   if(!img)return;
   const p=toI(sp);
+  if(tool==='M'&&addLinePick){finishAddLineAt(sp);return}
   if(tool==='A' && detectModeEl?.value==='all'){runDet({x:0,y:0,w:iw,h:ih});return}
   if(tool==='A' && detectModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('dMsg').textContent='Batas area deteksi: '+selectionPoly.length+' titik. Tekan Enter untuk menjalankan deteksi.';draw();return}
   if(tool==='E' && eraseModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('st').innerHTML='<span class="status-dot"></span><span>Batas area hapus: '+selectionPoly.length+' titik; tekan Enter untuk menghapus</span>';draw();return}
+  if(tool==='trim'){handleTopoTool(sp);return}
   if(tool==='cal'){if(cal.pts.length<4){cal.pts.push(p);crs()}draw();return}
   if(tool==='P'){const q=snapPt(p);cur.push(q);if(cur.length>=3&&q[0]===cur[0][0]&&q[1]===cur[0][1]&&cur.length-1>0)finish();draw();return}
   if(tool==='T'){snapshot();texts.push({p,no:'',su:''});selT=texts.length-1;tform(true);stat();draw();return}
+  if(tool==='M'){
+    const h=topoNearestLinePoint(sp,10);
+    if(!h){
+      $('st').innerHTML='<span class="status-dot"></span><span>Klik garis untuk potong, 2x segmen untuk hapus, atau klik titik untuk mulai menambah garis.</span>';
+      draw();return;
+    }
+    if(mClickTimer)clearTimeout(mClickTimer);
+    mClickPt=sp.slice();
+    mClickTimer=setTimeout(()=>{
+      mClickTimer=null;
+      const q=mClickPt;mClickPt=null;
+      if(q&&tool==='M')handleTopoTool(q);
+    },300);
+    return;
+  }
   if(tool==='E'){
     if(eraseModeEl && eraseModeEl.value!=='click') return;
     let hit=-1;
     texts.forEach((t,i)=>{const s=toS(t.p);if(Math.hypot(s[0]-sp[0],s[1]-sp[1])<14)hit=i});
     if(hit>=0){
-      snapshot();texts.splice(hit,1);selT=-1;tform();
-    }else{
-      let bi=-1,bs=-1,bd=8;
-      lines.forEach((l,i)=>{for(let j=0;j<l.pts.length-1;j++){const a=toS(l.pts[j]),b=toS(l.pts[j+1]),d=distSeg(sp,a,b);if(d<bd){bd=d;bi=i;bs=j}}});
-      if(bi>=0){
-        snapshot();
-        const l=lines[bi],A=l.pts.slice(0,bs+1),B=l.pts.slice(bs+1);
-        lines.splice(bi,1);
-        if(A.length>1)lines.push({k:l.k,pts:A});
-        if(B.length>1)lines.push({k:l.k,pts:B});
-      }
+      snapshot();texts.splice(hit,1);selT=-1;erasePick=null;tform();
+      $('st').innerHTML='<span class="status-dot"></span><span>Teks dihapus.</span>';
+      stat();draw();return;
     }
-    stat();draw();return;
+    const h=topoNearestLinePoint(sp,10);
+    if(!h){
+      $('st').innerHTML='<span class="status-dot"></span><span>Klik tepat pada segmen garis.</span>';
+      draw();return;
+    }
+    if(!deleteSegmentAt(h.li,h.si)){
+      $('st').innerHTML='<span class="status-dot"></span><span>Segmen tidak ditemukan; klik ulang.</span>';
+      draw();
+    }
+    return;
   }
   if(tool==='pan'){
     let hit=-1;
@@ -2472,7 +2511,13 @@ plotCanvas.addEventListener('pointerdown',e=>{
   }
   plotCanvas.setPointerCapture(e.pointerId);
   if(e.button===0&&img){
-    if(tool==='M'){const h=findV(sp);if(h){snapshot();mv=h;return}}
+    if(tool==='M'&&!addLinePick){
+      const h=findV(sp);
+      if(h){
+        if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}
+        mv=h;mvStart=sp.slice();mvMoved=false;return;
+      }
+    }
     if(tool==='A' && detectModeEl?.value==='rect'){boxAction='detect';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
     if(tool==='E' && eraseModeEl?.value==='rect'){boxAction='erase';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
   }
@@ -2480,17 +2525,22 @@ plotCanvas.addEventListener('pointerdown',e=>{
 });
 plotCanvas.addEventListener('pointermove',e=>{
   mouse=[e.offsetX,e.offsetY];
+  if(addLinePick){draw();return}
   if(freehandDrawing){
     const last=selectionPoly[selectionPoly.length-1], next=[e.offsetX,e.offsetY];
     if(!last || Math.hypot(next[0]-last[0],next[1]-last[1])>=2) selectionPoly.push(next);
     draw(); return;
   }
-  if(mv){movePt(mouse);draw();return}
+  if(mv){
+    if(!mvMoved && mvStart && Math.hypot(mouse[0]-mvStart[0],mouse[1]-mvStart[1])>4){mvMoved=true;snapshot();}
+    if(mvMoved)movePt(mouse);
+    draw();return;
+  }
   if(box){box.x1=e.offsetX;box.y1=e.offsetY;draw();return}
   if(drag){
     const dx=e.offsetX-drag.x,dy=e.offsetY-drag.y;
     if(Math.hypot(dx,dy)>4||drag.btn!==0||tool==='pan')drag.moved=true;
-    if(drag.moved){V.x=drag.ox+dx;V.y=drag.oy+dy}
+    if(drag.moved&&!mapLocked){V.x=drag.ox+dx;V.y=drag.oy+dy}
   }
   if(img){
     const p=toI(mouse),r=toReal(p);
@@ -2507,7 +2557,18 @@ plotCanvas.addEventListener('pointerup',e=>{
     else { selectionPoly=[]; draw(); }
     return;
   }
-  if(mv){mv=null;stat();draw();return}
+  if(mv){
+    const wasMoved=mvMoved;
+    mv=null;mvStart=null;mvMoved=false;
+    if(wasMoved){
+      const n=cand.length?0:ensureIntersectionPoints(true);
+      if(n)$('st').innerHTML='<span class="status-dot"></span><span>Titik persilangan dibuat: '+n+'.</span>';
+      stat();draw();
+    }else{
+      startAddLineAt([e.offsetX,e.offsetY]);
+    }
+    return;
+  }
   if(box){
     const b=box,a=toI([Math.min(b.x0,b.x1),Math.min(b.y0,b.y1)]),z=toI([Math.max(b.x0,b.x1),Math.max(b.y0,b.y1)]);
     box=null;
@@ -2518,7 +2579,21 @@ plotCanvas.addEventListener('pointerup',e=>{
   if(drag&&!drag.moved&&drag.btn===0)click([e.offsetX,e.offsetY]);
   drag=null;
 });
-plotCanvas.addEventListener('dblclick',()=>{if((tool==='P')&&cur.length){cur.pop();finish()}});
+plotCanvas.addEventListener('dblclick',e=>{
+  if(tool==='P'&&cur.length){cur.pop();finish();return}
+  if(tool==='M'&&img){
+    if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}
+    const sp=[e.offsetX,e.offsetY];
+    const nearVertex=editTarget().some(l=>l.pts.some(q=>{
+      const s=toS(q);return Math.hypot(s[0]-sp[0],s[1]-sp[1])<10;
+    }));
+    if(nearVertex)return;
+    const h=topoNearestLinePoint(sp,10);
+    if(h)deleteSegmentAt(h.li,h.si);
+  }
+});
+plotCanvas.addEventListener('pointerleave',()=>{if(tool==='trim'){mouse=null;draw()}});
+plotCanvas.addEventListener('pointerenter',e=>{if(tool==='trim'){mouse=[e.offsetX,e.offsetY];draw()}});
 plotCanvas.addEventListener('contextmenu',e=>e.preventDefault());
 plotCanvas.style.touchAction='none';
 plotCanvas.addEventListener('wheel',e=>{
@@ -2533,7 +2608,7 @@ plotCanvas.addEventListener('wheel',e=>{
 addEventListener('keydown',e=>{
   if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
   if(e.key==='Enter'){if(!finishSelection())finish()}
-  else if(e.key==='Escape'){cur=[];selectionPoly=[];box=null;draw()}
+  else if(e.key==='Escape'){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}cur=[];selectionPoly=[];box=null;erasePick=null;addLinePick=null;draw()}
   else if(e.key==='Backspace'||(e.key==='z'&&(e.ctrlKey||e.metaKey))){e.preventDefault();undo()}
 });
 addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
@@ -2645,13 +2720,11 @@ function draw(){
   ctx.clearRect(0,0,W(),H());
   if(!img)return;
   ctx.drawImage(img,V.x,V.y,iw*V.s,ih*V.s);
-  if(auxMode!=='orig'){
-    if((!auxCache||auxCache.img!==img)&&!auxPending)scheduleAux(0);
-    const kind=auxMode==='aux'?'bt':'ov',acv=auxCache&&auxCache.img===img?auxCanvasOf(kind):null;
-    if(acv){
-      if(auxMode==='aux'){ctx.fillStyle='#fff';ctx.fillRect(V.x,V.y,iw*V.s,ih*V.s);}
-      ctx.drawImage(acv,V.x,V.y,iw*V.s,ih*V.s);
-    }
+  if(helperPreview&&helperPreviewImg===img&&$('helperViewToggle')?.checked){
+    ctx.save();
+    ctx.globalAlpha=.86;ctx.fillStyle='#fff';ctx.fillRect(V.x,V.y,iw*V.s,ih*V.s);
+    ctx.globalAlpha=.96;ctx.drawImage(helperPreview,V.x,V.y,iw*V.s,ih*V.s);
+    ctx.restore();
   }
   const path=pts=>{
     ctx.beginPath();
@@ -2738,7 +2811,7 @@ function draw(){
     ctx.setLineDash([]);
   });
 
-  if(tool==='M')lines.forEach(l=>l.pts.forEach(p=>{
+  if(tool==='M')editTarget().forEach(l=>l.pts.forEach(p=>{
     const s=toS(p);
     ctx.strokeStyle='#0ea5e9';
     ctx.fillStyle='#fff';
@@ -2746,6 +2819,54 @@ function draw(){
     ctx.fillRect(s[0]-3.5,s[1]-3.5,7,7);
     ctx.strokeRect(s[0]-3.5,s[1]-3.5,7,7);
   }));
+  if(tool==='M'&&addLinePick&&mouse){
+    const s=toS(addLinePick.pt);
+    ctx.save();
+    ctx.setLineDash([6,4]);
+    ctx.strokeStyle='#0ea5e9';
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(s[0],s[1]);ctx.lineTo(mouse[0],mouse[1]);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(mouse[0],mouse[1],5,0,Math.PI*2);
+    ctx.fillStyle='#10b981';ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.restore();
+  }
+  if(tool==='E'&&eraseModeEl?.value==='click'&&erasePick){
+    const l=lines[erasePick.li],p=l&&l.pts[erasePick.pi];
+    if(p){
+      const s=toS(p);
+      ctx.beginPath();
+      ctx.arc(s[0],s[1],6,0,Math.PI*2);
+      ctx.fillStyle='#ef4444';
+      ctx.strokeStyle='#fff';
+      ctx.lineWidth=2;
+      ctx.fill();ctx.stroke();
+    }
+  }
+  if(mouse&&tool==='trim'){
+    const x=mouse[0],y=mouse[1];
+    const sc=()=>{
+      ctx.beginPath();ctx.arc(-6,-6,3.5,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.arc(-6,6,3.5,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(-2,-3);ctx.lineTo(8,7);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(-2,3);ctx.lineTo(8,-7);ctx.stroke();
+    };
+    ctx.save();
+    ctx.translate(x-2,y);
+    ctx.scale(.8,.8);
+    ctx.strokeStyle='#fff';
+    ctx.lineWidth=4;
+    sc();
+    ctx.strokeStyle='#111';
+    ctx.lineWidth=2;
+    sc();
+    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(x,y,2,0,Math.PI*2);
+    ctx.fillStyle='#ef4444';
+    ctx.fill();
+  }
   if(box){
     ctx.setLineDash([6,4]);
     ctx.strokeStyle='#0ea5e9';
@@ -2811,9 +2932,12 @@ $('btnClearMap').onclick=async()=>{
     return;
   }
   if(!confirm('Hapus peta yang sedang terbuka beserta semua garis, poligon, teks, dan kalibrasinya? Proyek yang sudah disimpan di Cloud tidak ikut terhapus.')) return;
-  img=null; iw=0; ih=0; mapName=''; auxCache=null; autoAux=null;
+  img=null; iw=0; ih=0; mapName='';
   lines=[]; texts=[]; polys=[]; gaps=[]; cand=[]; cur=[]; hist=[];
-  selT=-1; dirty=false; box=null; mv=null; drag=null; mouse=null;
+  helperPreview=null; helperPreviewImg=null; helperPreviewBusy=false;
+  if($('helperViewToggle')) $('helperViewToggle').checked=false;
+  if($('helperViewMsg')) $('helperViewMsg').textContent='';
+  selT=-1; dirty=false; box=null; mv=null; drag=null; mouse=null; erasePick=null;addLinePick=null;
   cal.pts=[]; cal.ok=false; cal.M=null;
   ['cx0','cy0','cx1','cy1','cx2','cy2','cx3','cy3'].forEach(id=>{ if($(id)) $(id).value=''; });
   setCoordMode('local'); crs(); tform(); stat();
@@ -2846,7 +2970,7 @@ $('op').onchange=e=>{
   f.text().then(t=>{
     try{
       const o=JSON.parse(t);
-      lines=o.lines||[];
+      lines=o.lines||[];erasePick=null;addLinePick=null;
       texts=o.texts||[];
       cal.pts=(o.cal||[]).map(c=>c.p);
       setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
@@ -2865,21 +2989,22 @@ $('op').onchange=e=>{
 function findV(sp){
   let hit=null,bd=10;
   const all=[];
-  lines.forEach(l=>l.pts.forEach(q=>all.push(q)));
-  texts.forEach(t=>all.push(t.p));
+  const target=editTarget();
+  target.forEach(l=>l.pts.forEach(q=>all.push(q)));
+  if(!cand.length) texts.forEach(t=>all.push(t.p));
   for(const q of all){
     const s=toS(q),d=Math.hypot(s[0]-sp[0],s[1]-sp[1]);
     if(d<bd){bd=d;hit=q}
   }
   if(!hit)return null;
-  const isT=texts.some(t=>t.p===hit);
+  const isT=!cand.length&&texts.some(t=>t.p===hit);
   return{refs:isT?[hit]:all.filter(q=>Math.abs(q[0]-hit[0])<.01&&Math.abs(q[1]-hit[1])<.01&&!texts.some(t=>t.p===q))};
 }
 function movePt(sp){
   let p=toI(sp);
   if($('snap').checked){
     let best=null,bd=10;
-    for(const l of lines)for(const q of l.pts){
+    for(const l of editTarget())for(const q of l.pts){
       if(mv.refs.includes(q))continue;
       const s=toS(q),d=Math.hypot(s[0]-sp[0],s[1]-sp[1]);
       if(d<bd){bd=d;best=q}
@@ -2892,48 +3017,72 @@ function movePt(sp){
 
 // ===== ANALISIS OTOMATIS PARAMETER DETEKSI =====
 // Menganalisis area gambar untuk menentukan parameter optimal secara adaptif.
+function detectionScale(R){
+  return Math.min(1,2400/Math.max(R.w,R.h));
+}
 function analyzeRegion(R){
-  const sc=Math.min(.5,2400/Math.max(R.w,R.h));
-  const w=Math.max(32,Math.round(R.w*sc)),h=Math.max(32,Math.round(R.h*sc)),N=w*h;
+  const sc=detectionScale(R);
+  const w=Math.max(16,Math.round(R.w*sc)),h=Math.max(16,Math.round(R.h*sc)),N=w*h;
   const oc=document.createElement('canvas');oc.width=w;oc.height=h;
   const o=oc.getContext('2d',{willReadFrequently:true});
-  o.fillStyle='#fff';o.fillRect(0,0,w,h);o.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
+  o.fillStyle='#fff';o.fillRect(0,0,w,h);
+  o.imageSmoothingQuality='high';
+  o.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
   const D=o.getImageData(0,0,w,h).data;
-  const gray=new Float32Array(N);
-  for(let i=0;i<N;i++) gray[i]=.299*D[i*4]+.587*D[i*4+1]+.114*D[i*4+2];
-  // Hitung mean dan std deviasi untuk menentukan kontras
+  const gray=new Uint8Array(N),hist=new Uint32Array(256);
+  for(let i=0;i<N;i++){
+    const g=(.299*D[i*4]+.587*D[i*4+1]+.114*D[i*4+2])|0;
+    gray[i]=g;hist[g]++;
+  }
+  let cnt=0,med=128;
+  for(let k=0;k<256;k++){cnt+=hist[k];if(cnt>=N/2){med=k;break}}
   let mean=0;
-  for(let i=0;i<N;i++) mean+=gray[i];
+  for(let k=0;k<256;k++)mean+=k*hist[k];
   mean/=N;
+  const invert=mean>med;
+  const I=new Uint32Array((w+1)*(h+1));
+  for(let y=0;y<h;y++){let rs=0;for(let x=0;x<w;x++){rs+=gray[y*w+x];I[(y+1)*(w+1)+x+1]=I[y*(w+1)+x+1]+rs}}
+  const rad=Math.max(8,Math.min(24,Math.round(Math.min(w,h)*.04)));
+  const diffs=new Uint32Array(256);
+  const step=Math.max(1,Math.floor(Math.sqrt(N/160000)));
+  let diffN=0;
+  for(let y=0;y<h;y+=step)for(let x=0;x<w;x+=step){
+    if(x<w-1){diffs[Math.min(255,Math.abs(gray[y*w+x+1]-gray[y*w+x]))]++;diffN++;}
+    if(y<h-1){diffs[Math.min(255,Math.abs(gray[(y+1)*w+x]-gray[y*w+x]))]++;diffN++;}
+  }
+  let accD=0,medDiff=0;
+  for(let k=0;k<256;k++){accD+=diffs[k];if(accD>=diffN/2){medDiff=k;break}}
+  let dT=Math.round(medDiff*3.5+8);
+  if(!(dT>0))dT=15;
+  dT=Math.max(15,Math.min(60,dT));
   let variance=0;
-  for(let i=0;i<N;i++) variance+=(gray[i]-mean)**2;
+  for(let k=0;k<256;k++)variance+=hist[k]*(k-mean)*(k-mean);
   const std=Math.sqrt(variance/N);
-  // Ukur tebal garis dari run piksel gelap per baris
-  const darkRuns=[];
-  for(let y=0;y<h;y++){
+  const runs=[];
+  const rowStep=Math.max(1,Math.floor(h/800));
+  for(let y=0;y<h;y+=rowStep){
+    const y0=Math.max(0,y-rad),y1=Math.min(h,y+rad+1);
     let inRun=false,runLen=0;
     for(let x=0;x<w;x++){
-      if(gray[y*w+x]<mean-std*0.4){
+      const x0=Math.max(0,x-rad),x1=Math.min(w,x+rad+1);
+      const m=(I[y1*(w+1)+x1]-I[y0*(w+1)+x1]-I[y1*(w+1)+x0]+I[y0*(w+1)+x0])/((x1-x0)*(y1-y0));
+      const d=invert?gray[y*w+x]-m:m-gray[y*w+x];
+      if(d>dT){
         if(!inRun){inRun=true;runLen=1;}else runLen++;
       }else{
-        if(inRun&&runLen>=1&&runLen<=30) darkRuns.push(runLen);
+        if(inRun&&runLen<=30)runs.push(runLen);
         inRun=false;runLen=0;
       }
     }
+    if(inRun&&runLen<=30)runs.push(runLen);
   }
-  darkRuns.sort((a,b)=>a-b);
-  const medRun=darkRuns[Math.floor(darkRuns.length*.5)]||3;
-  // dT: makin rendah kontras gambar, makin sensitif (nilai lebih kecil)
-  const dT=Math.max(15,Math.min(70,Math.round(80-std*.45)));
-  // dL: panjang minimum proporsional dengan ukuran area deteksi
-  const dL=Math.max(40,Math.min(300,Math.round(R.w*.045)));
-  // dG: celah proporsional dengan tebal garis median
-  const dG=Math.max(10,Math.min(100,Math.round(medRun*8)));
-  // Magnet & sambung: turunan dari celah (dG) agar ikut skala scan.
-  // Rasio 0.8 dan 2.4 diambil dari nilai bawaan lama (dG 50 -> magnet 40, sambung 120).
-  const magR=Math.max(15,Math.min(60,Math.round(dG*0.8)));
+  runs.sort((a,b)=>a-b);
+  const medRun=runs.length?runs[Math.floor(runs.length*.5)]:2;
+  const dL=Math.max(40,Math.min(300,Math.round(Math.min(R.w*.045,Math.min(R.w,R.h)*.25))));
+  const dG=Math.max(10,Math.min(100,Math.round((medRun/sc)*8)));
+  const magR=Math.max(15,Math.min(60,Math.round(medRun*6.4)));
   const linkMax=Math.max(60,Math.min(250,Math.round(dG*2.4/10)*10));
-  return{dT,dL,dG,magR,linkMax,medRun,std};
+  return{dT,dL,dG,magR,linkMax,medRun,std,invert};
 }
 
 // ===== HAPUS GARIS DOBEL =====
@@ -3083,153 +3232,28 @@ function plotPetaNumberEnds(chains){
   for(const i of order){const c=chains[i];c.nums=[0,0];if(c.closed)continue;if(c.free[0])c.nums[0]=++n;if(c.free[1])c.nums[1]=++n;}
   return n;
 }
-// ===== GAMBAR BANTU: peta tinta bersama (dipakai pratinjau; nanti juga oleh detect) =====
-// Ambang ganda (hysteresis): tinta kuat selalu dipertahankan; tinta lemah (garis tipis) hanya
-// dipertahankan jika bersambung ke tinta kuat. Bintik kecil terisolasi dibuang.
-function buildInkMap(R,o){
-  o=o||{};
-  const T=o.T!=null?o.T:35,weakRatio=Math.min(1,Math.max(.2,o.weakRatio!=null?o.weakRatio:.55));
-  const minBlob=o.minBlob!=null?o.minBlob:8,r=Math.max(2,Math.round(o.radius!=null?o.radius:20));
-  const sc=Math.min(o.maxScale||1,(o.maxSide||2400)/Math.max(R.w,R.h));
-  const w=Math.max(16,Math.round(R.w*sc)),h=Math.max(16,Math.round(R.h*sc)),N=w*h;
-  const oc=document.createElement('canvas');oc.width=w;oc.height=h;
-  const o2=oc.getContext('2d',{willReadFrequently:true});
-  o2.fillStyle='#fff';o2.fillRect(0,0,w,h);o2.imageSmoothingQuality='high';
-  o2.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
-  const D=o2.getImageData(0,0,w,h).data,gr=new Float32Array(N);
-  for(let i=0;i<N;i++)gr[i]=.299*D[i*4]+.587*D[i*4+1]+.114*D[i*4+2];
-  const I=new Float64Array((w+1)*(h+1));
-  for(let y=0;y<h;y++){let rs=0;for(let x=0;x<w;x++){rs+=gr[y*w+x];I[(y+1)*(w+1)+x+1]=I[y*(w+1)+x+1]+rs}}
-  const ink=new Uint8Array(N),weak=new Uint8Array(N),Tw=T*weakRatio,stack=new Int32Array(N),hist=o.hist?new Uint32Array(128):null;
-  let sp=0;
-  for(let y=0;y<h;y++){
-    const y0=Math.max(0,y-r),y1=Math.min(h,y+r+1);
-    for(let x=0;x<w;x++){
-      const x0=Math.max(0,x-r),x1=Math.min(w,x+r+1);
-      const m=(I[y1*(w+1)+x1]-I[y0*(w+1)+x1]-I[y1*(w+1)+x0]+I[y0*(w+1)+x0])/((x1-x0)*(y1-y0));
-      const d=m-gr[y*w+x],i=y*w+x;
-      if(hist&&d>=0)hist[d>127?127:(d|0)]++;
-      if(d>T){ink[i]=1;stack[sp++]=i}else if(d>Tw)weak[i]=1;
-    }
-  }
-  // Hysteresis: tinta lemah yang bersambung ke tinta kuat ikut dipertahankan.
-  while(sp){
-    const i=stack[--sp],x=i%w,y=(i-x)/w;
-    for(let dy=-1;dy<=1;dy++){const yy=y+dy;if(yy<0||yy>=h)continue;
-      for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const xx=x+dx;if(xx<0||xx>=w)continue;
-        const j=yy*w+xx;if(weak[j]&&!ink[j]){ink[j]=1;stack[sp++]=j}}}
-  }
-  // Buang bintik kecil terisolasi (noda/debu scan).
-  if(minBlob>1){
-    const seen=new Uint8Array(N),list=new Int32Array(N);
-    for(let s0=0;s0<N;s0++){
-      if(!ink[s0]||seen[s0])continue;
-      let n=0;sp=0;stack[sp++]=s0;seen[s0]=1;
-      while(sp){
-        const i=stack[--sp];list[n++]=i;const x=i%w,y=(i-x)/w;
-        for(let dy=-1;dy<=1;dy++){const yy=y+dy;if(yy<0||yy>=h)continue;
-          for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const xx=x+dx;if(xx<0||xx>=w)continue;
-            const j=yy*w+xx;if(ink[j]&&!seen[j]){seen[j]=1;stack[sp++]=j}}}
-      }
-      if(n<minBlob)for(let k=0;k<n;k++)ink[list[k]]=0;
-    }
-  }
-  return{ink,w,h,sc,R,hist};
-}
-// Analisis otomatis parameter gambar bantu dari gambar itu sendiri (satuan: piksel pratinjau).
-function analyzeAux(){
-  const base={maxSide:2400,maxScale:1};
-  // 1) Tebal garis dominan dari peta tinta sementara.
-  const m0=buildInkMap({x:0,y:0,w:iw,h:ih},Object.assign({T:30,weakRatio:1,minBlob:0,radius:20},base));
-  const runs=new Uint32Array(31),{ink,w,h}=m0;
-  for(let y=0;y<h;y++){let n=0;for(let x=0;x<=w;x++){if(x<w&&ink[y*w+x])n++;else{if(n>=1&&n<=30)runs[n]++;n=0}}}
-  for(let x=0;x<w;x++){let n=0;for(let y=0;y<=h;y++){if(y<h&&ink[y*w+x])n++;else{if(n>=1&&n<=30)runs[n]++;n=0}}}
-  let tot=0;for(let i=1;i<=30;i++)tot+=runs[i];
-  let thick=2;if(tot){let c=0;for(let i=1;i<=30;i++){c+=runs[i];if(c>=tot/2){thick=i;break}}}
-  const radius=Math.max(10,Math.min(50,Math.round(thick*7)));
-  const blob=Math.max(4,Math.min(40,Math.round(1.5*thick*thick)));
-  // 2) Kepekaan dari histogram selisih (latar - piksel) dengan metode Otsu.
-  const m1=buildInkMap({x:0,y:0,w:iw,h:ih},Object.assign({T:30,weakRatio:1,minBlob:0,radius,hist:true},base));
-  const H=m1.hist;let sumAll=0,nAll=0;
-  for(let i=0;i<128;i++){sumAll+=i*H[i];nAll+=H[i]}
-  let wB=0,sB=0,best=-1,otsu=30;
-  for(let t=0;t<128;t++){
-    wB+=H[t];sB+=t*H[t];
-    const wF=nAll-wB;if(!wB||!wF)continue;
-    const mB=sB/wB,mF=(sumAll-sB)/wF,v=wB*wF*(mB-mF)*(mB-mF);
-    if(v>best){best=v;otsu=t}
-  }
-  const T=Math.max(15,Math.min(55,Math.round(otsu*0.8)));
-  // 3) Tinta lemah: makin banyak piksel di zona antara (pudar/anti-alias), makin rendah rasionya.
-  let mid=0,strong=0;
-  for(let i=0;i<128;i++){if(i>=T*0.5&&i<T)mid+=H[i];else if(i>=T)strong+=H[i]}
-  const ratio=strong?Math.min(1,mid/strong):1;
-  const weak=Math.max(.4,Math.min(.85,.85-.45*ratio));
-  return{T,weakRatio:weak,minBlob:blob,radius,thick};
-}
-function fillAuxSliders(p){
-  [['auxT',p.T,''],['auxWeak',Math.round(p.weakRatio*100),'%'],['auxBlob',p.minBlob,' px'],['auxR',p.radius,' px']].forEach(([id,v,suf])=>{
-    $(id).value=v;$('val_'+id).textContent=$(id).value+suf;
-  });
-}
-function syncAuxAuto(){
-  const auto=$('auxAuto').checked;
-  $('auxManual').classList.toggle('hide',auto);
-  if(auto){$('auxAutoInfo').textContent=autoAux&&autoAux.p?auxInfoText(autoAux.p):''}
-  else{$('auxAutoInfo').textContent='';if(autoAux&&autoAux.p)fillAuxSliders(autoAux.p)}
-}
-function auxInfoText(p){return'Auto → kepekaan '+p.T+', tinta lemah '+Math.round(p.weakRatio*100)+'%, bintik '+p.minBlob+' px, radius '+p.radius+' px (tebal garis ±'+p.thick+' px)'}
-function auxParams(){return{T:+$('auxT').value,weakRatio:+$('auxWeak').value/100,minBlob:+$('auxBlob').value,radius:+$('auxR').value}}
-function scheduleAux(delay){clearTimeout(auxTimer);auxPending=true;auxTimer=setTimeout(refreshAux,delay)}
-function refreshAux(){
-  auxPending=false;
-  if(!img||auxMode==='orig')return;
-  const msg=$('auxMsg');msg.textContent=($('auxAuto').checked&&(!autoAux||autoAux.img!==img))?'Menganalisis gambar...':'Membuat gambar bantu...';
-  const target=img;
-  setTimeout(()=>{
-    if(img!==target)return;
-    try{
-      let prm;
-      if($('auxAuto').checked){
-        if(!autoAux||autoAux.img!==target){msg.textContent='Menganalisis gambar...';autoAux={img:target,p:analyzeAux()}}
-        prm=autoAux.p;$('auxAutoInfo').textContent=auxInfoText(prm);
-      }else prm=auxParams();
-      const m=buildInkMap({x:0,y:0,w:iw,h:ih},Object.assign({},prm,{maxSide:2400,maxScale:1}));
-      auxCache={img:target,ink:m.ink,w:m.w,h:m.h,sc:m.sc,cv:{}};
-      let n=0;for(let i=0;i<m.ink.length;i++)n+=m.ink[i];
-      msg.textContent='Gambar bantu siap: '+(100*n/m.ink.length).toFixed(1)+'% piksel dianggap tinta (pratinjau '+m.w+'×'+m.h+' px).';
-    }catch(e){
-      auxCache={img:target,failed:true};
-      msg.textContent='Gambar bantu gagal dibuat: '+e.message;
-    }
-    draw();
-  },20);
-}
-function auxCanvasOf(kind){
-  const c=auxCache;if(!c||c.failed)return null;
-  if(c.cv[kind])return c.cv[kind];
-  const cv=document.createElement('canvas');cv.width=c.w;cv.height=c.h;
-  const x=cv.getContext('2d'),id=x.createImageData(c.w,c.h),d=id.data,ink=c.ink;
-  const col=kind==='ov'?[236,72,153,230]:[10,16,28,255];
-  for(let i=0;i<ink.length;i++)if(ink[i]){const k=i*4;d[k]=col[0];d[k+1]=col[1];d[k+2]=col[2];d[k+3]=col[3]}
-  x.putImageData(id,0,0);c.cv[kind]=cv;return cv;
-}
-
-function detect(R){
-  const T=+$('dT').value,minL=+$('dL').value,gapF=+$('dG').value;
-  const sc=Math.min(.5,2400/Math.max(R.w,R.h)),w=Math.max(16,Math.round(R.w*sc)),h=Math.max(16,Math.round(R.h*sc));
+function detect(R,opt){
+  const T=opt?.T ?? +$('dT').value,minL=opt?.minL ?? +$('dL').value,gapF=opt?.gapF ?? +$('dG').value;
+  const sc=detectionScale(R),w=Math.max(16,Math.round(R.w*sc)),h=Math.max(16,Math.round(R.h*sc));
   const oc=document.createElement('canvas');oc.width=w;oc.height=h;const o=oc.getContext('2d',{willReadFrequently:true});
-  o.fillStyle='#fff';o.fillRect(0,0,w,h);o.imageSmoothingQuality='high';o.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
-  const D=o.getImageData(0,0,w,h).data,N=w*h,gr=new Float32Array(N);
-  for(let i=0;i<N;i++)gr[i]=.299*D[i*4]+.587*D[i*4+1]+.114*D[i*4+2];
-  const I=new Float64Array((w+1)*(h+1));
+  o.fillStyle='#fff';o.fillRect(0,0,w,h);o.imageSmoothingQuality='high';
+  if(opt?.source)o.drawImage(opt.source,0,0,w,h);else o.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
+  const D=o.getImageData(0,0,w,h).data,N=w*h,gr=new Uint8Array(N),hist=new Uint32Array(256);
+  for(let i=0;i<N;i++){const g=(.299*D[i*4]+.587*D[i*4+1]+.114*D[i*4+2])|0;gr[i]=g;hist[g]++}
+  let cnt=0,med=128;
+  for(let k=0;k<256;k++){cnt+=hist[k];if(cnt>=N/2){med=k;break}}
+  let mean=0;
+  for(let k=0;k<256;k++)mean+=k*hist[k];
+  const invert=mean/N>med;
+  const I=new Uint32Array((w+1)*(h+1));
   for(let y=0;y<h;y++){let rs=0;for(let x=0;x<w;x++){rs+=gr[y*w+x];I[(y+1)*(w+1)+x+1]=I[y*(w+1)+x+1]+rs}}
-  const ink=new Uint8Array(N),pts=[],r=20;
+  const ink=new Uint8Array(N),pts=[],r=Math.max(8,Math.min(24,Math.round(Math.min(w,h)*.04)));
   for(let y=0;y<h;y++){
     const y0=Math.max(0,y-r),y1=Math.min(h,y+r+1);
     for(let x=0;x<w;x++){
       const x0=Math.max(0,x-r),x1=Math.min(w,x+r+1),m=(I[y1*(w+1)+x1]-I[y0*(w+1)+x1]-I[y1*(w+1)+x0]+I[y0*(w+1)+x0])/((x1-x0)*(y1-y0));
-      if(m-gr[y*w+x]>T){ink[y*w+x]=1;pts.push(x,y)}
+      const d=invert?gr[y*w+x]-m:m-gr[y*w+x];
+      if(d>T){ink[y*w+x]=1;pts.push(x,y)}
     }
   }
   const inkD=new Uint8Array(N);
@@ -3293,9 +3317,23 @@ function detect(R){
       for(let i=0;i<M;i++){
         const x=p1[0]+ux*L*i/M,y=p1[1]+uy*L*i/M;
         cov+=at(x,y);
-        for(const d of[-6,-5,5,6])sd+=at(x+nx*d,y+ny*d)}
+        for(const d of[-6,-5,5,6])sd+=at(x+nx*d,y+ny*d);
+      }
       cov/=M;sd/=4*M;
-      if(cov>=.5&&sd<.18)segs.push([p1[0],p1[1],p2[0],p2[1],'P',L]);
+      if(cov>=.5&&sd<.18){
+        let sumC=0,nC=0;
+        const NS=Math.max(3,Math.min(15,Math.floor(L/8)));
+        for(let sI=0;sI<NS;sI++){
+          const t=(sI+.5)/NS,x=p1[0]+(p2[0]-p1[0])*t,y=p1[1]+(p2[1]-p1[1])*t;
+          if(!at(x,y))continue;
+          let lo=0,hi=0;
+          while(lo>-16&&at(x+nx*(lo-1),y+ny*(lo-1)))lo--;
+          while(hi<16&&at(x+nx*(hi+1),y+ny*(hi+1)))hi++;
+          if(hi-lo>=2){sumC+=(lo+hi)/2;nC++;}
+        }
+        const off=nC?sumC/nC:0;
+        segs.push([p1[0]+nx*off,p1[1]+ny*off,p2[0]+nx*off,p2[1]+ny*off,'P',L]);
+      }
     }
   }
   segs.sort((a,b)=>b[5]-a[5]);
@@ -3337,13 +3375,13 @@ function detect(R){
   };
   // Magnet otomatis opsional. Segmen panjang (>150 px) dikecualikan sebagai
   // perlindungan konservatif bagi jalan/sungai berkelok; bukan deteksi kurva sempurna.
-  const useAutoMag=$('autoMagToggle')?.checked ?? true;
+  const useAutoMag=opt?.autoMag ?? ($('autoMagToggle')?.checked ?? true);
   if(useAutoMag){
   // ===== RAPIKAN: satu garis per tepi, tersambung di sudut =====
   // 1) fragmen segaris (termasuk segmen panjang) digabung jadi satu garis dan dicocokkan ulang (PCA);
   // 2) ujung garis ditarik ke titik potong terdekat dengan garis lain (termasuk garis panjang), dibatasi radius magnet;
   // 3) ujung yang berdekatan disatukan; garis kembar dan sisa pendek yang terisolasi dibuang.
-  const userMagR=+($('magR')?.value || 40);
+  const userMagR=opt?.magR ?? +($('magR')?.value || 40);
   const R2=userMagR;
   const segLen=s=>Math.hypot(s.p[1][0]-s.p[0][0],s.p[1][1]-s.p[0][1]);
   let S=out.map(q=>({p:[[q[0],q[1]],[q[2],q[3]]],parts:[[q[0],q[1],q[2],q[3]]]}));
@@ -3492,7 +3530,7 @@ function detect(R){
     return false;
   };
   const linkAll=()=>{
-    const linkMax=(+($('linkMax')?$('linkMax').value:120))*sc;
+    const linkMax=((opt?.linkMax ?? (+($('linkMax')?$('linkMax').value:120)))*sc);
     if(!(linkMax>0))return;
     const cosCont=Math.cos(30*Math.PI/180);
     const ends=[];
@@ -3605,6 +3643,7 @@ function runDet(R,poly=null){
   $('autoParamInfo').textContent='';
   setTimeout(async()=>{
     try{
+      let params;
       // 1. Parameter otomatis jika toggle aktif
       if($('autoParamToggle')?.checked){
         const p=analyzeRegion(R);
@@ -3617,20 +3656,46 @@ function runDet(R,poly=null){
         $('val_linkMax').textContent=p.linkMax+' px';
         $('autoParamInfo').textContent=
           'Auto → kepekaan: '+p.dT+', min: '+p.dL+'px, celah: '+p.dG+'px, magnet: '+p.magR+'px, sambung: '+p.linkMax+'px';
+        params={T:p.dT,minL:p.dL,gapF:p.dG,magR:p.magR,linkMax:p.linkMax,medRun:p.medRun||2,autoMag:true};
+      }else{
+        params={T:+$('dT').value,minL:+$('dL').value,gapF:+$('dG').value,magR:+($('magR')?.value||40),linkMax:+($('linkMax')?.value||120),medRun:2,autoMag:($('autoMagToggle')?.checked??true)};
       }
-      // 2. Deteksi dengan Hough + Smart Filter
-      cand=detect(R);
-      // 3. Filter berdasarkan area poligon jika ada
+      // 2. Gambar bantu: latar dihapus, teks dibuang, hanya garis hitam.
+      let helperUsed=false;
+      if($('helperDetectToggle')?.checked){
+        $('dMsg').textContent='Menyiapkan gambar bantu...';
+        await new Promise(r=>setTimeout(r,10));
+        try{
+          const hd=buildHelperData(R,params,{preview:false});
+          params.source=hd.lineOnly;
+          helperUsed=true;
+        }catch(e){
+          $('dMsg').textContent='Gambar bantu gagal, memakai gambar asli...';
+          await new Promise(r=>setTimeout(r,10));
+        }
+      }
+      $('dMsg').textContent='Mendeteksi...';
+      // 3. Deteksi dengan Hough + Smart Filter
+      cand=detect(R,params);
+      // 4. Filter berdasarkan area poligon jika ada
       if(poly&&poly.length>=3) cand=cand.filter(c=>{
         let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;
         return n>=c.pts.length/2;
       });
+      let topoNote='';
+      if(cand.length&&$('topoAutoToggle')?.checked){
+        try{
+          const tr=cleanTopologyChains(cand,{mode:'all',tol:+($('topoTol')?.value||16)});
+          cand=tr.chains;
+          topoNote=' Topologi dirapikan ('+tr.stats.joins+' join, '+tr.stats.extends+' extend, '+tr.stats.trims+' trim).';
+        }catch(e){console.warn('Rapikan topologi otomatis gagal:',e)}
+      }
       if(cand.length&&cand[0].free) plotPetaNumberEnds(cand);
       const nEnd=cand.reduce((z,c)=>z+((c.nums||[]).filter(Boolean).length),0);
       $('dMsg').textContent=
         cand.length+' jalur kandidat'
-        +(nEnd?(', '+nEnd+' ujung bebas. Klik dua nomor untuk sambung manual.'):'.')
-        +' Persilangan & duplikat sudah dibersihkan. Periksa sebelum diterima.';
+        +(nEnd?(', '+nEnd+' ujung bebas.'):'.')
+        +' Persilangan & duplikat sudah dibersihkan.'+(helperUsed?' Gambar bantu dipakai.':'')+topoNote+' Kandidat bisa diedit dengan Pindah Titik/Hapus sebelum diterima.';
     }catch(x){$('dMsg').textContent='Deteksi gagal: '+x.message}
     draw();
   },40);
@@ -3639,6 +3704,7 @@ $('dOk').onclick=()=>{
   if(!cand.length)return;
   snapshot();
   cand.forEach(c=>lines.push({k:'P',pts:c.pts}));
+  ensureIntersectionPoints(true);
   cand=[];
   $('dMsg').textContent='Kandidat diterima sebagai garis.';
   stat();
@@ -3650,6 +3716,546 @@ $('dAll').onclick=()=>{
   if(!img){$('dMsg').textContent='Buka peta dulu.';return}
   runDet({x:0,y:0,w:iw,h:ih});
 };
+
+async function refreshHelperView(force=false){
+  if(!img){$('helperViewMsg').textContent='Buka peta dulu.';return}
+  if(!force&&helperPreview&&helperPreviewImg===img){draw();return}
+  if(helperPreviewBusy)return;
+  helperPreviewBusy=true;
+  $('helperViewMsg').textContent='Menyiapkan gambar bantu...';
+  await new Promise(r=>setTimeout(r,20));
+  try{
+    const hd=buildHelperData({x:0,y:0,w:iw,h:ih},null,{preview:true});
+    helperPreview=hd.preview;helperPreviewImg=img;
+    $('helperViewMsg').textContent='Teks biru: '+hd.textComps+' komponen. Garis hitam dipertahankan.'+(hd.noiseComps?', '+hd.noiseComps+' bintik dibuang.':'');
+  }catch(e){
+    helperPreview=null;helperPreviewImg=null;
+    $('helperViewMsg').textContent='Gagal membuat gambar bantu: '+e.message;
+  }finally{
+    helperPreviewBusy=false;
+    draw();
+  }
+}
+$('helperViewToggle').onchange=()=>{
+  if($('helperViewToggle').checked)refreshHelperView();
+  else{$('helperViewMsg').textContent='';draw()}
+};
+
+function topoNearestLinePoint(sp,maxD=16){
+  let best=null,bd=maxD;
+  editTarget().forEach((l,li)=>{
+    for(let i=0;i<l.pts.length-1;i++){
+      const a=toS(l.pts[i]),b=toS(l.pts[i+1]);
+      const dx=b[0]-a[0],dy=b[1]-a[1],L2=dx*dx+dy*dy;
+      let t=L2?((sp[0]-a[0])*dx+(sp[1]-a[1])*dy)/L2:0;
+      t=Math.max(0,Math.min(1,t));
+      const x=a[0]+t*dx,y=a[1]+t*dy,d=Math.hypot(sp[0]-x,sp[1]-y);
+      if(d<bd){
+        bd=d;
+        best={li,si:i,t,pt:[l.pts[i][0]+t*(l.pts[i+1][0]-l.pts[i][0]),l.pts[i][1]+t*(l.pts[i+1][1]-l.pts[i][1])]};
+      }
+    }
+  });
+  return best;
+}
+function manualCutAt(li,si,t){
+  const target=editTarget();
+  const l=target[li];if(!l||l.pts.length<2||si<0||si>=l.pts.length-1)return false;
+  if(t<=.001||t>=.999)return false;
+  const pts=l.pts;
+  const a=pts[si],b=pts[si+1];
+  const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);
+  if(L<1e-9)return false;
+  const ux=dx/L,uy=dy/L;
+  const click=[a[0]+t*dx,a[1]+t*dy];
+  const half=Math.min(3/(2*Math.max(V.s,.001)),t*L*.9,(1-t)*L*.9);
+  const cutA=[click[0]-ux*half,click[1]-uy*half];
+  const cutB=[click[0]+ux*half,click[1]+uy*half];
+  snapshot();
+  const A=pts.slice(0,si+1).concat([cutA]);
+  const B=[cutB].concat(pts.slice(si+1));
+  const keep=target.filter((_,i)=>i!==li);
+  keep.push({k:l.k||'P',pts:A});
+  keep.push({k:l.k||'P',pts:B});
+  target.splice(0,target.length,...keep);
+  if(target===cand)candMsg();
+  return true;
+}
+function deleteSegmentAt(li,si){
+  const target=editTarget();
+  const l=target[li];
+  if(!l||si<0||si>=l.pts.length-1)return false;
+  snapshot();
+  const A=l.pts.slice(0,si+1),B=l.pts.slice(si+1);
+  const kept=A.length>1||B.length>1;
+  target.splice(li,1);
+  if(A.length>1)target.push({k:l.k||'P',pts:A});
+  if(B.length>1)target.push({k:l.k||'P',pts:B});
+  erasePick=null;
+  if(target===cand)candMsg();
+  $('st').innerHTML='<span class="status-dot"></span><span>1 segmen dihapus'+(kept?'; bagian lain tetap.':'.')+'</span>';
+  stat();draw();return true;
+}
+function startAddLineAt(sp){
+  if(!img)return false;
+  let best=null,bd=12;
+  editTarget().forEach(l=>l.pts.forEach(p=>{
+    const s=toS(p),d=Math.hypot(s[0]-sp[0],s[1]-sp[1]);
+    if(d<bd){bd=d;best=p}
+  }));
+  if(!best){
+    $('st').innerHTML='<span class="status-dot"></span><span>Klik titik pada garis untuk mulai menambah garis.</span>';
+    draw();return false;
+  }
+  addLinePick={pt:best.slice()};
+  $('st').innerHTML='<span class="status-dot"></span><span>Titik awal dipilih. Klik tujuan untuk menambah garis baru.</span>';
+  draw();return true;
+}
+function finishAddLineAt(sp){
+  if(!addLinePick)return false;
+  const pt=addLinePick.pt;
+  const target=toI(sp);
+  if(Math.hypot(target[0]-pt[0],target[1]-pt[1])*V.s<2){
+    addLinePick=null;
+    $('st').innerHTML='<span class="status-dot"></span><span>Penambahan garis dibatalkan.</span>';
+    draw();return false;
+  }
+  let q=target.slice();
+  let best=null,bd=10;
+  editTarget().forEach(l=>l.pts.forEach(p=>{
+    const s=toS(p),d=Math.hypot(s[0]-sp[0],s[1]-sp[1]);
+    if(d<bd){bd=d;best=p}
+  }));
+  if(best){
+    q=best.slice();
+  }else{
+    const h=topoNearestLinePoint(sp,12);
+    if(h)q=h.pt.slice();
+  }
+  if(Math.hypot(q[0]-pt[0],q[1]-pt[1])<1e-6){
+    addLinePick=null;
+    $('st').innerHTML='<span class="status-dot"></span><span>Penambahan garis dibatalkan.</span>';
+    draw();return false;
+  }
+  snapshot();
+  editTarget().push({k:'P',pts:[pt.slice(),q.slice()]});
+  addLinePick=null;
+  if(cand.length)candMsg();
+  $('st').innerHTML='<span class="status-dot"></span><span>'+(cand.length?'Kandidat garis ditambahkan.':'Garis baru ditambahkan.')+'</span>';
+  stat();draw();return true;
+}
+function ensureIntersectionPoints(alreadySnapshot=false){
+  if(lines.length<2)return 0;
+  const mergeTol=1,snapTol=2;
+  const dist=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1]);
+  const lineCuts=lines.map(l=>l.pts.map(()=>[]));
+  const lineSnaps=lines.map(()=>new Map());
+  let added=0,applied=false;
+  const snapPoint=(li,pi,x,y)=>{
+    const l=lines[li];if(!l||!l.pts[pi])return;
+    if(dist(l.pts[pi],[x,y])<=.05)return;
+    if(!lineSnaps[li].has(pi)){lineSnaps[li].set(pi,[x,y]);added++;applied=true}
+  };
+  const addCut=(li,si,t,x,y)=>{
+    if(t<=1e-7||t>=1-1e-7)return;
+    lineCuts[li][si].push({t,x,y});
+  };
+  for(let li=0;li<lines.length;li++){
+    const A=lines[li];if(!A||A.pts.length<2)continue;
+    for(let lj=li+1;lj<lines.length;lj++){
+      const B=lines[lj];if(!B||B.pts.length<2)continue;
+      for(let si=0;si<A.pts.length-1;si++){
+        const a=A.pts[si],b=A.pts[si+1];
+        const rx=b[0]-a[0],ry=b[1]-a[1];
+        for(let sj=0;sj<B.pts.length-1;sj++){
+          const c=B.pts[sj],d=B.pts[sj+1];
+          const sx=d[0]-c[0],sy=d[1]-c[1],den=rx*sy-ry*sx;
+          if(Math.abs(den)<1e-9)continue;
+          let t=((c[0]-a[0])*sy-(c[1]-a[1])*sx)/den;
+          let u=((c[0]-a[0])*ry-(c[1]-a[1])*rx)/den;
+          const eps=1e-7;
+          if(t<-eps||t>1+eps||u<-eps||u>1+eps)continue;
+          t=Math.max(0,Math.min(1,t));u=Math.max(0,Math.min(1,u));
+          const x=a[0]+t*rx,y=a[1]+t*ry;
+          const a0=dist([x,y],a)<=mergeTol,a1=dist([x,y],b)<=mergeTol;
+          const b0=dist([x,y],c)<=mergeTol,b1=dist([x,y],d)<=mergeTol;
+          if(a0)snapPoint(li,si,x,y);else if(a1)snapPoint(li,si+1,x,y);else addCut(li,si,t,x,y);
+          if(b0)snapPoint(lj,sj,x,y);else if(b1)snapPoint(lj,sj+1,x,y);else addCut(lj,sj,u,x,y);
+        }
+      }
+    }
+  }
+  const nearestOnSeg=(p,a,b)=>{
+    const dx=b[0]-a[0],dy=b[1]-a[1],L2=dx*dx+dy*dy;
+    let t=L2?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L2:0;
+    t=Math.max(0,Math.min(1,t));
+    const x=a[0]+t*dx,y=a[1]+t*dy;
+    return {t,x,y,d:Math.hypot(p[0]-x,p[1]-y)};
+  };
+  for(let li=0;li<lines.length;li++){
+    const A=lines[li];if(!A||A.pts.length<2)continue;
+    for(const pi of [0,A.pts.length-1]){
+      const p=A.pts[pi];
+      let best=null;
+      for(let lj=0;lj<lines.length;lj++){
+        if(lj===li)continue;
+        const B=lines[lj];if(!B||B.pts.length<2)continue;
+        for(let sj=0;sj<B.pts.length-1;sj++){
+          const q=nearestOnSeg(p,B.pts[sj],B.pts[sj+1]);
+          if(q.d>snapTol)continue;
+          if(!best||q.d<best.d)best={lj,sj,q};
+        }
+      }
+      if(!best)continue;
+      const {lj,sj,q}=best;
+      snapPoint(li,pi,q.x,q.y);
+      const c=lines[lj].pts[sj],d=lines[lj].pts[sj+1];
+      if(dist([q.x,q.y],c)<=mergeTol)snapPoint(lj,sj,q.x,q.y);
+      else if(dist([q.x,q.y],d)<=mergeTol)snapPoint(lj,sj+1,q.x,q.y);
+      else addCut(lj,sj,q.t,q.x,q.y);
+    }
+  }
+  const out=lines.map((l,li)=>{
+    const pts=l.pts.map((p,pi)=>lineSnaps[li].has(pi)?lineSnaps[li].get(pi).slice():p.slice());
+    const res=[pts[0]];
+    for(let si=0;si<pts.length-1;si++){
+      const list=(lineCuts[li][si]||[]).slice().sort((a,b)=>a.t-b.t);
+      for(const q of list){
+        const last=res[res.length-1];
+        if(dist([q.x,q.y],pts[si])<=mergeTol||dist([q.x,q.y],pts[si+1])<=mergeTol)continue;
+        if(dist([q.x,q.y],last)<=mergeTol)continue;
+        res.push([q.x,q.y]);applied=true;added++;
+      }
+      const nxt=pts[si+1];
+      if(dist(res[res.length-1],nxt)>mergeTol)res.push(nxt);
+      else res[res.length-1]=nxt;
+    }
+    return res.length>=2?{...l,pts:res}:{...l,pts:pts};
+  });
+  if(!applied)return 0;
+  if(!alreadySnapshot)snapshot();
+  lines=out;
+  return added;
+}
+
+function handleTopoTool(sp){
+  if(!img)return;
+  const hit=topoNearestLinePoint(sp,16);
+  if(!hit){
+    $('st').innerHTML='<span class="status-dot"></span><span>Klik tepat pada segmen garis yang mau dipotong.</span>';
+    draw();return;
+  }
+  if(manualCutAt(hit.li,hit.si,hit.t)){
+    mv=null;
+    $('st').innerHTML='<span class="status-dot"></span><span>Segmen dipotong menjadi 2 bagian.</span>';
+    stat();draw();
+  }else{
+    $('st').innerHTML='<span class="status-dot"></span><span>Tidak ada yang bisa dipotong di titik itu.</span>';
+    draw();
+  }
+}
+
+function helperParams(R){
+  if($('autoParamToggle')?.checked){
+    const p=analyzeRegion(R);
+    return {T:p.dT,minL:p.dL,gapF:p.dG,magR:p.magR,linkMax:p.linkMax,medRun:p.medRun||2,autoMag:true};
+  }
+  return {T:+$('dT').value,minL:+$('dL').value,gapF:+$('dG').value,magR:+($('magR')?.value||40),linkMax:+($('linkMax')?.value||120),medRun:2,autoMag:($('autoMagToggle')?.checked??true)};
+}
+
+function buildHelperData(R,params,opts){
+  const P=params||helperParams(R);
+  const {T,minL,gapF,medRun}=P;
+  const chains=detect(R,{T,minL,gapF,autoMag:false});
+  const sc=detectionScale(R),w=Math.max(16,Math.round(R.w*sc)),h=Math.max(16,Math.round(R.h*sc)),N=w*h;
+  let ink;
+  {
+    const oc=document.createElement('canvas');oc.width=w;oc.height=h;
+    const o=oc.getContext('2d',{willReadFrequently:true});
+    o.fillStyle='#fff';o.fillRect(0,0,w,h);o.imageSmoothingQuality='high';o.drawImage(img,R.x,R.y,R.w,R.h,0,0,w,h);
+    const D=o.getImageData(0,0,w,h).data;
+    const gr=new Uint8Array(N),hist=new Uint32Array(256);
+    for(let i=0;i<N;i++){const g=(.299*D[i*4]+.587*D[i*4+1]+.114*D[i*4+2])|0;gr[i]=g;hist[g]++}
+    let cnt=0,med=128;
+    for(let k=0;k<256;k++){cnt+=hist[k];if(cnt>=N/2){med=k;break}}
+    let mean=0;for(let k=0;k<256;k++)mean+=k*hist[k];
+    const invert=mean/N>med;
+    const I=new Uint32Array((w+1)*(h+1));
+    for(let y=0;y<h;y++){let rs=0;for(let x=0;x<w;x++){rs+=gr[y*w+x];I[(y+1)*(w+1)+x+1]=I[y*(w+1)+x+1]+rs}}
+    ink=new Uint8Array(N);
+    const r=Math.max(8,Math.min(24,Math.round(Math.min(w,h)*.04)));
+    for(let y=0;y<h;y++){
+      const y0=Math.max(0,y-r),y1=Math.min(h,y+r+1);
+      for(let x=0;x<w;x++){
+        const x0=Math.max(0,x-r),x1=Math.min(w,x+r+1),m=(I[y1*(w+1)+x1]-I[y0*(w+1)+x1]-I[y1*(w+1)+x0]+I[y0*(w+1)+x0])/((x1-x0)*(y1-y0));
+        const d=invert?gr[y*w+x]-m:m-gr[y*w+x];
+        if(d>T)ink[y*w+x]=1;
+      }
+    }
+  }
+  const cut=new Uint8Array(N);
+  const lc=document.createElement('canvas');lc.width=w;lc.height=h;
+  const lx=lc.getContext('2d',{willReadFrequently:true});
+  lx.strokeStyle='#fff';lx.lineCap='round';lx.lineJoin='round';
+  lx.lineWidth=Math.max(4,Math.min(10,Math.round((medRun||2)*1.5)));
+  for(const c of chains){
+    if(!c.pts||c.pts.length<2)continue;
+    lx.beginPath();lx.moveTo((c.pts[0][0]-R.x)*sc,(c.pts[0][1]-R.y)*sc);
+    for(let i=1;i<c.pts.length;i++)lx.lineTo((c.pts[i][0]-R.x)*sc,(c.pts[i][1]-R.y)*sc);
+    lx.stroke();
+  }
+  const ld=lx.getImageData(0,0,w,h).data;
+  for(let i=0;i<N;i++)if(ld[i*4+3]>0)cut[i]=1;
+  const tm=new Uint8Array(N);
+  for(let i=0;i<N;i++)if(ink[i]&&!cut[i])tm[i]=1;
+  const comp=new Int32Array(N);
+  const textMax=Math.max(24,Math.min(160,Math.round(Math.min(w,h)*.06)));
+  let textComps=0,lineComps=0,noiseComps=0;
+  for(let i=0;i<N;i++){
+    if(tm[i]!==1)continue;
+    let head=0,tail=0;comp[tail++]=i;tm[i]=2;
+    let minX=w,maxX=0,minY=h,maxY=0,sumX=0,sumY=0,sumXX=0,sumYY=0,sumXY=0;
+    while(head<tail){
+      const j=comp[head++],x=j%w,y=(j-x)/w;
+      if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;
+      sumX+=x;sumY+=y;sumXX+=x*x;sumYY+=y*y;sumXY+=x*y;
+      const x0=x>0?x-1:0,x1=x<w-1?x+1:w-1,y0=y>0?y-1:0,y1=y<h-1?y+1:h-1;
+      for(let yy=y0;yy<=y1;yy++)for(let xx=x0;xx<=x1;xx++){
+        const k=yy*w+xx;
+        if(tm[k]===1){tm[k]=2;comp[tail++]=k}
+      }
+    }
+    const area=tail,bw=maxX-minX+1,bh=maxY-minY+1,maxDim=Math.max(bw,bh),fill=area/(bw*bh);
+    const mx=sumX/area,my=sumY/area,cxx=sumXX/area-mx*mx,cyy=sumYY/area-my*my,cxy=sumXY/area-mx*my;
+    const tr=cxx+cyy,det=cxx*cyy-cxy*cxy,disc=Math.sqrt(Math.max(0,tr*tr/4-det));
+    const l1=tr/2+disc,l2=Math.max(1e-6,tr/2-disc),elongPC=Math.sqrt(l1/l2);
+    const isSmall=maxDim<=textMax,isWord=maxDim<=textMax*2.5&&elongPC<=6&&fill>=0.12&&fill<=0.85;
+    if(area<2){
+      for(let q=0;q<tail;q++)tm[comp[q]]=4;
+      noiseComps++;
+    }else if(isSmall||isWord){
+      textComps++;
+    }else{
+      for(let q=0;q<tail;q++)tm[comp[q]]=3;
+      lineComps++;
+    }
+  }
+  const lineCv=document.createElement('canvas');lineCv.width=w;lineCv.height=h;
+  const lctx=lineCv.getContext('2d'),limg=lctx.createImageData(w,h),lpd=limg.data;
+  const wantPreview=opts?.preview!==false;
+  let prevCv=null,pctx=null,pimg=null,ppd=null;
+  if(wantPreview){prevCv=document.createElement('canvas');prevCv.width=w;prevCv.height=h;pctx=prevCv.getContext('2d');pimg=pctx.createImageData(w,h);ppd=pimg.data}
+  for(let i=0;i<N;i++){
+    const a=i*4;
+    if(!ink[i]){
+      lpd[a]=lpd[a+1]=lpd[a+2]=lpd[a+3]=255;
+      continue;
+    }
+    if(tm[i]===2){
+      lpd[a]=lpd[a+1]=lpd[a+2]=lpd[a+3]=255;
+      if(wantPreview){ppd[a]=21;ppd[a+1]=101;ppd[a+2]=255;ppd[a+3]=255}
+    }else if(tm[i]===4){
+      lpd[a]=lpd[a+1]=lpd[a+2]=lpd[a+3]=255;
+    }else{
+      lpd[a]=lpd[a+1]=lpd[a+2]=0;lpd[a+3]=255;
+      if(wantPreview){ppd[a]=ppd[a+1]=ppd[a+2]=0;ppd[a+3]=255}
+    }
+  }
+  lctx.putImageData(limg,0,0);
+  if(wantPreview)pctx.putImageData(pimg,0,0);
+  return {lineOnly:lineCv,preview:prevCv,w,h,sc,textComps,lineComps,noiseComps};
+}
+
+
+function cleanTopologyChains(chains,opt={}){
+  const mode=opt.mode||'all';
+  const tol=Math.max(2,+opt.tol||16);
+  const doJoin=mode==='all'||mode==='join';
+  const doExtend=mode==='all'||mode==='extend';
+  const doTrim=mode==='all'||mode==='trim';
+  const stats={chains0:chains.length,joins:0,extends:0,trims:0,splits:0,chains1:0};
+  let C=chains.filter(c=>c&&c.pts&&c.pts.length>=2).map(c=>({k:c.k||'P',pts:c.pts.map(p=>[+p[0],+p[1]]),closed:!!c.closed}));
+  const EPS=1e-9;
+  const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  const segDist=(p,a,b)=>{
+    const dx=b[0]-a[0],dy=b[1]-a[1],L2=dx*dx+dy*dy;
+    let t=L2?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L2:0;
+    t=Math.max(0,Math.min(1,t));
+    return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);
+  };
+  const proj=(p,a,b)=>{
+    const dx=b[0]-a[0],dy=b[1]-a[1],L2=dx*dx+dy*dy;
+    const t=L2?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L2:0;
+    const ct=Math.max(0,Math.min(1,t)),x=a[0]+ct*dx,y=a[1]+ct*dy;
+    return {x,y,t,d:Math.hypot(p[0]-x,p[1]-y)};
+  };
+  const interSeg=(a,b,c,d)=>{
+    const r=b[0]-a[0],s=b[1]-a[1],u=d[0]-c[0],v=d[1]-c[1];
+    const den=r*v-s*u;if(Math.abs(den)<1e-9)return null;
+    const t=((c[0]-a[0])*v-(c[1]-a[1])*u)/den,w=((c[0]-a[0])*s-(c[1]-a[1])*r)/den;
+    if(t<0||t>1||w<0||w>1)return null;
+    return {x:a[0]+t*r,y:a[1]+t*s,t,u:w};
+  };
+  const rayInter=(a,b,c,d)=>{
+    const r=b[0]-a[0],s=b[1]-a[1],u=d[0]-c[0],v=d[1]-c[1];
+    const den=r*v-s*u;if(Math.abs(den)<1e-9)return null;
+    const t=((c[0]-a[0])*v-(c[1]-a[1])*u)/den,w=((c[0]-a[0])*s-(c[1]-a[1])*r)/den;
+    if(w<0.01||w>0.99)return null;
+    return {x:a[0]+t*r,y:a[1]+t*s,t,u:w};
+  };
+  const endpoints=()=>{
+    const out=[];
+    C.forEach((c,ci)=>{if(c.closed||c.pts.length<2)return;out.push({ci,pi:0});out.push({ci,pi:c.pts.length-1});});
+    return out;
+  };
+  const isAttached=(ci,pi)=>{
+    const e=C[ci].pts[pi];
+    for(let j=0;j<C.length;j++){
+      if(j===ci)continue;
+      const o=C[j];if(o.pts.length<2)continue;
+      if(dist(e,o.pts[0])<=1.2||dist(e,o.pts[o.pts.length-1])<=1.2)return true;
+      for(let k=0;k<o.pts.length-1;k++)if(segDist(e,o.pts[k],o.pts[k+1])<=1.2)return true;
+    }
+    return false;
+  };
+  const splitAt=(ci,k,q)=>{
+    const c=C[ci],a=c.pts[k],b=c.pts[k+1];
+    if(dist(a,q)<0.75||dist(b,q)<0.75)return false;
+    const pr=proj(q,a,b);
+    if(pr.d>Math.max(1.5,tol*0.5))return false;
+    c.pts.splice(k+1,0,[pr.x,pr.y]);stats.splits++;return true;
+  };
+  const joinPass=()=>{
+    let changed=false;
+    const refs=endpoints(),parent=refs.map((_,i)=>i);
+    const find=i=>parent[i]===i?i:(parent[i]=find(parent[i]));
+    const uni=(a,b)=>{a=find(a);b=find(b);if(a!==b)parent[b]=a};
+    for(let i=0;i<refs.length;i++)for(let j=i+1;j<refs.length;j++){
+      const A=refs[i],B=refs[j];
+      if(A.ci===B.ci&&Math.abs(A.pi-B.pi)<C[A.ci].pts.length-1)continue;
+      if(dist(C[A.ci].pts[A.pi],C[B.ci].pts[B.pi])<=tol)uni(i,j);
+    }
+    const groups=new Map();
+    refs.forEach((r,i)=>{const f=find(i);if(!groups.has(f))groups.set(f,[]);groups.get(f).push(r)});
+    for(const g of groups.values()){
+      if(g.length<2)continue;
+      const mx=g.reduce((s,r)=>s+C[r.ci].pts[r.pi][0],0)/g.length;
+      const my=g.reduce((s,r)=>s+C[r.ci].pts[r.pi][1],0)/g.length;
+      if(!g.some(r=>dist(C[r.ci].pts[r.pi],[mx,my])>0.01))continue;
+      for(const r of g)C[r.ci].pts[r.pi]=[mx,my];
+      stats.joins+=g.length-1;changed=true;
+    }
+    const refs2=endpoints();
+    for(const r of refs2){
+      if(isAttached(r.ci,r.pi))continue;
+      const c=C[r.ci],e=c.pts[r.pi],p=c.pts[r.pi===0?1:c.pts.length-2];
+      const ux=e[0]-p[0],uy=e[1]-p[1],L=Math.hypot(ux,uy);if(L<EPS)continue;
+      let best=null;
+      for(let ci=0;ci<C.length;ci++){
+        if(ci===r.ci)continue;
+        const o=C[ci];if(o.pts.length<2)continue;
+        for(let k=0;k<o.pts.length-1;k++){
+          const a=o.pts[k],b=o.pts[k+1],vx=b[0]-a[0],vy=b[1]-a[1],vL=Math.hypot(vx,vy);
+          if(vL<EPS)continue;
+          if(Math.abs(ux*vy-uy*vx)/(L*vL)<0.15)continue;
+          const pr=proj(e,a,b);
+          if(pr.t<0.02||pr.t>0.98||pr.d>tol)continue;
+          if(!best||pr.d<best.d)best={ci,k,q:[pr.x,pr.y],d:pr.d};
+        }
+      }
+      if(best){
+        C[r.ci].pts[r.pi]=best.q;splitAt(best.ci,best.k,best.q);
+        stats.joins++;changed=true;break;
+      }
+    }
+    return changed;
+  };
+  const extendPass=()=>{
+    let changed=false;
+    for(const r of endpoints()){
+      if(isAttached(r.ci,r.pi))continue;
+      const c=C[r.ci],e=c.pts[r.pi],p=c.pts[r.pi===0?1:c.pts.length-2];
+      const L=dist(p,e);if(L<EPS)continue;
+      const ux=(e[0]-p[0])/L,uy=(e[1]-p[1])/L;
+      let best=null;
+      for(let ci=0;ci<C.length;ci++){
+        if(ci===r.ci)continue;
+        const o=C[ci];if(o.pts.length<2)continue;
+        for(let k=0;k<o.pts.length-1;k++){
+          const X=rayInter(p,e,o.pts[k],o.pts[k+1]);
+          if(!X||X.t<=1)continue;
+          const d=(X.t-1)*L;if(d>tol)continue;
+          if(!best||d<best.d)best={ci,k,q:[X.x,X.y],d};
+        }
+      }
+      for(let ci=0;ci<C.length;ci++){
+        if(ci===r.ci)continue;
+        const o=C[ci];if(o.closed||o.pts.length<2)continue;
+        for(const pi of [0,o.pts.length-1]){
+          const q=o.pts[pi],vx=q[0]-e[0],vy=q[1]-e[1],d=Math.hypot(vx,vy);
+          if(d<EPS||d>tol)continue;
+          if(vx*ux+vy*uy<d*0.5)continue;
+          if(!best||d<best.d)best={ci,k:-1,q,d};
+        }
+      }
+      if(best){
+        C[r.ci].pts[r.pi]=best.q;
+        if(best.k>=0)splitAt(best.ci,best.k,best.q);
+        stats.extends++;changed=true;break;
+      }
+    }
+    return changed;
+  };
+  const trimPass=()=>{
+    let changed=false;
+    for(const r of endpoints()){
+      if(isAttached(r.ci,r.pi))continue;
+      const c=C[r.ci],e=c.pts[r.pi],p=c.pts[r.pi===0?1:c.pts.length-2];
+      const L=dist(p,e);if(L<EPS)continue;
+      let best=null;
+      for(let ci=0;ci<C.length;ci++){
+        if(ci===r.ci)continue;
+        const o=C[ci];if(o.pts.length<2)continue;
+        for(let k=0;k<o.pts.length-1;k++){
+          const X=interSeg(p,e,o.pts[k],o.pts[k+1]);
+          if(!X)continue;
+          const d=(1-X.t)*L;
+          if(d<0.75||d>tol)continue;
+          if(!best||d<best.d)best={ci,k,q:[X.x,X.y],d};
+        }
+      }
+      if(best){
+        C[r.ci].pts[r.pi]=best.q;splitAt(best.ci,best.k,best.q);
+        stats.trims++;changed=true;break;
+      }
+    }
+    return changed;
+  };
+  const run=(fn,max)=>{for(let i=0;i<max;i++){if(!fn())break;}};
+  if(doJoin)run(joinPass,8);
+  if(doExtend)run(extendPass,8);
+  if(doTrim)run(trimPass,8);
+  if(doJoin)run(joinPass,4);
+  C.forEach(c=>{
+    const pts=[];
+    for(const p of c.pts){if(!pts.length||dist(pts[pts.length-1],p)>0.5)pts.push(p);}
+    if(pts.length>2&&dist(pts[0],pts[pts.length-1])<0.5)c.closed=true;
+    c.pts=pts;
+  });
+  C=C.filter(c=>c.pts.length>=2);
+  const segs=[];
+  for(const c of C)for(let i=0;i<c.pts.length-1;i++){
+    const a=c.pts[i],b=c.pts[i+1];
+    if(dist(a,b)>=1)segs.push([a[0],a[1],b[0],b[1],c.k||'P']);
+  }
+  let flat=removeDuplicates(segs);
+  flat=splitAtIntersections(flat);
+  const out=plotPetaBuildChains(flat.map(q=>[[q[0],q[1]],[q[2],q[3]]]),1.5,Math.max(2,tol));
+  out.forEach(c=>{c.k='P';});
+  plotPetaNumberEnds(out);
+  stats.chains1=out.length;
+  return {chains:out,stats};
+}
 
 function polygonize(){
   const tol=Math.max(1,num($('pTol').value)||8),V=[],hash=new Map();
@@ -3772,21 +4378,6 @@ sliderPairs.forEach(([sliderId, labelId, suffix]) => {
 });
 
 
-// Gambar bantu: pilihan tampilan dan slider
-$('auxMode').addEventListener('change',e=>{
-  if(e.target.value!=='orig'&&!img){$('auxMsg').textContent='Buka peta dulu.';e.target.value='orig';auxMode='orig';return}
-  auxMode=e.target.value;
-  if(auxMode==='orig'){$('auxMsg').textContent='';draw()}else scheduleAux(0);
-});
-[['auxT','val_auxT',''],['auxWeak','val_auxWeak','%'],['auxBlob','val_auxBlob',' px'],['auxR','val_auxR',' px']].forEach(([a,b,suf])=>{
-  $(a).addEventListener('input',()=>{$(b).textContent=$(a).value+suf;if(auxMode!=='orig'&&img)scheduleAux(250)});
-});
-$('auxAuto').addEventListener('change',()=>{syncAuxAuto();if(auxMode!=='orig'&&img)scheduleAux(0)});
-syncAuxAuto();
-$('auxReset').onclick=()=>{
-  [['auxT',35],['auxWeak',55],['auxBlob',8],['auxR',20]].forEach(([a,v])=>{$(a).value=v;$(a).dispatchEvent(new Event('input'))});
-};
-
 // Slider manual hanya tampil saat "Parameter otomatis" dimatikan.
 function syncManualSliders(){
   const auto=$('autoParamToggle')?.checked ?? true;
@@ -3832,6 +4423,23 @@ function zoomBy(k){
 $('btnZoomIn').onclick = () => zoomBy(1.25);
 $('btnZoomOut').onclick = () => zoomBy(1 / 1.25);
 $('btnZoomFit').onclick = () => { if(img){ fitV(); draw(); } };
+
+const lockOpenIcon='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 7.5-2"></path></svg>';
+const lockClosedIcon='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>';
+function updateMapLockUI(){
+  const b=$('btnMapLock');if(!b)return;
+  b.classList.toggle('on',mapLocked);
+  b.setAttribute('aria-pressed',String(mapLocked));
+  b.title=mapLocked?'Buka kunci geser peta':'Kunci geser peta (zoom tetap aktif)';
+  b.innerHTML=mapLocked?lockClosedIcon:lockOpenIcon;
+  plotCanvas.style.cursor=mapLocked&&tool==='pan'?'not-allowed':tool==='pan'?'grab':'crosshair';
+}
+$('btnMapLock')?.addEventListener('click',()=>{
+  mapLocked=!mapLocked;
+  updateMapLockUI();
+  $('st').innerHTML='<span class="status-dot"></span><span>'+(mapLocked?'Peta dikunci: geser dinonaktifkan; zoom tetap aktif.':'Kunci peta dibuka: geser aktif kembali.')+'</span>';
+});
+updateMapLockUI();
 
 // Group the account tools at the right side of the header, before the login/account button.
 (function arrangeHeaderTools(){
@@ -4192,7 +4800,7 @@ async function openCloudProject(id){
   if(error || !p){ alert('Gagal memuat proyek dari cloud'); return; }
 
   const o = p.data || {};
-  lines = o.lines || [];
+  lines = o.lines || []; erasePick = null;
   polys = []; gaps = []; cand = []; cal.ok = false; cal.M = null;
   texts = o.texts || [];
   cal.pts = (o.cal || []).map(c => c.p);
@@ -4584,7 +5192,7 @@ updateDropzone();
       }
       if(prj){
         const o=JSON.parse(prj);
-        lines=o.lines||[];texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];
+        lines=o.lines||[];erasePick=null;addLinePick=null;texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];
         cal.ok=false;cal.M=null;
         cal.pts=(o.cal||[]).map(c=>c.p);
         setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
