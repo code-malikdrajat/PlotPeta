@@ -1,0 +1,1206 @@
+<!doctype html>
+<html lang="id" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Admin Portal &bull; PlotPeta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg-app: #090c13;
+  --bg-panel: #111622;
+  --bg-card: #161e2e;
+  --bg-input: #0d121c;
+  --border: #212c3f;
+  --border-focus: #0ea5e9;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --accent: #0ea5e9;
+  --accent-hover: #0284c7;
+  --accent-subtle: rgba(14, 165, 233, 0.12);
+  --success: #10b981;
+  --success-subtle: rgba(16, 185, 129, 0.15);
+  --warning: #f59e0b;
+  --warning-subtle: rgba(245, 158, 11, 0.15);
+  --danger: #ef4444;
+  --danger-subtle: rgba(239, 68, 68, 0.15);
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+[data-theme="light"] {
+  --bg-app: #f1f5f9;
+  --bg-panel: #ffffff;
+  --bg-card: #f8fafc;
+  --bg-input: #ffffff;
+  --border: #e2e8f0;
+  --border-focus: #0284c7;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-subtle: rgba(2, 132, 199, 0.1);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--bg-app); color: var(--text-main); font-family: var(--font-sans); font-size: 13.5px; }
+
+/* Login Screen (Isolated) */
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: radial-gradient(circle at top, rgba(14, 165, 233, 0.08), transparent 70%), var(--bg-app);
+}
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+  text-align: center;
+}
+.login-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ef4444, #f59e0b);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+
+/* Header */
+.header { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; background: var(--bg-panel); border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--text-main); text-decoration: none; }
+.brand-badge { font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: var(--danger-subtle); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Layout */
+.container { max-width: 1200px; margin: 24px auto; padding: 0 20px; display: flex; flex-direction: column; gap: 24px; }
+.card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 9px; margin: 0; }
+.card-title svg { color: var(--accent); }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-main); transition: all 0.15s ease; text-decoration: none; }
+.btn:hover { background: var(--border); }
+.btn.pri { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.pri:hover { background: var(--accent-hover); }
+.btn.suc { background: var(--success); color: #fff; border-color: var(--success); }
+.btn.dan { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+/* Form inputs */
+input, select, textarea { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; color: var(--text-main); font-family: inherit; width: 100%; transition: border-color 0.15s ease; }
+input:focus, textarea:focus { border-color: var(--border-focus); outline: none; box-shadow: 0 0 0 3px var(--accent-subtle); }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+
+/* QRIS Management Box */
+.qris-panel {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--bg-input);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 10px;
+}
+.qris-preview-box {
+  width: 130px;
+  height: 130px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+.qris-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #ffffff;
+}
+.qris-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+  font-size: 11px;
+  text-align: center;
+  padding: 10px;
+}
+.qris-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+/* Tables */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px; }
+th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+th { font-size: 11.5px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; background: var(--bg-card); }
+tr:hover td { background: var(--bg-card); }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.badge.wait { background: var(--warning-subtle); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+.badge.app { background: var(--success-subtle); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+.badge.rej { background: var(--danger-subtle); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+.mono { font-family: var(--font-mono); }
+
+/* Modals */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+.modal-overlay.open { display: flex; }
+.modal-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 520px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); padding: 22px; position: relative; }
+.modal-close { position: absolute; top: 16px; right: 16px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; }
+
+/* ===== Admin UX refresh: layout only; existing Supabase/auth handlers retained ===== */
+:root { --shadow-soft: 0 10px 28px rgba(0,0,0,.13); }
+body { background:var(--bg-app); }
+.header { position:sticky; top:0; z-index:30; backdrop-filter:blur(16px); background:color-mix(in srgb,var(--bg-panel) 92%,transparent); border-bottom:1px solid var(--border); box-shadow:0 4px 18px rgba(0,0,0,.08); }
+.container.admin-layout { width:min(1500px,100%); max-width:none; margin:0 auto; padding:24px; display:grid; grid-template-columns:230px minmax(0,1fr); gap:22px; align-items:start; }
+.admin-sidebar { position:sticky; top:88px; border:1px solid var(--border); border-radius:16px; background:var(--bg-panel); padding:14px; box-shadow:var(--shadow-soft); min-height:calc(100vh - 115px); display:flex; flex-direction:column; gap:6px; }
+.sidebar-heading { color:var(--text-dim); font-size:10px; font-weight:800; letter-spacing:1.4px; padding:8px 10px 12px; }
+.nav-item { border:1px solid transparent; color:var(--text-muted); background:transparent; display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:11px 12px; border-radius:10px; font:600 12.5px var(--font-sans); cursor:pointer; transition:.18s ease; }
+.nav-item span { width:20px; text-align:center; font-size:17px; }
+.nav-item:hover { background:var(--bg-card); color:var(--text-main); }
+.nav-item.active { background:var(--accent-subtle); color:var(--accent); border-color:color-mix(in srgb,var(--accent) 22%,transparent); }
+.nav-count { margin-left:auto; background:var(--warning-subtle); color:var(--warning); border-radius:20px; padding:2px 7px; font-size:10px; }
+.sidebar-foot { margin-top:auto; padding:15px 9px 4px; border-top:1px solid var(--border); color:var(--text-dim); font-size:10.5px; display:flex; align-items:center; gap:7px; }
+.status-dot { width:7px; height:7px; border-radius:50%; background:var(--success); box-shadow:0 0 0 4px var(--success-subtle); }
+.admin-main { min-width:0; }
+.welcome-row { display:flex; align-items:center; justify-content:space-between; gap:18px; margin:2px 0 20px; scroll-margin-top:100px; }
+.welcome-row h1 { font-size:25px; letter-spacing:-.8px; margin:4px 0 5px; }
+.welcome-row p { color:var(--text-muted); margin:0; font-size:12.5px; line-height:1.6; }
+.eyebrow { font-size:10px; color:var(--accent); letter-spacing:1.5px; font-weight:800; }
+.summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px; margin-bottom:20px; }
+.summary-card { display:flex; align-items:center; gap:13px; background:var(--bg-panel); border:1px solid var(--border); border-radius:14px; padding:16px; min-width:0; box-shadow:var(--shadow-soft); }
+.summary-icon { display:grid; place-items:center; flex-shrink:0; width:42px; height:42px; border-radius:12px; font-size:20px; }
+.summary-icon.blue { color:var(--accent); background:var(--accent-subtle); }.summary-icon.green { color:var(--success); background:var(--success-subtle); }.summary-icon.purple { color:#a78bfa; background:rgba(167,139,250,.13); }
+.summary-card small,.summary-card span:not(.summary-icon) { display:block; color:var(--text-muted); font-size:10.5px; }
+.summary-card strong { display:block; font-size:23px; line-height:1.4; letter-spacing:-.5px; }
+.summary-card span:not(.summary-icon) { font-size:10px; margin-top:2px; }
+.admin-section { display:none; scroll-margin-top:100px; margin-bottom:18px; border-radius:15px; box-shadow:var(--shadow-soft); overflow:hidden; }
+.admin-section .card-head { padding-bottom:14px; }
+.admin-section .card-title { font-size:13px; }
+.admin-section input,.admin-section select,.admin-section textarea { border-radius:9px; }
+.table-wrap { border:1px solid var(--border); border-radius:10px; }
+th { white-space:nowrap; }
+#btnThemeToggle { white-space:nowrap; }
+@media(max-width:1000px) { .container.admin-layout { grid-template-columns:190px minmax(0,1fr); padding:16px; gap:14px; } .summary-grid { grid-template-columns:1fr; } .summary-card { padding:12px 14px; } }
+@media(max-width:760px) { .container.admin-layout { display:flex; flex-direction:column; padding:12px; gap:14px; } .admin-sidebar { position:static; min-height:0; width:100%; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding:10px; } .sidebar-heading,.sidebar-foot { grid-column:1/-1; } .sidebar-heading { padding:4px 6px; } .sidebar-foot { margin-top:5px; } .nav-item { padding:10px 8px; font-size:11px; } .welcome-row { align-items:flex-start; } .welcome-row h1 { font-size:21px; } .welcome-row p { max-width:300px; } .header { padding:12px; } .brand-badge { display:none; } #adminSessionLabel { max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } }
+@media(max-width:480px) { .summary-grid { grid-template-columns:1fr; } .welcome-row { flex-direction:column; } .welcome-row #btnThemeToggle { align-self:flex-start; } .admin-sidebar { grid-template-columns:1fr 1fr; } .card { padding:14px; } }
+
+
+/* Ringkasan diselaraskan dengan preview UI/UX, tetap menggunakan data database. */
+.preview-summary-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.preview-summary-grid .summary-card{min-height:112px;padding:17px 15px}
+.preview-summary-grid .summary-card strong{font-size:25px;overflow-wrap:anywhere}
+.summary-icon.amber{color:var(--warning);background:var(--warning-subtle)}
+.overview-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(260px,1fr);gap:16px;margin-bottom:20px}
+.overview-grid .card{min-width:0;overflow:hidden}
+.overview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:19px 20px 14px}
+.overview-head h2{font-size:14px;margin:0;font-weight:750}
+.overview-head p{font-size:11px;color:var(--text-muted);margin:4px 0 0}
+.overview-grid th{padding:10px 14px}.overview-grid td{padding:11px 14px;font-size:11.5px}
+.summary-empty{text-align:center;color:var(--text-muted);padding:22px!important}
+.quick-link{display:flex;align-items:center;gap:11px;width:calc(100% - 28px);margin:0 14px 9px;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--bg-panel);color:var(--text-main);text-align:left}
+.quick-link:hover{background:var(--bg-card);border-color:var(--accent)}.quick-emoji{width:37px;height:37px;display:grid;place-items:center;flex:none;background:var(--bg-card);border-radius:10px;font-size:17px;color:var(--accent)}
+.quick-link>span:nth-child(2){flex:1;min-width:0}.quick-link b{display:block;font-size:11.5px}.quick-link small{display:block;color:var(--text-muted);font-size:10.5px;margin-top:3px}.quick-arrow{color:var(--text-muted)}
+@media(max-width:1100px){.preview-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.overview-grid{grid-template-columns:1fr}}
+@media(max-width:480px){.preview-summary-grid{grid-template-columns:1fr 1fr;gap:9px}.preview-summary-grid .summary-card{gap:9px;padding:12px 10px}.preview-summary-grid .summary-icon{width:34px;height:34px}.preview-summary-grid .summary-card strong{font-size:20px}.overview-head{padding:15px 12px 12px}}
+
+
+/* Inbox chat pengguna: perubahan tampilan, menggunakan tabel support_messages yang sama */
+.support-toolbar{display:flex;gap:9px;flex-wrap:wrap;margin:0 0 12px}
+.support-toolbar input{flex:1;min-width:180px}
+.support-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.support-filter{border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);padding:7px 11px;border-radius:9px;font:600 11.5px var(--font-sans);cursor:pointer}
+.support-filter.active{background:var(--accent-subtle);border-color:var(--accent);color:var(--accent)}
+.support-inbox{display:grid;grid-template-columns:minmax(245px,.8fr) minmax(0,1.5fr);gap:14px;min-height:460px}
+.support-list-pane,.support-chat-pane{border:1px solid var(--border);border-radius:13px;overflow:hidden;min-width:0;background:var(--bg-input)}
+.support-pane-head{padding:13px 14px;border-bottom:1px solid var(--border);background:var(--bg-card);font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:8px}
+#adminSupportList{max-height:600px;overflow:auto;padding:7px}
+.support-user-item{width:100%;display:flex;gap:10px;align-items:flex-start;text-align:left;padding:12px 10px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--text-main);cursor:pointer;margin-bottom:4px}
+.support-user-item:hover{background:var(--bg-card)}.support-user-item.active{background:var(--accent-subtle);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.support-avatar{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--accent-subtle);color:var(--accent);font-weight:800}
+.support-user-copy{min-width:0;flex:1}.support-user-top{display:flex;gap:7px;align-items:center;justify-content:space-between}.support-user-name{font-size:12px;font-weight:750;overflow-wrap:anywhere}.support-user-email,.support-last-message{font-size:10.5px;color:var(--text-muted);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.support-last-message{font-size:11px}.support-unread{flex:none;border-radius:20px;background:var(--accent);color:#fff;padding:2px 7px;font-size:10px;font-weight:800}
+.support-chat-placeholder{min-height:420px;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;color:var(--text-muted);padding:25px;gap:9px}
+#adminSupportReplyBox{display:none!important;margin:0!important;padding:0!important;border:0!important;min-width:0;background:var(--bg-input)}#adminSupportReplyBox.support-chat-open{display:flex!important;flex-direction:column;height:100%;min-height:460px}
+.support-chat-header{padding:13px 15px;background:var(--bg-card);border-bottom:1px solid var(--border);font-size:12px;overflow-wrap:anywhere}
+#adminSupportThread{flex:1;max-height:none!important;min-height:260px;overflow:auto;padding:14px;margin:0!important}
+.support-compose{padding:12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;background:var(--bg-panel)}.support-compose textarea{flex:1;resize:vertical;min-height:44px;max-height:130px}
+.support-empty{padding:22px 12px;text-align:center;color:var(--text-muted);font-size:12px}
+@media(max-width:760px){.support-inbox{grid-template-columns:1fr;min-height:0}.support-list-pane{min-height:240px}.support-chat-pane{min-height:400px}#adminSupportList{max-height:330px}.support-inbox.chat-selected .support-list-pane{display:none}.support-inbox:not(.chat-selected) .support-chat-pane{display:none}.support-chat-placeholder{min-height:300px}#adminSupportReplyBox.support-chat-open{min-height:400px}.support-compose{flex-direction:column;align-items:stretch}.support-compose .btn{align-self:flex-end}}
+
+</style>
+</head>
+<body>
+
+<!-- ==================== SCREEN 1: DEDICATED ADMIN LOGIN ==================== -->
+<div id="adminLoginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+    </div>
+    <h2 style="margin:0 0 6px;font-size:18px">PlotPeta Admin Portal</h2>
+    <p style="margin:0 0 20px;font-size:12.5px;color:var(--text-muted)">Area Khusus Administrator &bull; Akses Terbatas</p>
+
+    <div id="loginAlert" style="display:none;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:14px;background:var(--danger-subtle);color:var(--danger);border:1px solid rgba(239,68,68,0.3)"></div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;text-align:left">
+      <button type="button" class="btn pri" id="btnAdmGoogle" style="width:100%;padding:10px;justify-content:center">Masuk dengan Google</button>
+      <div style="font-size:11.5px;color:var(--text-muted);text-align:center">Hanya akun Google yang sudah ditetapkan sebagai administrator yang dapat masuk.</div>
+    </div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <a href="index.html" style="color:var(--text-dim);font-size:12px;text-decoration:none">&larr; Kembali ke Aplikasi Utama</a>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCREEN 2: ADMIN DASHBOARD ==================== -->
+<div id="adminDashboard" style="display:none;flex-direction:column;min-height:100vh">
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="brand">
+        <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#0ea5e9,#10b981);display:flex;align-items:center;justify-content:center;color:#fff">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon></svg>
+        </div>
+        <span>PlotPeta</span>
+      </div>
+      <span class="brand-badge">Admin Dashboard</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span id="adminSessionLabel" class="mono" style="font-size:12px;color:var(--text-muted)"></span>
+      <button id="btnAdminLogout" class="btn dan" style="padding:6px 12px">Keluar</button>
+    </div>
+  </div>
+
+  <div class="container admin-layout">
+    <aside class="admin-sidebar" aria-label="Navigasi admin">
+      <div class="sidebar-heading">MENU ADMIN</div>
+      <button class="nav-item active" data-nav="panel-overview"><span>▦</span> Dashboard</button>
+      <button class="nav-item" data-nav="panel-topups"><span>◷</span> Verifikasi Top-up <b id="navPendingCount" class="nav-count">—</b></button>
+      <button class="nav-item" data-nav="panel-payment"><span>▣</span> Pembayaran</button>
+      <button class="nav-item" data-nav="panel-token"><span>⚙</span> Pengaturan Token</button>
+      <button class="nav-item" data-nav="panel-users"><span>♙</span> Pengguna</button>
+      <button class="nav-item" data-nav="panel-history"><span>▤</span> Riwayat Transaksi</button>
+      <button class="nav-item" data-nav="panel-announcements"><span>📢</span> Pengumuman</button>
+      <button class="nav-item" data-nav="panel-support"><span>✉</span> Chat Pengguna <b id="navSupportCount" class="nav-count">—</b></button>
+      <div class="sidebar-foot"><span class="status-dot"></span> Terhubung ke panel admin</div>
+    </aside>
+    <main class="admin-main" id="adminContentPanels">
+      <div id="panel-overview">
+      <div class="welcome-row">
+        <div><div class="eyebrow">PUSAT KONTROL</div><h1>Dashboard Admin</h1><p>Kelola transaksi, pengguna, pembayaran, dan token PlotPeta.</p></div>
+        <button class="btn" id="btnThemeToggle" type="button">☼ Tema terang</button>
+      </div>
+      <div class="summary-grid preview-summary-grid">
+        <div class="summary-card"><span class="summary-icon blue">◷</span><div><small>Top-up menunggu</small><strong id="summaryPending">—</strong><span>Permintaan perlu verifikasi</span></div></div>
+        <div class="summary-card"><span class="summary-icon green">♙</span><div><small>Total pengguna</small><strong id="summaryUsers">—</strong><span>Akun terdaftar di aplikasi</span></div></div>
+        <div class="summary-card"><span class="summary-icon purple">✓</span><div><small>Top-up disetujui</small><strong id="summaryApproved">—</strong><span>Total transaksi berhasil</span></div></div>
+        <div class="summary-card"><span class="summary-icon amber">Rp</span><div><small>Nilai pembayaran</small><strong id="summaryRevenue">—</strong><span>Total nominal transaksi disetujui</span></div></div>
+        <button class="summary-card" type="button" data-nav="panel-support" style="text-align:left;color:inherit;cursor:pointer"><span class="summary-icon blue">✉</span><div><small>Pesan belum dibaca</small><strong id="summaryUnreadMessages">Memuat…</strong><span>Pesan pengguna yang belum dibuka admin</span></div></button>
+      </div>
+      <div class="overview-grid">
+        <section class="card overview-recent">
+          <div class="overview-head"><div><h2>Top-up terbaru</h2><p>Transaksi terbaru dari database Supabase</p></div><button class="btn" type="button" data-nav="panel-history">Lihat semua</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Pengguna / Waktu</th><th>Nominal</th><th>Status</th></tr></thead><tbody id="summaryRecentRows"><tr><td colspan="3" class="summary-empty">Memuat transaksi...</td></tr></tbody></table></div>
+        </section>
+        <section class="card overview-quick">
+          <div class="overview-head"><div><h2>Akses cepat</h2><p>Menu yang sering digunakan</p></div></div>
+          <button class="quick-link" type="button" data-nav="panel-topups"><span class="quick-emoji">◷</span><span><b>Verifikasi top-up</b><small>Periksa bukti pembayaran pengguna</small></span><span class="quick-arrow">↗</span></button>
+          <button class="quick-link" type="button" data-nav="panel-users"><span class="quick-emoji">♙</span><span><b>Kelola pengguna</b><small>Lihat akun dan saldo token</small></span><span class="quick-arrow">↗</span></button>
+          <button class="quick-link" type="button" data-nav="panel-payment"><span class="quick-emoji">▣</span><span><b>Metode pembayaran</b><small>Kelola rekening dan QRIS</small></span><span class="quick-arrow">↗</span></button>
+          <button class="quick-link" type="button" data-nav="panel-token"><span class="quick-emoji">⚙</span><span><b>Pengaturan token</b><small>Atur harga dan masa berlaku</small></span><span class="quick-arrow">↗</span></button>
+        </section>
+      </div>
+      </div><!-- /panel-overview -->
+    <!-- Section 1: Permintaan Top-up Menunggu -->
+    <div class="card admin-section" id="panel-topups" data-panel="panel-topups">
+      <div class="card-head">
+        <h2 class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span>Permintaan Top-Up Menunggu Verifikasi</span>
+        </h2>
+        <button class="btn" onclick="loadPendingTopups()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>Pengguna</th>
+              <th>Paket</th>
+              <th>Nominal Bayar</th>
+              <th>Metode</th>
+              <th>Bukti Bayar</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblPending">
+            <tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 2: Informasi Pembayaran & Kelola QRIS Interaktif -->
+    <div class="card admin-section" id="panel-payment" data-panel="panel-payment">
+      <div class="card-head">
+        <h2 class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          <span>Informasi Pembayaran & Kelola Foto QRIS</span>
+        </h2>
+        <button class="btn pri" id="btnSavePaymentSettings">Simpan Info Pembayaran</button>
+      </div>
+
+      <!-- Form Rekening Bank & E-Wallet -->
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Nama Bank (Transfer)</label>
+          <input type="text" id="bankName" placeholder="Contoh: BCA / Mandiri / BNI">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nomor Rekening</label>
+          <input type="text" id="bankNorek" class="mono" placeholder="Contoh: 123-456-7890">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Atas Nama Rekening</label>
+          <input type="text" id="bankAn" placeholder="Contoh: PlotPeta Official">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nama Dompet Digital (E-Wallet)</label>
+          <input type="text" id="ewalletName" placeholder="Contoh: GoPay / OVO / Dana">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nomor Akun / HP E-Wallet</label>
+          <input type="text" id="ewalletNomor" class="mono" placeholder="Contoh: 0812-3456-7890">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Atas Nama E-Wallet</label>
+          <input type="text" id="ewalletAn" placeholder="Contoh: PlotPeta Official">
+        </div>
+      </div>
+
+      <!-- Kelola QRIS Interaktif (Upload, Preview, Ganti, Hapus) -->
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+        <label class="form-label" style="font-size:13px;font-weight:700">Foto QRIS Aktif (Akan Ditampilkan ke Pengguna)</label>
+        
+        <div class="qris-panel">
+          <!-- Thumbnail preview box -->
+          <div class="qris-preview-box" id="qrisThumbBox">
+            <div id="qrisEmptyView" class="qris-empty">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              <span>Belum ada foto QRIS</span>
+            </div>
+            <img id="qrisImgView" class="qris-preview-img" style="display:none" alt="QRIS Aktif">
+          </div>
+
+          <!-- Controls -->
+          <div class="qris-controls">
+            <div id="qrisEmptyControls">
+              <button class="btn pri" onclick="$('qrisFileInput').click()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                <span>Upload Foto QRIS Baru</span>
+              </button>
+              <div class="mono" style="font-size:11px;color:var(--text-dim);margin-top:6px">Format JPG atau PNG (maks 2 MB).</div>
+            </div>
+
+            <div id="qrisActiveControls" style="display:none">
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn" onclick="previewQrisFull()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  <span>Tinjau / Preview</span>
+                </button>
+                <button class="btn" onclick="$('qrisFileInput').click()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                  <span>Ganti Foto QRIS</span>
+                </button>
+                <button class="btn dan" onclick="deleteQris()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <span>Hapus QRIS</span>
+                </button>
+              </div>
+              <div class="mono" style="font-size:11px;color:var(--success);margin-top:6px">&#10003; Foto QRIS aktif terpasang</div>
+            </div>
+
+            <input type="file" id="qrisFileInput" accept="image/png,image/jpeg,image/jpg" hidden onchange="handleQrisUpload(event)">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Pengaturan Token & Paket -->
+    <div class="card admin-section" id="panel-token" data-panel="panel-token">
+      <div class="card-head">
+        <h2 class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <span>Pengaturan Token & Paket</span>
+        </h2>
+        <button class="btn pri" id="btnSaveTokenSettings">Simpan Aturan Token</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Masa Berlaku Token (Hari)</label>
+          <input type="number" id="setMasaHari" min="1" max="365" value="30">
+          <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: 30 hari sejak diterima</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bonus Token Pendaftaran Baru</label>
+          <input type="number" id="setTokenGratis" min="0" max="10" value="3">
+          <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: 3 token saat daftar</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Harga Paket 50 Token (Rp)</label>
+          <input type="number" id="setHargaPaket" min="10000" step="1000" value="100000">
+          <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: Rp 100.000</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Daftar Pengguna & Saldo Token -->
+    <div class="card admin-section" id="panel-users" data-panel="panel-users">
+      <div class="card-head">
+        <h2 class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <span>Daftar Pengguna & Saldo Token</span>
+        </h2>
+        <button class="btn" onclick="loadUsers()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pengguna</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Token Aktif</th>
+              <th>Kedaluwarsa Terdekat</th>
+              <th>Terdaftar</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblUsers">
+            <tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Memuat data pengguna...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 5: Riwayat Top-up -->
+    <div class="card admin-section" id="panel-history" data-panel="panel-history">
+      <div class="card-head">
+        <h2 class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <span>Riwayat Seluruh Transaksi Top-Up</span>
+        </h2>
+        <button class="btn" onclick="loadAllTopups()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>Pengguna</th>
+              <th>Token</th>
+              <th>Nominal</th>
+              <th>Metode</th>
+              <th>Status</th>
+              <th>Diputuskan Oleh</th>
+              <th>Catatan</th>
+            </tr>
+          </thead>
+          <tbody id="tblAllTopups">
+            <tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Memuat riwayat...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card admin-section" id="panel-announcements" data-panel="panel-announcements" style="display:none">
+      <div class="card-head"><h2 class="card-title">Pengumuman untuk Pengguna</h2><button class="btn" type="button" id="btnReloadAnnouncements">Refresh</button></div>
+      <div style="display:grid;gap:10px;padding:4px 0 16px"><input id="annTitle" placeholder="Judul pengumuman" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-main)"><textarea id="annBody" rows="4" placeholder="Isi pengumuman" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-main)"></textarea><label><input id="annPublished" type="checkbox" checked> Tampilkan ke pengguna</label><button class="btn pri" id="btnSaveAnnouncement" type="button">Terbitkan pengumuman</button></div><div id="adminAnnouncementsList">Memuat pengumuman...</div>
+    </div>
+    <div class="card admin-section" id="panel-support" data-panel="panel-support" style="display:none">
+      <div class="card-head"><div><h2 class="card-title">Inbox Chat Pengguna</h2><div style="font-size:11px;color:var(--text-muted);margin-top:5px">Percakapan tiap pengguna dipisahkan otomatis.</div></div><button class="btn" type="button" id="btnReloadSupport">↻ Refresh</button></div>
+    <div class="support-toolbar"><input id="supportSearch" type="search" placeholder="Cari nama atau email pengguna..."><span class="badge" style="align-self:center">Privat per pengguna</span></div>
+    <div class="support-filters"><button type="button" class="support-filter active" data-support-filter="all">Semua</button><button type="button" class="support-filter" data-support-filter="unread">Belum dibaca</button><button type="button" class="support-filter" data-support-filter="replied">Sudah dibalas</button></div>
+    <div class="support-inbox" id="supportInbox"><section class="support-list-pane"><div class="support-pane-head"><span>Daftar percakapan</span><span id="supportConversationCount" class="badge">0</span></div><div id="adminSupportList"><div class="support-empty">Memuat percakapan...</div></div></section><section class="support-chat-pane"><div class="support-chat-placeholder" id="supportChatPlaceholder"><div style="font-size:34px">✉</div><b>Pilih percakapan</b><span>Pilih pengguna di daftar untuk membaca dan membalas pesan.</span></div><div id="adminSupportReplyBox"><div class="support-chat-header"><button type="button" class="btn" id="btnSupportBack" style="display:none;margin-bottom:8px">← Daftar chat</button><b id="adminSupportUserLabel">Percakapan</b></div><div id="adminSupportThread"></div><div class="support-compose"><textarea id="adminSupportReply" rows="2" placeholder="Tulis balasan..."></textarea><button class="btn pri" id="btnSendSupportReply" type="button">Kirim ↗</button></div></div></section></div>
+    </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal Preview Bukti Bayar / QRIS -->
+<div class="modal-overlay" id="modalPreview">
+  <div class="modal-box">
+    <button class="modal-close" onclick="$('modalPreview').classList.remove('open')">&times;</button>
+    <h3 style="margin-top:0" id="previewTitle">Tinjau Gambar</h3>
+    <div id="previewContent" style="text-align:center">Memuat...</div>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+      <button class="btn" onclick="$('modalPreview').classList.remove('open')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Koreksi Token -->
+<div class="modal-overlay" id="modalKoreksi">
+  <div class="modal-box">
+    <button class="modal-close" onclick="$('modalKoreksi').classList.remove('open')">&times;</button>
+    <h3 style="margin-top:0">Koreksi Token Manual</h3>
+    <p class="mono" id="koreksiUserInfo" style="font-size:12px;color:var(--accent)"></p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label class="form-label">Jumlah Token (+ untuk tambah, - untuk kurangi)</label>
+        <input type="number" id="koreksiJumlah" placeholder="Misal: 10 atau -5">
+      </div>
+      <div>
+        <label class="form-label">Masa Berlaku (Hari dari sekarang)</label>
+        <input type="number" id="koreksiHari" value="30">
+      </div>
+      <div>
+        <label class="form-label">Alasan / Catatan</label>
+        <input type="text" id="koreksiCatatan" placeholder="Contoh: Kompensasi kendala sistem">
+      </div>
+      <button class="btn pri" id="btnSubmitKoreksi" style="margin-top:8px">Simpan Koreksi</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const SUPABASE_URL = 'https://fqkqoqphqosacatqnwqj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_UwScoKPnmBFGgPy-A2nNag_JSeT1caZ';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentAdminUser = null;
+let currentQrisUrl = '';
+let selectedUserIdForKoreksi = null;
+
+const fRp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fDate = d => d ? new Date(d).toLocaleString('id-ID', { dateStyle:'short', timeStyle:'short' }) : '-';
+
+// 1. ISOLATED AUTH GATE
+async function checkAdminSession() {
+  const qs = new URLSearchParams(window.location.search), hs = new URLSearchParams(window.location.hash.substring(1));
+  const oauthErr = qs.get('error_description') || hs.get('error_description');
+  const { data: { session } } = await sb.auth.getSession();
+  if(!session || !session.user){
+    showLoginScreen(oauthErr ? 'Gagal masuk dengan Google: ' + oauthErr.replace(/\+/g, ' ') : '');
+    return;
+  }
+  
+  // Verifikasi status is_admin di database
+  const { data: profile, error } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
+  if(error || !profile || !profile.is_admin){
+    // Jika bukan admin, sign out dan tolak akses
+    await sb.auth.signOut();
+    showLoginScreen('Akses Ditolak: Akun (' + session.user.email + ') bukan akun administrator.');
+    return;
+  }
+
+  currentAdminUser = session.user;
+  if(window.location.hash || window.location.search) history.replaceState(null, '', window.location.pathname);
+  showDashboard(profile);
+}
+
+function showLoginScreen(errMsg = ''){
+  $('adminLoginScreen').style.display = 'flex';
+  $('adminDashboard').style.display = 'none';
+  if(errMsg){
+    $('loginAlert').style.display = 'block';
+    $('loginAlert').textContent = errMsg;
+  } else {
+    $('loginAlert').style.display = 'none';
+  }
+}
+
+function showDashboard(profile){
+  $('adminLoginScreen').style.display = 'none';
+  $('adminDashboard').style.display = 'flex';
+  $('adminSessionLabel').textContent = (profile.nama || 'Admin') + ' (' + currentAdminUser.email + ')';
+
+  // Load all dashboard sections
+  loadPendingTopups();
+  loadAllSettings();
+  loadUsers();
+  loadAllTopups();
+  // Muat hitungan pesan belum dibaca segera setelah dashboard admin tampil.
+  if (typeof loadAdminSupport === 'function') loadAdminSupport();
+}
+
+// Login administrator hanya lewat Google
+async function handleAdminGoogleLogin(){
+  const btn = $('btnAdmGoogle');
+  btn.disabled = true;
+  btn.textContent = 'Mengalihkan ke Google...';
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + window.location.pathname,
+      queryParams: { prompt: 'select_account' }
+    }
+  });
+  if(error){
+    btn.disabled = false;
+    btn.textContent = 'Masuk dengan Google';
+    showLoginScreen('Gagal masuk: ' + error.message);
+  }
+}
+$('btnAdmGoogle').onclick = handleAdminGoogleLogin;
+
+$('btnAdminLogout').onclick = async () => {
+  await sb.auth.signOut();
+  window.location.reload();
+};
+
+// 2. KELOLA INFORMASI PEMBAYARAN & QRIS INTERAKTIF
+async function loadAllSettings() {
+  const [{ data: settings, error: settingsError }, { data: payment, error: paymentError }] = await Promise.all([
+    sb.from('settings').select('key,value'),
+    sb.from('payment_settings').select('value').eq('key', 'main').maybeSingle()
+  ]);
+
+  if(settingsError) console.error('Gagal memuat pengaturan internal:', settingsError.message);
+  (settings || []).forEach(s => {
+    if(s.key === 'masa_berlaku_token_hari') $('setMasaHari').value = s.value;
+    if(s.key === 'token_gratis_daftar') $('setTokenGratis').value = s.value;
+    if(s.key === 'harga_paket_50') $('setHargaPaket').value = s.value;
+  });
+
+  if(paymentError) {
+    console.error('Gagal memuat informasi pembayaran:', paymentError.message);
+    alert('Informasi pembayaran belum dapat dimuat. Pastikan SQL pembaruan PlotPeta sudah dijalankan di Supabase.');
+    return;
+  }
+  const r = payment?.value || {};
+  $('bankName').value = r.bank_name || r.bank || '';
+  $('bankNorek').value = r.bank_norek || r.nomor || '';
+  $('bankAn').value = r.bank_an || r.atas_nama || '';
+  $('ewalletName').value = r.ewallet_name || '';
+  $('ewalletNomor').value = r.ewallet_nomor || '';
+  $('ewalletAn').value = r.ewallet_an || '';
+  currentQrisUrl = r.qris_url || '';
+  currentQrisPath = r.qris_path || pathFromQrisUrl(currentQrisUrl);
+  updateQrisUI();
+}
+
+function pathFromQrisUrl(url){
+  const marker = '/storage/v1/object/public/qris/';
+  const at = (url || '').indexOf(marker);
+  return at >= 0 ? decodeURIComponent(url.slice(at + marker.length).split('?')[0]) : '';
+}
+
+function updateQrisUI(){
+  if(currentQrisUrl){
+    $('qrisEmptyView').style.display = 'none';
+    $('qrisImgView').style.display = 'block';
+    $('qrisImgView').src = currentQrisUrl;
+    $('qrisEmptyControls').style.display = 'none';
+    $('qrisActiveControls').style.display = 'block';
+  } else {
+    $('qrisEmptyView').style.display = 'flex';
+    $('qrisImgView').style.display = 'none';
+    $('qrisImgView').removeAttribute('src');
+    $('qrisEmptyControls').style.display = 'block';
+    $('qrisActiveControls').style.display = 'none';
+  }
+}
+
+// QRIS disimpan di bucket publik khusus; bukti transfer tetap berada di bucket privat.
+let currentQrisPath = '';
+async function handleQrisUpload(e){
+  const input = e.target;
+  const file = input.files?.[0];
+  if(!file) return;
+  input.value = '';
+  if(!['image/png','image/jpeg'].includes(file.type)){
+    alert('Format QRIS harus JPG atau PNG.'); return;
+  }
+  if(file.size > 2 * 1024 * 1024){
+    alert('Ukuran foto QRIS maksimal 2 MB.'); return;
+  }
+  const oldUrl = currentQrisUrl;
+  const oldPath = currentQrisPath;
+  const ext = file.type === 'image/png' ? 'png' : 'jpg';
+  const newPath = `official/${Date.now()}_${crypto.randomUUID()}.${ext}`;
+  const button = document.querySelector('#qrisActiveControls button');
+  try {
+    input.disabled = true;
+    const { error: uploadError } = await sb.storage.from('qris').upload(newPath, file, {
+      cacheControl: '3600', upsert: false, contentType: file.type
+    });
+    if(uploadError) throw uploadError;
+    const { data: publicData } = sb.storage.from('qris').getPublicUrl(newPath);
+    const newUrl = publicData?.publicUrl;
+    if(!newUrl) throw new Error('URL foto QRIS tidak berhasil dibuat.');
+
+    currentQrisUrl = newUrl;
+    currentQrisPath = newPath;
+    const saved = await savePaymentInfo({ quiet: true });
+    if(!saved){
+      currentQrisUrl = oldUrl; currentQrisPath = oldPath;
+      await sb.storage.from('qris').remove([newPath]);
+      updateQrisUI();
+      return;
+    }
+    updateQrisUI();
+    // Hapus file lama hanya setelah URL baru tersimpan dengan sukses.
+    if(oldPath && oldPath !== newPath) {
+      const { error: removeError } = await sb.storage.from('qris').remove([oldPath]);
+      if(removeError) console.warn('QRIS lama tersimpan tetapi file lama gagal dibersihkan:', removeError.message);
+    }
+    alert(oldUrl ? 'Foto QRIS berhasil diganti.' : 'Foto QRIS berhasil diunggah.');
+  } catch(err) {
+    currentQrisUrl = oldUrl; currentQrisPath = oldPath;
+    updateQrisUI();
+    alert('Upload QRIS gagal: ' + (err.message || 'Kesalahan tidak diketahui.'));
+  } finally {
+    input.disabled = false;
+  }
+}
+
+function previewQrisFull(){
+  if(!currentQrisUrl) return;
+  $('previewTitle').textContent = 'Tinjau Foto QRIS';
+  $('previewContent').replaceChildren();
+  const img = document.createElement('img');
+  img.src = currentQrisUrl; img.alt = 'Preview QRIS aktif';
+  img.style.cssText = 'max-width:100%;max-height:480px;object-fit:contain;border-radius:10px;border:1px solid var(--border)';
+  const link = document.createElement('a');
+  link.href = currentQrisUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
+  link.className = 'btn'; link.style.marginTop = '10px'; link.textContent = 'Buka Ukuran Penuh';
+  $('previewContent').append(img, document.createElement('br'), link);
+  $('modalPreview').classList.add('open');
+}
+
+async function deleteQris(){
+  if(!currentQrisUrl) return;
+  if(!confirm('Hapus foto QRIS aktif? Pengguna tidak akan melihat QRIS saat isi ulang token.')) return;
+  const oldUrl = currentQrisUrl;
+  const oldPath = currentQrisPath;
+  currentQrisUrl = ''; currentQrisPath = '';
+  const saved = await savePaymentInfo({ quiet: true });
+  if(!saved){
+    currentQrisUrl = oldUrl; currentQrisPath = oldPath; updateQrisUI();
+    alert('QRIS tidak dihapus karena perubahan gagal disimpan.');
+    return;
+  }
+  updateQrisUI();
+  if(oldPath){
+    const { error } = await sb.storage.from('qris').remove([oldPath]);
+    if(error) console.warn('URL QRIS telah dihapus dari pengaturan, tetapi file lama gagal dibersihkan:', error.message);
+  }
+  alert('Foto QRIS berhasil dihapus.');
+}
+
+async function savePaymentInfo({ quiet = false } = {}){
+  const rekObj = {
+    bank_name: $('bankName').value.trim(),
+    bank_norek: $('bankNorek').value.trim(),
+    bank_an: $('bankAn').value.trim(),
+    ewallet_name: $('ewalletName').value.trim(),
+    ewallet_nomor: $('ewalletNomor').value.trim(),
+    ewallet_an: $('ewalletAn').value.trim(),
+    qris_url: currentQrisUrl,
+    qris_path: currentQrisPath
+  };
+  const { error } = await sb.from('payment_settings').upsert({
+    key: 'main', value: rekObj, updated_at: new Date().toISOString()
+  }, { onConflict: 'key' });
+  if(error){
+    console.error('Gagal menyimpan info pembayaran:', error.message);
+    if(!quiet) alert('Gagal menyimpan info pembayaran: ' + error.message);
+    return false;
+  }
+  return true;
+}
+
+$('btnSavePaymentSettings').onclick = async () => {
+  const button = $('btnSavePaymentSettings');
+  button.disabled = true;
+  const saved = await savePaymentInfo();
+  button.disabled = false;
+  if(saved) alert('Informasi rekening, dompet digital, dan QRIS berhasil disimpan.');
+};
+
+$('btnSaveTokenSettings').onclick = async () => {
+  const masa = parseInt($('setMasaHari').value);
+  const gratis = parseInt($('setTokenGratis').value);
+  const harga = parseInt($('setHargaPaket').value);
+
+  if(!Number.isInteger(masa) || masa < 1 || !Number.isInteger(gratis) || gratis < 0 || !Number.isInteger(harga) || harga < 1){
+    alert('Periksa kembali nilai pengaturan token. Masa berlaku dan harga harus lebih dari 0; token gratis tidak boleh negatif.');
+    return;
+  }
+  const { error } = await sb.from('settings').upsert([
+    { key: 'masa_berlaku_token_hari', value: masa },
+    { key: 'token_gratis_daftar', value: gratis },
+    { key: 'harga_paket_50', value: harga }
+  ]);
+  if(error) alert('Gagal menyimpan pengaturan token: ' + error.message);
+  else alert('Pengaturan aturan token berhasil disimpan!');
+};
+
+// 3. LOAD PERMINTAAN TOP-UP MENUNGGU
+
+async function loadPendingTopups() {
+  const { data, error } = await sb.from('topups')
+    .select('*, profiles!topups_user_id_fkey(nama, email)')
+    .eq('status', 'menunggu')
+    .order('created_at', { ascending: true });
+
+  const tb = $('tblPending');
+
+  if (error) {
+    console.error('Gagal mengambil data top-up:', error);
+    tb.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align:center;padding:18px;color:#dc2626">
+          Gagal memuat permintaan top-up: ${esc(error.message)}
+        </td>
+      </tr>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    tb.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align:center;color:var(--text-muted);padding:18px">
+          Tidak ada permintaan top-up yang menunggu verifikasi.
+        </td>
+      </tr>`;
+    return;
+  }
+
+
+  tb.innerHTML = data.map(t => `
+    <tr>
+      <td class="mono">${fDate(t.created_at)}</td>
+      <td><b>${esc(t.profiles?.nama || '-')}</b><br><span class="mono" style="font-size:11px;color:var(--text-dim)">${esc(t.profiles?.email || '-')}</span></td>
+      <td>${t.jumlah_token} Token</td>
+      <td class="mono" style="font-weight:700;color:var(--accent)">${fRp(t.nominal)}</td>
+      <td>${esc(String(t.metode || '').toUpperCase())}</td>
+      <td>
+        ${t.bukti_url ? `<button class="btn" style="padding:4px 8px;font-size:11px" data-act="bukti" data-path="${esc(t.bukti_url)}">Lihat Bukti Foto</button>` : '<span style="color:var(--danger)">Tidak ada</span>'}
+      </td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn suc" style="padding:4px 8px;font-size:11px" data-act="approve" data-id="${esc(t.id)}" data-nama="${esc(t.profiles?.nama || 'Pengguna')}" data-jml="${Number(t.jumlah_token) || 0}">Setujui</button>
+          <button class="btn dan" style="padding:4px 8px;font-size:11px" data-act="reject" data-id="${esc(t.id)}">Tolak</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function previewBukti(path) {
+  const c = $('previewContent');
+  $('previewTitle').textContent = 'Bukti Pembayaran Pengguna';
+  c.innerHTML = 'Membuat tautan privat...';
+  $('modalPreview').classList.add('open');
+
+  const { data, error } = await sb.storage.from('bukti-transfer').createSignedUrl(path, 600);
+  if(error || !data){
+    c.innerHTML = '<span style="color:var(--danger)">Gagal memuat foto bukti: ' + esc(error?.message || 'File tidak ditemukan') + '</span>';
+  } else {
+    c.innerHTML = `<img src="${esc(data.signedUrl)}" style="max-width:100%;max-height:480px;object-fit:contain;border-radius:10px;border:1px solid var(--border)"><br><a href="${esc(data.signedUrl)}" target="_blank" class="btn" style="margin-top:10px;display:inline-block">Buka Ukuran Asli</a>`;
+  }
+}
+
+async function approveTopup(id, nama, token) {
+  if(!confirm(`Setujui top-up ${token} token untuk ${nama}? Token akan langsung ditambahkan ke saldo pengguna.`)) return;
+  const { data, error } = await sb.rpc('admin_approve_topup', { p_topup_id: id });
+  if(error || (data && !data.success)){
+    alert('Gagal menyetujui: ' + (error?.message || data?.message));
+  } else {
+    alert('Top-up berhasil disetujui!');
+    loadPendingTopups();
+    loadAllTopups();
+    loadUsers();
+  }
+}
+
+async function rejectTopup(id) {
+  const catatan = prompt('Masukkan alasan penolakan:', 'Bukti transfer tidak sesuai atau dana belum masuk');
+  if(catatan === null) return;
+  const { data, error } = await sb.rpc('admin_reject_topup', { p_topup_id: id, p_catatan: catatan });
+  if(error || (data && !data.success)){
+    alert('Gagal menolak: ' + (error?.message || data?.message));
+  } else {
+    alert('Permintaan top-up telah ditolak.');
+    loadPendingTopups();
+    loadAllTopups();
+  }
+}
+
+// 4. DAFTAR PENGGUNA & SALDO TOKEN
+async function loadUsers() {
+  const { data: users, error } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
+  const tb = $('tblUsers');
+  if(error || !users){
+    tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--danger)">Gagal memuat pengguna</td></tr>';
+    return;
+  }
+
+  const { data: batches } = await sb.from('token_batches')
+    .select('user_id, sisa, kedaluwarsa_pada')
+    .gt('sisa', 0)
+    .gt('kedaluwarsa_pada', new Date().toISOString());
+
+  const balanceMap = {};
+  const expMap = {};
+  if(batches){
+    batches.forEach(b => {
+      balanceMap[b.user_id] = (balanceMap[b.user_id] || 0) + b.sisa;
+      if(!expMap[b.user_id] || new Date(b.kedaluwarsa_pada) < new Date(expMap[b.user_id])){
+        expMap[b.user_id] = b.kedaluwarsa_pada;
+      }
+    });
+  }
+
+  tb.innerHTML = users.map(u => {
+    const bal = balanceMap[u.id] || 0;
+    const exp = expMap[u.id] ? fDate(expMap[u.id]) : '-';
+    return `
+      <tr>
+        <td><b>${esc(u.nama || '-')}</b></td>
+        <td class="mono">${esc(u.email)}</td>
+        <td>${u.is_admin ? '<span class="badge rej">Admin</span>' : '<span class="badge" style="background:var(--border)">User</span>'}</td>
+        <td class="mono" style="font-weight:700;color:var(--accent)">${bal} Token</td>
+        <td class="mono" style="font-size:11.5px">${exp}</td>
+        <td class="mono" style="font-size:11.5px">${fDate(u.created_at)}</td>
+        <td>
+          <button class="btn" style="padding:4px 8px;font-size:11px" data-act="koreksi" data-id="${esc(u.id)}" data-nama="${esc(u.nama || u.email)}">Koreksi Token</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openKoreksiModal(userId, name) {
+  selectedUserIdForKoreksi = userId;
+  $('koreksiUserInfo').textContent = 'User: ' + name;
+  $('koreksiJumlah').value = '';
+  $('koreksiCatatan').value = '';
+  $('modalKoreksi').classList.add('open');
+}
+
+$('btnSubmitKoreksi').onclick = async () => {
+  const qty = parseInt($('koreksiJumlah').value);
+  const hari = parseInt($('koreksiHari').value) || 30;
+  const catatan = $('koreksiCatatan').value.trim() || 'Koreksi manual admin';
+
+  if(!qty || isNaN(qty)){
+    alert('Masukkan jumlah token yang valid.');
+    return;
+  }
+
+  if(!selectedUserIdForKoreksi){ alert('Pengguna belum dipilih.'); return; }
+  const { data: res, error } = await sb.rpc('admin_koreksi_token', {
+    p_user_id: selectedUserIdForKoreksi, p_jumlah: qty, p_hari: hari, p_catatan: catatan
+  });
+  if(error || !res || !res.success){
+    alert('Gagal: ' + (error?.message || res?.message || 'tidak diketahui'));
+    return;
+  }
+
+  alert('Koreksi token berhasil disimpan.');
+  $('modalKoreksi').classList.remove('open');
+  loadUsers();
+};
+
+// 5. RIWAYAT SELURUH TOP-UP
+async function loadAllTopups() {
+  const tb = $('tblAllTopups');
+  if (!tb) return;
+  tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Memuat riwayat top-up...</td></tr>';
+
+  // Gunakan relasi FK user yang sama seperti daftar verifikasi top-up.
+  // profiles(nama,email) tanpa nama FK dapat gagal jika PostgREST melihat relasi ambigu.
+  const { data, error } = await sb.from('topups')
+    .select('*, profiles:profiles!topups_user_id_fkey(nama, email), decider:profiles!topups_diputuskan_oleh_fkey(nama)')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Gagal memuat riwayat top-up:', error);
+    tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:18px">Gagal memuat riwayat: ${esc(error.message)}. Periksa relasi tabel/RLS Supabase.</td></tr>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Belum ada transaksi top-up di database.</td></tr>';
+    return;
+  }
+
+  tb.innerHTML = data.map(t => {
+    let stBadge = '<span class="badge wait">Menunggu</span>';
+    if(t.status === 'disetujui') stBadge = '<span class="badge app">Disetujui</span>';
+    if(t.status === 'ditolak') stBadge = '<span class="badge rej">Ditolak</span>';
+
+    return `
+      <tr>
+        <td class="mono" style="font-size:11.5px">${fDate(t.created_at)}</td>
+        <td><b>${esc(t.profiles?.nama || '-')}</b><br><span class="mono" style="font-size:11px;color:var(--text-dim)">${esc(t.profiles?.email || '-')}</span></td>
+        <td>${t.jumlah_token} Token</td>
+        <td class="mono">${fRp(t.nominal)}</td>
+        <td>${esc(String(t.metode || '').toUpperCase())}</td>
+        <td>${stBadge}</td>
+        <td>${esc(t.decider?.nama || '-')}</td>
+        <td style="font-size:11.5px;color:var(--text-muted)">${esc(t.catatan || '-')}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Tombol di dalam tabel memakai atribut data-*, tanpa kode di dalam HTML
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if(!b) return;
+  const a = b.dataset.act;
+  if(a === 'bukti') previewBukti(b.dataset.path);
+  else if(a === 'approve') approveTopup(b.dataset.id, b.dataset.nama, Number(b.dataset.jml));
+  else if(a === 'reject') rejectTopup(b.dataset.id);
+  else if(a === 'koreksi') openKoreksiModal(b.dataset.id, b.dataset.nama);
+});
+
+
+// Pengumuman dan chat privat pengguna. RLS Supabase tetap menjadi batas keamanan utama.
+let supportSelectedUserId=null;
+async function loadAdminAnnouncements(){const box=$('adminAnnouncementsList');if(!box)return;box.textContent='Memuat...';const {data,error}=await sb.from('announcements').select('*').order('created_at',{ascending:false});if(error){box.textContent='Gagal memuat: '+error.message;return;}box.innerHTML=(data||[]).map(a=>`<div style="padding:12px;border:1px solid var(--border);border-radius:10px;margin:8px 0"><b>${esc(a.title)}</b> <span class="badge">${a.is_published?'Tayang':'Draft'}</span><p style="white-space:pre-wrap">${esc(a.body)}</p><small>${fDate(a.created_at)}</small><button class="btn" style="margin-left:8px" onclick="toggleAnnouncement('${a.id}',${!a.is_published})">${a.is_published?'Sembunyikan':'Terbitkan'}</button><button class="btn dan" style="margin-left:6px" onclick="deleteAnnouncement('${a.id}')">Hapus</button></div>`).join('')||'Belum ada pengumuman.';}
+async function toggleAnnouncement(id,published){const {error}=await sb.from('announcements').update({is_published:published}).eq('id',id);if(error)alert('Gagal: '+error.message);else loadAdminAnnouncements();}
+async function deleteAnnouncement(id){if(!confirm('Hapus pengumuman ini?'))return;const {error}=await sb.from('announcements').delete().eq('id',id);if(error)alert('Gagal: '+error.message);else loadAdminAnnouncements();}
+async function saveAnnouncement(){const title=$('annTitle').value.trim(),body=$('annBody').value.trim();if(!title||!body){alert('Isi judul dan isi pengumuman.');return;}const {error}=await sb.from('announcements').insert({title,body,is_published:$('annPublished').checked,created_by:currentAdminUser.id});if(error){alert('Gagal menyimpan pengumuman: '+error.message);return;}$('annTitle').value='';$('annBody').value='';loadAdminAnnouncements();}
+let supportInboxRows=[];let supportInboxProfiles={};let supportInboxFilter='all';
+function renderAdminSupportList(){
+ const box=$('adminSupportList');if(!box)return;
+ const q=($('supportSearch')?.value||'').trim().toLowerCase();
+ const users=[...new Set(supportInboxRows.map(x=>x.user_id))];
+ const summaries=users.map(uid=>{const own=supportInboxRows.filter(x=>x.user_id===uid);const last=own[0];const profile=supportInboxProfiles[uid]||{};const unread=own.filter(x=>x.sender_role==='user'&&!x.admin_read_at).length;const replied=last?.sender_role==='admin';return {uid,last,profile,unread,replied,count:own.length};})
+ .filter(x=>{const text=((x.profile.nama||'')+' '+(x.profile.email||'')).toLowerCase();return (!q||text.includes(q))&&(supportInboxFilter==='all'||(supportInboxFilter==='unread'&&x.unread>0)||(supportInboxFilter==='replied'&&x.replied));})
+ .sort((a,b)=>new Date(b.last?.created_at||0)-new Date(a.last?.created_at||0));
+ $('supportConversationCount').textContent=String(summaries.length);
+ box.innerHTML=summaries.map(x=>{const name=x.profile.nama||'Nama belum tersedia';const email=x.profile.email||'Email belum tersedia';const selected=supportSelectedUserId===x.uid;return `<button type="button" class="support-user-item ${selected?'active':''}" onclick="openAdminSupport('${x.uid}')"><span class="support-avatar">${esc((name.trim()[0]||email[0]||'?').toUpperCase())}</span><span class="support-user-copy"><span class="support-user-top"><span class="support-user-name">${esc(name)}</span>${x.unread?`<span class="support-unread">${x.unread}</span>`:''}</span><span class="support-user-email">${esc(email)}</span><span class="support-last-message">${esc(x.last?.message||'Belum ada pesan')}</span><span class="support-user-email">${fDate(x.last?.created_at)} · ${x.count} pesan</span></span></button>`}).join('')||'<div class="support-empty">Tidak ada percakapan yang cocok.</div>';
+}
+async function loadAdminSupport(){
+ const box=$('adminSupportList');if(!box)return;if(!supportInboxRows.length)box.innerHTML='<div class="support-empty">Memuat percakapan...</div>';
+ const {data,error}=await sb.from('support_messages').select('id,user_id,sender_role,message,created_at,admin_read_at').order('created_at',{ascending:false}).limit(500);
+ if(error){box.textContent='Gagal memuat chat: '+error.message;return;}
+ supportInboxRows=data||[];const users=[...new Set(supportInboxRows.map(x=>x.user_id))];
+ const unreadCount=supportInboxRows.filter(x=>x.sender_role==='user'&&!x.admin_read_at).length;
+ if($('summaryUnreadMessages'))$('summaryUnreadMessages').textContent=String(unreadCount);
+ if($('navSupportCount'))$('navSupportCount').textContent=String(unreadCount);
+ if(users.length){const {data:profiles,error:profileError}=await sb.from('profiles').select('id,nama,email').in('id',users);if(!profileError){supportInboxProfiles={};(profiles||[]).forEach(p=>supportInboxProfiles[p.id]={nama:p.nama||'',email:p.email||''});}}
+ renderAdminSupportList();
+}
+async function openAdminSupport(uid){supportSelectedUserId=uid;$('supportInbox').classList.add('chat-selected');$('supportChatPlaceholder').style.display='none';$('adminSupportReplyBox').classList.add('support-chat-open');$('adminSupportUserLabel').textContent='Memuat identitas pengguna...';if($('btnSupportBack'))$('btnSupportBack').style.display='inline-flex';renderAdminSupportList();const readAt=new Date().toISOString();const {error:readError}=await sb.from('support_messages').update({admin_read_at:readAt}).eq('user_id',uid).eq('sender_role','user').is('admin_read_at',null);if(readError){console.warn('Status baca pesan belum berhasil diperbarui:',readError.message);}const [{data,error},{data:profiles}]=await Promise.all([sb.from('support_messages').select('*').eq('user_id',uid).order('created_at',{ascending:true}).limit(300),sb.from('profiles').select('id,nama,email').eq('id',uid).limit(1)]);const profile=(profiles||[])[0]||{};$('adminSupportUserLabel').textContent=(profile.nama||'Nama belum tersedia')+' · '+(profile.email||'Email belum tersedia');if(error){$('adminSupportThread').textContent=error.message;return;}$('adminSupportThread').innerHTML=(data||[]).map(m=>`<div style="padding:9px 11px;margin:6px 0;border-radius:10px;border:1px solid ${m.sender_role==='admin'?'#16a34a':'#0284c7'};background:${m.sender_role==='admin'?'#153b2a':'#123b57'};color:${m.sender_role==='admin'?'#f0fdf4':'#f0f9ff'};overflow-wrap:anywhere"><b>${m.sender_role==='admin'?'🟢 Admin PlotPeta':'🔵 Pengguna'}</b><div style="white-space:pre-wrap;margin:4px 0">${esc(m.message)}</div><small>${fDate(m.created_at)}</small><div style="margin-top:6px"><button type="button" class="btn dan" style="padding:4px 8px;font-size:11px" onclick="deleteAdminSupportMessage('${m.id}')">Hapus pesan</button></div></div>`).join('')||'Belum ada pesan dalam percakapan ini.';$('adminSupportThread').scrollTop=$('adminSupportThread').scrollHeight;await loadAdminSupport();}
+async function deleteAdminSupportMessage(id){if(!confirm('Hapus pesan ini secara permanen dari database?'))return;const {error}=await sb.from('support_messages').delete().eq('id',id);if(error){alert('Gagal menghapus pesan: '+error.message+'\nPastikan SQL izin hapus pesan sudah dijalankan.');return;}if(supportSelectedUserId)await openAdminSupport(supportSelectedUserId);await loadAdminSupport();}
+async function sendAdminSupportReply(){const message=$('adminSupportReply').value.trim();if(!supportSelectedUserId||!message)return;const {error}=await sb.from('support_messages').insert({user_id:supportSelectedUserId,sender_role:'admin',message});if(error){alert('Balasan gagal dikirim: '+error.message);return;}$('adminSupportReply').value='';await openAdminSupport(supportSelectedUserId);loadAdminSupport();}
+$('btnSaveAnnouncement').addEventListener('click',saveAnnouncement);$('btnReloadAnnouncements').addEventListener('click',loadAdminAnnouncements);$('btnReloadSupport').addEventListener('click',loadAdminSupport);$('btnSendSupportReply').addEventListener('click',sendAdminSupportReply);
+$('supportSearch')?.addEventListener('input',renderAdminSupportList);document.querySelectorAll('[data-support-filter]').forEach(b=>b.addEventListener('click',()=>{supportInboxFilter=b.dataset.supportFilter;document.querySelectorAll('[data-support-filter]').forEach(x=>x.classList.toggle('active',x===b));renderAdminSupportList();}));$('btnSupportBack')?.addEventListener('click',()=>{$('supportInbox').classList.remove('chat-selected');supportSelectedUserId=null;$('adminSupportReplyBox').classList.remove('support-chat-open');$('supportChatPlaceholder').style.display='flex';renderAdminSupportList();});
+
+// Inisialisasi
+checkAdminSession();
+</script>
+
+<script>
+// Navigasi UI tambahan: hanya menggulir ke bagian yang sudah ada; tidak mengganti auth atau query Supabase.
+(function(){
+  const navItems=[...document.querySelectorAll('[data-nav]')];
+  document.querySelectorAll('[data-nav]').forEach(btn=>btn.addEventListener('click',()=>{
+    const id=btn.dataset.nav;
+    const target=document.getElementById(id);
+    if(!target)return;
+    // Muat ulang dari Supabase setiap kali bagian transaksi/top-up dibuka.
+    if(id==='panel-history' && typeof loadAllTopups==='function') loadAllTopups();
+    if(id==='panel-topups' && typeof loadPendingTopups==='function') loadPendingTopups();
+    if(id==='panel-announcements') loadAdminAnnouncements();
+    if(id==='panel-support') loadAdminSupport();
+    navItems.forEach(x=>x.classList.toggle('active',x===btn || (x.classList.contains('nav-item') && x.dataset.nav===id)));
+    const overview=document.getElementById('panel-overview');
+    if(overview) overview.style.display=id==='panel-overview'?'':'none';
+    document.querySelectorAll('.admin-section[data-panel]').forEach(panel=>{
+      panel.style.display=panel.id===id?'block':'none';
+    });
+    target.scrollIntoView({behavior:'smooth',block:'start'});
+  }));
+  const themeBtn=document.getElementById('btnThemeToggle');
+  if(themeBtn){
+    const update=()=>{const light=document.documentElement.getAttribute('data-theme')==='light';themeBtn.textContent=light?'☾ Tema gelap':'☼ Tema terang';};
+    update();
+    themeBtn.addEventListener('click',()=>{const root=document.documentElement;root.setAttribute('data-theme',root.getAttribute('data-theme')==='light'?'dark':'light');update();});
+  }
+  function updateStats(){
+    const pendingBody=document.getElementById('tblPending');
+    const usersBody=document.getElementById('tblUsers');
+    const historyBody=document.getElementById('tblAllTopups');
+    const realRows=(body,emptyWords)=>body?[...body.querySelectorAll('tr')].filter(row=>!emptyWords.some(w=>row.innerText.toLowerCase().includes(w))):[];
+    const pendingRows=realRows(pendingBody,['tidak ada permintaan','belum ada','gagal memuat','memuat data']);
+    const userRows=realRows(usersBody,['belum ada data','belum ada pengguna','gagal memuat','memuat data']);
+    const historyRows=realRows(historyBody,['belum ada data','tidak ada transaksi','gagal memuat','memuat riwayat']);
+    const approvedRows=historyRows.filter(row=>/disetujui|approved/i.test(row.innerText));
+    const moneyFromRow=row=>{const cells=[...row.querySelectorAll('td')];const cell=cells.find(td=>/Rp\s?[\d.]+/.test(td.innerText));if(!cell)return 0;return Number(cell.innerText.replace(/[^0-9]/g,''))||0;};
+    const revenue=approvedRows.reduce((sum,row)=>sum+moneyFromRow(row),0);
+    const fmtRp=n=>n>=1000000?'Rp '+(n/1000000).toLocaleString('id-ID',{maximumFractionDigits:1})+' jt':'Rp '+n.toLocaleString('id-ID');
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=String(v);};
+    set('summaryPending',pendingRows.length);set('summaryUsers',userRows.length);set('summaryHistory',historyRows.length);
+    set('summaryApproved',approvedRows.length);set('summaryRevenue',fmtRp(revenue));set('navPendingCount',pendingRows.length);
+    const recent=document.getElementById('summaryRecentRows');
+    if(recent){
+      if(!historyRows.length){recent.innerHTML='<tr><td colspan="3" class="summary-empty">Belum ada transaksi yang dapat ditampilkan.</td></tr>';}
+      else {recent.innerHTML=historyRows.slice(0,5).map(row=>{
+        const cells=[...row.querySelectorAll('td')];
+        const who=(cells[1]?.innerText||cells[0]?.innerText||'-').split('\n').filter(Boolean);
+        const amountCell=cells.find(td=>/Rp\s?[\d.]+/.test(td.innerText));
+        const statusCell=cells.find(td=>/menunggu|disetujui|ditolak/i.test(td.innerText));
+        const safe=t=>String(t||'-').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        let statusText=statusCell?.innerText||'-';let statusClass=/disetujui/i.test(statusText)?'app':/ditolak/i.test(statusText)?'rej':'wait';
+        return '<tr><td><b>'+safe(who[0])+'</b><br><span style="color:var(--text-muted);font-size:10px">'+safe(cells[0]?.innerText||'')+'</span></td><td style="font-weight:700">'+safe(amountCell?.innerText||'-')+'</td><td><span class="badge '+statusClass+'">'+safe(statusText)+'</span></td></tr>';
+      }).join('');}
+    }
+  }
+  const watchIds=['tblPending','tblUsers','tblAllTopups'];
+  watchIds.forEach(id=>{const el=document.getElementById(id);if(el)new MutationObserver(updateStats).observe(el,{childList:true,subtree:true,characterData:true});});
+  updateStats();
+
+  // Auto-refresh ringan: jumlah pesan belum dibaca dan daftar chat diperbarui tiap 15 detik.
+  // Jika admin sedang membuka percakapan, isi percakapan juga diperbarui tanpa mengganggu kolom balasan.
+  let adminAutoRefreshBusy = false;
+  async function autoRefreshAdminChat(){
+    if(adminAutoRefreshBusy || typeof sb === 'undefined' || !sb) return;
+    adminAutoRefreshBusy = true;
+    try {
+      if(typeof loadAdminSupport === 'function') await loadAdminSupport();
+      const supportPanel = document.getElementById('panel-support');
+      const isSupportVisible = supportPanel && getComputedStyle(supportPanel).display !== 'none';
+      if(isSupportVisible && typeof supportSelectedUserId !== 'undefined' && supportSelectedUserId && typeof openAdminSupport === 'function') {
+        await openAdminSupport(supportSelectedUserId);
+      }
+    } catch(err) { console.warn('Auto-refresh chat gagal:', err); }
+    finally { adminAutoRefreshBusy = false; }
+  }
+  window.setInterval(autoRefreshAdminChat, 15000);
+})();
+</script>
+
+</body>
+</html>
