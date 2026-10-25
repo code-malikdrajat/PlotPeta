@@ -701,11 +701,35 @@
         </div>
         <div style="text-align:right">
           <div style="font-size:17px;font-weight:700;color:var(--accent)" id="topupNominalDisplay">Rp 100.000</div>
-          <div class="brand-badge" style="background:var(--warning-subtle);color:var(--warning);border-color:rgba(245,158,11,0.3)">Termasuk Kode Unik</div>
+          <div class="brand-badge" id="topupUniqueBadge" style="display:none;background:var(--warning-subtle);color:var(--warning);border-color:rgba(245,158,11,0.3)">Termasuk Kode Unik</div>
         </div>
       </div>
     </div>
 
+    <!-- ===== JALUR OTOMATIS (gateway) ===== -->
+    <div id="topupAuto">
+      <div id="topupQrActive" style="display:none;text-align:center;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px">Scan QR untuk membayar</div>
+        <img id="topupQrImg" alt="QR pembayaran" style="max-width:220px;width:100%;background:#fff;border-radius:8px;display:none">
+        <div style="margin-top:8px"><a id="topupPayLink" href="#" target="_blank" rel="noopener" class="btn pri" style="display:none;text-decoration:none">Buka halaman pembayaran</a></div>
+        <div class="mono" style="font-size:12px;margin-top:8px">Bayar dalam <b id="topupCountdown">--:--</b></div>
+        <div class="mu" style="font-size:11px;margin-top:4px">Token masuk otomatis setelah pembayaran berhasil.</div>
+      </div>
+      <div id="topupQrExpired" style="display:none;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;text-align:center">
+        <div style="font-weight:700;font-size:13px;margin-bottom:10px">QR pembayaran sudah kedaluwarsa.</div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <button type="button" class="btn pri" id="btnRenewQr">Buat QR baru</button>
+          <button type="button" class="btn" id="btnExpiredProof">Saya sudah bayar, kirim bukti</button>
+        </div>
+      </div>
+      <div id="topupAutoAlert" class="form-alert"></div>
+      <button type="button" class="btn pri" id="btnPayNow" style="width:100%;padding:10px;margin-bottom:6px">Bayar sekarang</button>
+      <input type="file" id="topupProofFile" accept="image/jpeg,image/png,image/jpg" style="display:none">
+    </div>
+
+    <!-- ===== JALUR MANUAL (hanya muncul jika QR gagal dibuat) ===== -->
+    <div id="topupManual" style="display:none">
+      <div id="topupFallbackMsg" class="form-alert error" style="display:block;margin-bottom:12px">Pembayaran otomatis sedang bermasalah. Silakan gunakan transfer manual di bawah, token akan ditambahkan setelah diverifikasi admin.</div>
     <!-- Foto QRIS Resmi (Tampil jika Admin mengunggah QRIS) -->
     <div id="userQrisSection" class="qris-display-box" style="display:none">
       <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-weight:700;font-size:13px;margin-bottom:10px">
@@ -791,6 +815,7 @@
 
       <button type="submit" class="btn pri" id="btnSubmitTopup" style="width:100%;margin-top:8px;padding:9px">Kirim Konfirmasi Pembayaran</button>
     </form>
+    </div>
 
     <!-- Riwayat Topup Pengguna -->
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
