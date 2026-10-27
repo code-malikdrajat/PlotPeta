@@ -356,7 +356,7 @@ async function deleteCloudProject(id, name){
 
 // ==================== TOP-UP TOKEN MODAL ====================
 let topupMode = 'auto';
-let activeTopup = null, qrTimer = null, proofTargetId = null;
+let activeTopup = null, qrTimer = null, qrPoll = null, proofTargetId = null;
 
 function updateNominalDisplay(){
   const extra = topupMode === 'manual' ? currentUniqueCode : 0;
@@ -422,8 +422,16 @@ function openTopupModal(){
   loadUserTopupHistory();
 }
 
+function closeTopupModal(){
+  stopQrTimer();
+  $('modalTopup').classList.remove('open');
+}
+
 // ---------- Pembayaran otomatis ----------
-function stopQrTimer(){ if(qrTimer){ clearInterval(qrTimer); qrTimer = null; } }
+function stopQrTimer(){
+  if(qrTimer){ clearInterval(qrTimer); qrTimer = null; }
+  if(qrPoll){ clearInterval(qrPoll); qrPoll = null; }
+}
 
 async function startAutoPay(){
   const btn = $('btnPayNow');
@@ -432,7 +440,7 @@ async function startAutoPay(){
   let res = null, failed = false;
   try{
     const call = sb.functions.invoke('create-topup', { body: { paket: '50_token' } });
-    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000));
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000));
     const r = await Promise.race([call, timeout]);
     if(r.error || !r.data || !r.data.ok) failed = true; else res = r.data;
   }catch(e){ failed = true; }
@@ -460,9 +468,30 @@ function renderQr(t){
   activeTopup = t;
   stopQrTimer();
   $('topupQrExpired').style.display = 'none';
-  const img = $('topupQrImg'), link = $('topupPayLink');
-  if(t.qr_image_url){ img.src = t.qr_image_url; img.style.display = ''; } else { img.removeAttribute('src'); img.style.display = 'none'; }
-  if(t.pay_url){ link.href = t.pay_url; link.style.display = ''; } else { link.style.display = 'none'; }
+  const img = $('topupQrImg'), link = $('topupPayLink'), box = $('topupQrBox');
+  box.innerHTML = '';
+  box.style.display = 'none';
+  img.removeAttribute('src');
+  img.style.display = 'none';
+
+  // QRIS dinamis dari KrisKu berbentuk payload teks -> render di browser.
+  let hasQr = false;
+  if(t.qris_payload && typeof QRCode !== 'undefined'){
+    try{
+      new QRCode(box, { text: t.qris_payload, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+      box.style.display = '';
+      hasQr = true;
+    }catch(e){
+      console.error('Gagal merender QRIS:', e);
+    }
+  } else if(t.qr_image_url){
+    img.src = t.qr_image_url;
+    img.style.display = '';
+    hasQr = true;
+  }
+
+  // Link ke halaman KrisKu hanya dipakai bila QR gagal dirender.
+  if(t.pay_url && !hasQr){ link.href = t.pay_url; link.style.display = ''; } else { link.style.display = 'none'; }
   $('topupQrActive').style.display = '';
   $('btnPayNow').style.display = 'none';
   const exp = new Date(t.expires_at).getTime();
@@ -472,7 +501,34 @@ function renderQr(t){
     if(left <= 0){ stopQrTimer(); showQrExpired(); }
   };
   tick();
-  if(Date.now() < exp) qrTimer = setInterval(tick, 1000);
+  if(Date.now() < exp){
+    qrTimer = setInterval(tick, 1000);
+    qrPoll = setInterval(checkActiveTopupPaid, 5000);
+  }
+}
+
+// Cek berkala apakah webhook KrisKu sudah menandai lunas.
+async function checkActiveTopupPaid(){
+  if(!activeTopup || !currentUser || !activeTopup.topup_id) return;
+  const id = activeTopup.topup_id;
+  const { data, error } = await sb.from('topups').select('id, status').eq('id', id).maybeSingle();
+  if(error || !data) return;
+  if(data.status === 'disetujui'){
+    stopQrTimer();
+    $('topupQrActive').style.display = 'none';
+    $('btnPayNow').style.display = '';
+    activeTopup = null;
+    setAutoAlert('Pembayaran berhasil! 50 token sudah ditambahkan.', 'success');
+    fetchUserTokens();
+    loadUserTopupHistory();
+  } else if(data.status === 'ditolak' || data.status === 'gagal'){
+    stopQrTimer();
+    $('topupQrActive').style.display = 'none';
+    $('btnPayNow').style.display = '';
+    activeTopup = null;
+    setAutoAlert('Transaksi tidak dapat diproses. Silakan coba lagi.', 'error');
+    loadUserTopupHistory();
+  }
 }
 function showQrExpired(){
   $('topupQrActive').style.display = 'none';
@@ -614,7 +670,7 @@ async function handleTopupSubmit(e){
 async function loadUserTopupHistory(){
   if(!currentUser) return;
   const { data: topups } = await sb.from('topups')
-    .select('id, nominal, metode, status, catatan, created_at, expires_at, sumber, qr_image_url, pay_url')
+    .select('id, nominal, metode, status, catatan, created_at, expires_at, sumber, gateway_ref, qr_image_url, qris_payload, pay_url')
     .eq('user_id', currentUser.id)
     .neq('status', 'gagal')
     .order('created_at', { ascending: false })
@@ -628,9 +684,9 @@ async function loadUserTopupHistory(){
 
   const now = Date.now(), DAY = 24 * 3600 * 1000;
   // Ada QR aktif yang belum tampil (mis. modal ditutup lalu dibuka lagi): tampilkan kembali
-  const live = topups.find(t => t.sumber === 'gateway' && t.status === 'pending_gateway' && new Date(t.expires_at).getTime() > now);
+  const live = topups.find(t => t.sumber === 'gateway' && t.status === 'pending_gateway' && t.gateway_ref && new Date(t.expires_at).getTime() > now);
   if(live && topupMode === 'auto' && $('topupQrActive').style.display === 'none'){
-    renderQr({ topup_id: live.id, expires_at: live.expires_at, qr_image_url: live.qr_image_url, pay_url: live.pay_url });
+    renderQr({ topup_id: live.id, expires_at: live.expires_at, qr_image_url: live.qr_image_url, qris_payload: live.qris_payload, pay_url: live.pay_url });
   }
 
   container.innerHTML = topups.map(t => {
