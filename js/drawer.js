@@ -28,7 +28,7 @@
   const tools = [...drawer.querySelectorAll('button[data-tool]')];
 
   // Pilihan metode deteksi/hapus di bilah (muncul saat laci dilipat, karena pilihan di laci ikut tersembunyi)
-  const MODE_OPTS = { A: { label: 'Metode deteksi', src: 'detectMode' }, E: { label: 'Metode hapus', src: 'eraseMode' } };
+  const MODE_OPTS = { A: { label: 'Area deteksi', src: 'detectMode' }, E: { label: 'Metode hapus', src: 'eraseMode' } };
   const modeWrap = document.createElement('label');
   modeWrap.className = 'fav-mode';
   modeWrap.innerHTML = '<span></span><select></select>';

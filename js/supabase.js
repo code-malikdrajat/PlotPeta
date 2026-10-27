@@ -355,20 +355,162 @@ async function deleteCloudProject(id, name){
 }
 
 // ==================== TOP-UP TOKEN MODAL ====================
+let topupMode = 'auto';
+let activeTopup = null, qrTimer = null, proofTargetId = null;
+
+function updateNominalDisplay(){
+  const extra = topupMode === 'manual' ? currentUniqueCode : 0;
+  $('topupNominalDisplay').textContent = 'Rp ' + (currentPaketHarga + extra).toLocaleString('id-ID');
+}
+function syncTopupMethodTabs(manual){
+  document.querySelectorAll('#topupMethodTabs [data-topup-mode]').forEach(btn => {
+    const active = (btn.dataset.topupMode === 'manual') === manual;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', String(active));
+  });
+}
+function applyTopupMode(){
+  const manual = topupMode === 'manual';
+  $('topupAuto').style.display = manual ? 'none' : '';
+  $('topupManual').style.display = manual ? '' : 'none';
+  $('topupUniqueBadge').style.display = manual ? '' : 'none';
+  syncTopupMethodTabs(manual);
+  updateNominalDisplay();
+  if(manual) loadPublicPaymentInfo();
+}
+function setTopupMethod(mode){
+  if(!currentUser){ openAuthModal('login'); return; }
+  topupMode = mode === 'manual' ? 'manual' : 'auto';
+  if(topupMode === 'manual' && !currentUniqueCode) currentUniqueCode = Math.floor(100 + Math.random() * 899);
+  stopQrTimer();
+  $('topupQrActive').style.display = 'none';
+  $('topupQrExpired').style.display = 'none';
+  setAutoAlert('');
+  if(topupMode === 'manual'){
+    const msg = $('topupFallbackMsg');
+    if(msg){
+      msg.className = 'form-alert info';
+      msg.textContent = 'TF — Transfer ke rekening berikut sesuai nominal, lalu unggah bukti pembayaran. Token ditambahkan setelah admin memverifikasi.';
+    }
+    $('topupMetode').value = 'tf';
+  }
+  applyTopupMode();
+  if(topupMode === 'auto') loadUserTopupHistory();
+}
+function setAutoAlert(msg, kind){
+  const el = $('topupAutoAlert');
+  el.className = 'form-alert' + (kind ? ' ' + kind : '');
+  el.textContent = msg || '';
+  el.style.display = msg ? 'block' : 'none';
+}
 function openTopupModal(){
   if(!currentUser){
     openAuthModal('login');
     return;
   }
   currentUniqueCode = Math.floor(100 + Math.random() * 899);
-  $('topupNominalDisplay').textContent = 'Rp ' + (currentPaketHarga + currentUniqueCode).toLocaleString('id-ID');
-  loadPaketHarga();
+  topupMode = 'auto';
+  stopQrTimer();
+  $('topupQrActive').style.display = 'none';
+  $('topupQrExpired').style.display = 'none';
+  setAutoAlert('');
+  applyTopupMode();
   $('modalTopup').classList.add('open');
   $('topupAlert').className = 'form-alert';
   $('topupAlert').textContent = '';
-  loadPublicPaymentInfo();
+  loadPaketHarga();
   loadUserTopupHistory();
 }
+
+// ---------- Pembayaran otomatis ----------
+function stopQrTimer(){ if(qrTimer){ clearInterval(qrTimer); qrTimer = null; } }
+
+async function startAutoPay(){
+  const btn = $('btnPayNow');
+  btn.disabled = true; btn.textContent = 'Menyiapkan pembayaran...';
+  setAutoAlert('');
+  let res = null, failed = false;
+  try{
+    const call = sb.functions.invoke('create-topup', { body: { paket: '50_token' } });
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000));
+    const r = await Promise.race([call, timeout]);
+    if(r.error || !r.data || !r.data.ok) failed = true; else res = r.data;
+  }catch(e){ failed = true; }
+  btn.disabled = false; btn.textContent = 'Bayar sekarang';
+  if(failed){ showManualFallback(); return; }
+  renderQr(res);
+  loadUserTopupHistory();
+}
+
+// QR gagal dibuat sama sekali -> form transfer manual lengkap
+function showManualFallback(){
+  stopQrTimer();
+  topupMode = 'manual';
+  currentUniqueCode = Math.floor(100 + Math.random() * 899);
+  const msg = $('topupFallbackMsg');
+  if(msg){
+    msg.className = 'form-alert error';
+    msg.textContent = 'Pembayaran otomatis sedang bermasalah. Silakan gunakan TF/transfer manual di bawah, token akan ditambahkan setelah diverifikasi admin.';
+  }
+  applyTopupMode();
+  $('topupMetode').value = 'tf';
+}
+
+function renderQr(t){
+  activeTopup = t;
+  stopQrTimer();
+  $('topupQrExpired').style.display = 'none';
+  const img = $('topupQrImg'), link = $('topupPayLink');
+  if(t.qr_image_url){ img.src = t.qr_image_url; img.style.display = ''; } else { img.removeAttribute('src'); img.style.display = 'none'; }
+  if(t.pay_url){ link.href = t.pay_url; link.style.display = ''; } else { link.style.display = 'none'; }
+  $('topupQrActive').style.display = '';
+  $('btnPayNow').style.display = 'none';
+  const exp = new Date(t.expires_at).getTime();
+  const tick = () => {
+    const left = Math.max(0, Math.floor((exp - Date.now()) / 1000));
+    $('topupCountdown').textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
+    if(left <= 0){ stopQrTimer(); showQrExpired(); }
+  };
+  tick();
+  if(Date.now() < exp) qrTimer = setInterval(tick, 1000);
+}
+function showQrExpired(){
+  $('topupQrActive').style.display = 'none';
+  $('topupQrExpired').style.display = '';
+  $('btnPayNow').style.display = 'none';
+  loadUserTopupHistory();
+}
+
+// ---------- Kirim bukti untuk transaksi gateway ----------
+function pickProof(id){
+  proofTargetId = id;
+  $('topupProofFile').value = '';
+  $('topupProofFile').click();
+}
+async function submitProof(file){
+  if(!file || !proofTargetId || !currentUser) return;
+  if(file.size > 2.5 * 1024 * 1024){ setAutoAlert('Ukuran foto bukti maksimal 2.5 MB.', 'error'); return; }
+  setAutoAlert('Mengunggah bukti...', 'success');
+  const ext = file.name.split('.').pop() || 'jpg';
+  const filePath = `${currentUser.id}/${Date.now()}_bukti.${ext}`;
+  const { error: upErr } = await sb.storage.from('bukti-transfer').upload(filePath, file);
+  if(upErr){ setAutoAlert('Gagal upload foto bukti: ' + upErr.message, 'error'); return; }
+  const { data, error } = await sb.rpc('submit_topup_proof', { p_topup_id: proofTargetId, p_bukti_url: filePath });
+  if(error || (data && data.ok === false)){
+    setAutoAlert('Gagal mengirim bukti: ' + (error ? error.message : (data.message || 'ditolak server')), 'error');
+    return;
+  }
+  setAutoAlert('Bukti terkirim. Admin akan memverifikasi pembayaran Anda.', 'success');
+  $('topupQrExpired').style.display = 'none';
+  $('btnPayNow').style.display = '';
+  proofTargetId = null;
+  loadUserTopupHistory();
+}
+$('btnPayNow').onclick = startAutoPay;
+$('btnRenewQr').onclick = startAutoPay;
+$('btnExpiredProof').onclick = () => { if(activeTopup) pickProof(activeTopup.topup_id); };
+$('topupProofFile').addEventListener('change', e => submitProof(e.target.files[0]));
+
 // Harga paket diambil dari server agar sama dengan pengaturan admin (server tetap menghitung nominal sendiri).
 async function loadPaketHarga(){
   try{
@@ -376,7 +518,7 @@ async function loadPaketHarga(){
     const n = Number(data);
     if(!error && Number.isFinite(n) && n > 0) currentPaketHarga = n;
   }catch(_){}
-  $('topupNominalDisplay').textContent = 'Rp ' + (currentPaketHarga + currentUniqueCode).toLocaleString('id-ID');
+  updateNominalDisplay();
 }
 $('btnTopupPill').onclick = openTopupModal;
 
@@ -449,6 +591,7 @@ async function handleTopupSubmit(e){
     nominal: nominal,
     kode_unik: currentUniqueCode,
     metode: metode,
+    sumber: 'manual',
     bukti_url: filePath,
     catatan: catatan
   });
@@ -471,8 +614,9 @@ async function handleTopupSubmit(e){
 async function loadUserTopupHistory(){
   if(!currentUser) return;
   const { data: topups } = await sb.from('topups')
-    .select('*')
+    .select('id, nominal, metode, status, catatan, created_at, expires_at, sumber, qr_image_url, pay_url')
     .eq('user_id', currentUser.id)
+    .neq('status', 'gagal')
     .order('created_at', { ascending: false })
     .limit(5);
 
@@ -482,22 +626,49 @@ async function loadUserTopupHistory(){
     return;
   }
 
+  const now = Date.now(), DAY = 24 * 3600 * 1000;
+  // Ada QR aktif yang belum tampil (mis. modal ditutup lalu dibuka lagi): tampilkan kembali
+  const live = topups.find(t => t.sumber === 'gateway' && t.status === 'pending_gateway' && new Date(t.expires_at).getTime() > now);
+  if(live && topupMode === 'auto' && $('topupQrActive').style.display === 'none'){
+    renderQr({ topup_id: live.id, expires_at: live.expires_at, qr_image_url: live.qr_image_url, pay_url: live.pay_url });
+  }
+
   container.innerHTML = topups.map(t => {
+    let st = t.status;
+    if(st === 'pending_gateway' && new Date(t.expires_at).getTime() <= now) st = 'kedaluwarsa';
     let badge = '<span style="color:var(--warning);font-weight:600">&bull; Menunggu Verifikasi</span>';
-    if(t.status === 'disetujui') badge = '<span style="color:var(--success);font-weight:600">&#10003; Disetujui (+50 Token)</span>';
-    if(t.status === 'ditolak') badge = `<span style="color:var(--danger);font-weight:600">&times; Ditolak (${esc(t.catatan || 'Bukti tidak valid')})</span>`;
+    let actions = '';
+    if(st === 'pending_gateway') badge = '<span style="color:var(--warning);font-weight:600">&bull; Menunggu pembayaran</span>';
+    if(st === 'kedaluwarsa'){
+      badge = '<span style="color:var(--text-muted);font-weight:600">Kedaluwarsa</span>';
+      if(t.sumber === 'gateway' && now - new Date(t.created_at).getTime() < DAY){
+        actions = `<div style="display:flex;gap:6px;margin-top:4px;justify-content:flex-end">
+          <button type="button" class="btn pri" style="padding:3px 8px;font-size:11px" data-hact="renew">Buat QR baru</button>
+          <button type="button" class="btn" style="padding:3px 8px;font-size:11px" data-hact="proof" data-id="${esc(t.id)}">Kirim bukti</button></div>`;
+      }
+    }
+    if(st === 'disetujui') badge = '<span style="color:var(--success);font-weight:600">&#10003; Disetujui (+50 Token)</span>';
+    if(st === 'ditolak') badge = `<span style="color:var(--danger);font-weight:600">&times; Ditolak (${esc(t.catatan || 'Bukti tidak valid')})</span>`;
     const fDate = new Date(t.created_at).toLocaleDateString('id-ID', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
     return `
-      <div style="background:var(--bg-input);padding:6px 10px;border-radius:7px;display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <b>Rp ${t.nominal.toLocaleString('id-ID')}</b> <span class="mu">(${esc(t.metode)})</span>
-          <div class="mu" style="font-size:10.5px">${fDate}</div>
-        </div>
-        <div style="font-size:11px">${badge}</div>
+      <div style="background:var(--bg-input);padding:6px 10px;border-radius:7px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <b>Rp ${t.nominal.toLocaleString('id-ID')}</b> <span class="mu">(${esc(t.metode || t.sumber)})</span>
+            <div class="mu" style="font-size:10.5px">${fDate}</div>
+          </div>
+          <div style="font-size:11px;text-align:right">${badge}</div>
+        </div>${actions}
       </div>
     `;
   }).join('');
 }
+$('userTopupHistory').addEventListener('click', e => {
+  const b = e.target.closest('[data-hact]');
+  if(!b) return;
+  if(b.dataset.hact === 'renew') startAutoPay();
+  else if(b.dataset.hact === 'proof') pickProof(b.dataset.id);
+});
 
 // ==================== TOKEN LEDGER MODAL ====================
 async function openLedgerModal(){

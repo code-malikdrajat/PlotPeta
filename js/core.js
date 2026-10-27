@@ -188,6 +188,10 @@ function setTool(t){
 }
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
 const detectModeEl=$('detectMode'), eraseModeEl=$('eraseMode'), toolModeHint=$('toolModeHint');
+const detectEngineEl=$('detectEngine'), detectEngineDrawerEl=$('detectEngineDrawer');
+function syncDetectEngine(src,dst){ if(src&&dst) dst.value=src.value; }
+detectEngineEl?.addEventListener('change',()=>syncDetectEngine(detectEngineEl,detectEngineDrawerEl));
+detectEngineDrawerEl?.addEventListener('change',()=>syncDetectEngine(detectEngineDrawerEl,detectEngineEl));
 function updateToolModeHint(){
   document.querySelector('.detect-mode-options')?.classList.toggle('mode-visible', tool==='A');
   document.querySelector('.erase-mode-options')?.classList.toggle('mode-visible', tool==='E');

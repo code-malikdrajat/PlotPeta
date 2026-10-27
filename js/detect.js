@@ -628,6 +628,7 @@ function runDet(R,poly=null){
   $('autoParamInfo').textContent='';
   setTimeout(async()=>{
     try{
+      const engine=$('detectEngine')?.value==='trace'?'trace':'hough';
       let params;
       // 1. Parameter otomatis jika toggle aktif
       if($('autoParamToggle')?.checked){
@@ -645,23 +646,32 @@ function runDet(R,poly=null){
       }else{
         params={T:+$('dT').value,minL:+$('dL').value,gapF:+$('dG').value,magR:+($('magR')?.value||40),linkMax:+($('linkMax')?.value||120),medRun:2,autoMag:($('autoMagToggle')?.checked??true)};
       }
-      // 2. Gambar bantu: latar dihapus, teks dibuang, hanya garis hitam.
+      cand=[];
       let helperUsed=false;
-      if($('helperDetectToggle')?.checked){
-        $('dMsg').textContent='Menyiapkan gambar bantu...';
+      if(engine==='trace'){
+        // 2a. Mesin jejak: raster -> kerangka 1 px -> graf -> garis dipasang ulang.
+        if(typeof detectTrace!=='function') throw new Error('Mesin jejak belum termuat. Muat ulang halaman.');
+        $('dMsg').textContent='Menelusuri batas bidang dengan mesin jejak...';
         await new Promise(r=>setTimeout(r,10));
-        try{
-          const hd=buildHelperData(R,params,{preview:false});
-          params.source=hd.lineOnly;
-          helperUsed=true;
-        }catch(e){
-          $('dMsg').textContent='Gambar bantu gagal, memakai gambar asli...';
+        cand=detectTrace(R,{minLen:params.minL,linkMax:params.linkMax});
+      }else{
+        // 2b. Gambar bantu: latar dihapus, teks dibuang, hanya garis hitam.
+        if($('helperDetectToggle')?.checked){
+          $('dMsg').textContent='Menyiapkan gambar bantu...';
           await new Promise(r=>setTimeout(r,10));
+          try{
+            const hd=buildHelperData(R,params,{preview:false});
+            params.source=hd.lineOnly;
+            helperUsed=true;
+          }catch(e){
+            $('dMsg').textContent='Gambar bantu gagal, memakai gambar asli...';
+            await new Promise(r=>setTimeout(r,10));
+          }
         }
+        $('dMsg').textContent='Mendeteksi...';
+        // 3. Deteksi dengan Hough + Smart Filter
+        cand=detect(R,params);
       }
-      $('dMsg').textContent='Mendeteksi...';
-      // 3. Deteksi dengan Hough + Smart Filter
-      cand=detect(R,params);
       // 4. Filter berdasarkan area poligon jika ada
       if(poly&&poly.length>=3) cand=cand.filter(c=>{
         let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;
@@ -677,11 +687,12 @@ function runDet(R,poly=null){
       }
       if(cand.length&&cand[0].free) plotPetaNumberEnds(cand);
       const nEnd=cand.reduce((z,c)=>z+((c.nums||[]).filter(Boolean).length),0);
+      const engineNote=engine==='trace'?' Mesin jejak dipakai.':'';
       $('dMsg').textContent=
         cand.length+' jalur kandidat'
         +(nEnd?(', '+nEnd+' ujung bebas.'):'.')
-        +' Persilangan & duplikat sudah dibersihkan.'+(helperUsed?' Gambar bantu dipakai.':'')+topoNote+' Kandidat bisa diedit dengan Pindah Titik/Hapus sebelum diterima.';
-    }catch(x){$('dMsg').textContent='Deteksi gagal: '+x.message}
+        +' Persilangan & duplikat sudah dibersihkan.'+(helperUsed?' Gambar bantu dipakai.':'')+topoNote+engineNote+' Kandidat bisa diedit dengan Pindah Titik/Hapus sebelum diterima.';
+    }catch(x){cand=[];$('dMsg').textContent='Deteksi gagal: '+x.message}
     draw();
   },40);
 }
