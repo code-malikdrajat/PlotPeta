@@ -253,11 +253,17 @@
       <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <div class="tool-mode-options detect-mode-options" aria-label="Metode Deteksi Otomatis">
-        <label>Metode Deteksi
+        <label>Area Deteksi
           <select id="detectMode" title="Pilih cara menentukan area deteksi">
             <option value="rect">Area kotak (tarik)</option>
             <option value="poly">Area bebas (tarik mouse)</option>
             <option value="all">Seluruh peta</option>
+          </select>
+        </label>
+        <label>Metode Deteksi
+          <select id="detectEngineDrawer" title="Pilih mesin deteksi">
+            <option value="hough">Standar (Hough + filter)</option>
+            <option value="trace">Mesin jejak (batas bidang)</option>
           </select>
         </label>
       </div>
@@ -490,6 +496,14 @@
       <div class="mu">Tarik kotak pada bagian peta untuk mendeteksi. Kandidat akan tampil oranye.</div>
       <div class="mu" style="margin-top:5px">Parameter kepekaan, panjang minimum, dan celah dianalisis otomatis dari gambar. Persilangan garis dipotong otomatis; garis dobel dibuang. Kandidat bisa diedit dengan Pindah Titik/Hapus sebelum diterima.</div>
 
+      <label class="mu" style="display:block;margin:10px 0 4px">Metode deteksi
+        <select id="detectEngine" style="margin-top:4px;width:100%" title="Pilih mesin deteksi">
+          <option value="hough">Standar (Hough + filter)</option>
+          <option value="trace">Mesin jejak (batas bidang)</option>
+        </select>
+      </label>
+      <div class="mu" id="detectEngineHint" style="margin-top:-2px;margin-bottom:4px">Mesin jejak menelusuri kerangka garis lalu memasangnya kembali menjadi batas bidang. Cocok untuk bidang tertutup; metode standar lebih baik untuk garis lurus lepas.</div>
+
       <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0 4px">
         <input id="autoParamToggle" type="checkbox" checked style="width:auto">
         <span>Parameter otomatis (analisis gambar)</span>
@@ -706,6 +720,12 @@
       </div>
     </div>
 
+    <!-- Pilih metode pembayaran -->
+    <div class="tab-nav" id="topupMethodTabs" role="tablist" aria-label="Metode pembayaran">
+      <button type="button" class="tab-btn active" data-topup-mode="auto" role="tab" aria-selected="true" onclick="setTopupMethod('auto')">QRIS</button>
+      <button type="button" class="tab-btn" data-topup-mode="manual" role="tab" aria-selected="false" onclick="setTopupMethod('manual')">TF (Transfer)</button>
+    </div>
+
     <!-- ===== JALUR OTOMATIS (gateway) ===== -->
     <div id="topupAuto">
       <div id="topupQrActive" style="display:none;text-align:center;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px">
@@ -729,7 +749,7 @@
 
     <!-- ===== JALUR MANUAL (hanya muncul jika QR gagal dibuat) ===== -->
     <div id="topupManual" style="display:none">
-      <div id="topupFallbackMsg" class="form-alert error" style="display:block;margin-bottom:12px">Pembayaran otomatis sedang bermasalah. Silakan gunakan transfer manual di bawah, token akan ditambahkan setelah diverifikasi admin.</div>
+      <div id="topupFallbackMsg" class="form-alert error" style="display:block;margin-bottom:12px">Pembayaran otomatis sedang bermasalah. Silakan gunakan TF/transfer manual di bawah, token akan ditambahkan setelah diverifikasi admin.</div>
     <!-- Foto QRIS Resmi (Tampil jika Admin mengunggah QRIS) -->
     <div id="userQrisSection" class="qris-display-box" style="display:none">
       <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-weight:700;font-size:13px;margin-bottom:10px">
@@ -750,13 +770,13 @@
       </div>
     </div>
 
-    <!-- Informasi Rekening Bank & E-Wallet -->
+    <!-- Informasi Rekening Bank (TF) & E-Wallet -->
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
       <!-- Card Bank Transfer -->
       <div class="pay-card" id="userBankCard">
         <div class="pay-card-head">
           <div style="display:flex;align-items:center;gap:6px">
-            <span>Transfer Bank</span>
+            <span>TF — Transfer Bank</span>
             <span class="mono" style="font-weight:700;color:var(--text-main)" id="userBankName">BCA</span>
           </div>
           <span class="mu" style="font-size:11px">Atas Nama: <b id="userBankAn" style="color:var(--text-main)">-</b></span>
@@ -793,10 +813,10 @@
       <div class="form-group">
         <label class="form-label">Metode Pembayaran yang Digunakan</label>
         <select id="topupMetode">
+          <option value="tf">TF (Transfer Bank)</option>
           <option value="qris">QRIS (Semua Bank & Dompet Digital)</option>
-          <option value="transfer_bank">Transfer Rekening Bank</option>
           <option value="ewallet">Dompet Digital (E-Wallet)</option>
-          <option value="transfer_bank_lain">Transfer Bank Lain</option>
+          <option value="transfer_bank_lain">Transfer dari Bank Lain</option>
         </select>
       </div>
 
@@ -896,13 +916,14 @@
   </div>
 </div>
 
-<script src="js/core.js?v=4"></script>
-<script src="js/detect.js?v=4"></script>
-<script src="js/ui.js?v=4"></script>
-<script src="js/supabase.js?v=4"></script>
-<script src="js/startup.js?v=4"></script>
+<script src="js/core.js?v=5"></script>
+<script src="js/detect.js?v=5"></script>
+<script src="js/mesin-jejak.js?v=5"></script>
+<script src="js/ui.js?v=5"></script>
+<script src="js/supabase.js?v=5"></script>
+<script src="js/startup.js?v=5"></script>
 
-<script src="js/drawer.js?v=4"></script>
+<script src="js/drawer.js?v=5"></script>
 
 
 <script src="js/info.js?v=4"></script>
