@@ -14,8 +14,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<!-- Tesseract.js OCR -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
@@ -223,19 +221,7 @@
         <span>Teks bidang</span>
       <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
-      <button data-tool="ocr" title="OCR Teks Bidang: Tarik kotak di atas teks bidang pada peta untuk membaca otomatis nomor hak &amp; surat ukur">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
-          <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
-          <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
-          <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
-          <polyline points="7 10 12 10 12 16"></polyline>
-          <line x1="9.5" y1="16" x2="14.5" y2="16"></line>
-        </svg>
-        <span>OCR Teks</span>
-      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
-
-      <button data-tool="M" title="Pindah titik: drag titik, klik garis untuk potong, 2x segmen untuk hapus, klik titik lalu klik tujuan untuk menambah garis">
+      <button data-tool="M" title="Edit titik: drag titik, klik garis untuk potong, 2x segmen untuk hapus, klik titik lalu klik tujuan untuk menambah garis">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="5 9 2 12 5 15"></polyline>
           <polyline points="9 5 12 2 15 5"></polyline>
@@ -244,17 +230,17 @@
           <line x1="2" y1="12" x2="22" y2="12"></line>
           <line x1="12" y1="2" x2="12" y2="22"></line>
         </svg>
-        <span>Pindah Titik</span>
+        <span>Edit Garis</span>
       <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
-      <button data-tool="A" title="Deteksi garis otomatis menggunakan AI/Computer Vision">
+      <button data-tool="A" title="Deteksi Cepat: deteksi garis otomatis menggunakan AI/Computer Vision">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
         </svg>
-        <span>Deteksi otomatis</span>
+        <span>Deteksi Cepat</span>
       <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
-      <div class="tool-mode-options detect-mode-options" aria-label="Metode Deteksi Otomatis">
+      <div class="tool-mode-options detect-mode-options" aria-label="Metode Deteksi Cepat">
         <label>Area Deteksi
           <select id="detectMode" title="Pilih cara menentukan area deteksi">
             <option value="rect">Area kotak (tarik)</option>
@@ -286,7 +272,7 @@
             <option value="poly">Area bebas (tarik mouse)</option>
           </select>
         </label>
-        <div class="tool-mode-hint" id="toolModeHint">Pilih alat Deteksi Otomatis atau Hapus untuk menampilkan pilihannya di bawah tombol.</div>
+        <div class="tool-mode-hint" id="toolModeHint">Pilih alat Deteksi Cepat atau Hapus untuk menampilkan pilihannya di bawah tombol.</div>
       </div>
 
       </div>
@@ -305,7 +291,7 @@
       <div class="popover-header">
         <span class="popover-title">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-          <span>Edit Teks Bidang (OCR)</span>
+          <span>Edit Teks Bidang</span>
         </span>
         <button type="button" id="popoverClose" class="popover-close-btn" title="Tutup">✕</button>
       </div>
@@ -414,29 +400,12 @@
           <span>Teks Bidang</span>
         </h3>
       </div>
-      <div class="mu" id="tmsg">Pilih tool <b>Teks bidang</b> untuk mengetik, atau gunakan <b>OCR Teks</b> untuk membaca otomatis dari peta.</div>
-
-      <!-- Fitur OCR Cepat -->
-      <div style="margin:8px 0;padding:8px 10px;background:var(--bg-soft, rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:8px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <span style="font-weight:600;font-size:12px;display:flex;align-items:center;gap:5px;color:var(--text-main)">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/></svg>
-            OCR Teks Bidang
-          </span>
-          <button id="btnOcrTool" type="button" class="btn" style="padding:4px 9px;font-size:11.5px;font-weight:600" title="Aktifkan mode tarik kotak OCR pada peta">
-            Tarik Kotak OCR
-          </button>
-        </div>
-        <div id="ocrStatusMsg" style="font-size:11px;color:var(--text-muted);margin-top:5px;line-height:1.35">
-          Tarik kotak di atas tulisan nomor bidang (Nomor Hak &amp; SU) pada peta.
-        </div>
-      </div>
+      <div class="mu" id="tmsg">Pilih tool <b>Teks bidang</b> lalu klik peta untuk menambah teks, atau klik teks yang sudah ada untuk mengeditnya.</div>
 
       <div id="tform" class="hide">
         <input id="tno" placeholder="Nomor hak (misal: M.317)" style="margin-top:6px">
         <input id="tsu" placeholder="Surat Ukur (misal: SU.3997/1982)" style="margin-top:6px">
         <div style="display:flex;gap:6px;margin-top:6px">
-          <button id="btnOcrSelected" type="button" class="btn" style="flex:1;font-size:11.5px" title="Tarik kotak OCR untuk memperbarui teks ini">OCR Ulang</button>
           <button id="tdel" class="danger" style="flex:1;font-size:11.5px">Hapus teks</button>
         </div>
       </div>
@@ -487,16 +456,16 @@
       </label>
     </div>
 
-    <!-- Box 5: Deteksi Otomatis -->
+    <!-- Box 5: Deteksi Cepat -->
     <div class="box">
       <div class="box-header">
         <h3>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
-          <span>Deteksi Otomatis</span>
+          <span>Deteksi Cepat</span>
         </h3>
       </div>
       <div class="mu">Tarik kotak pada bagian peta untuk mendeteksi. Kandidat akan tampil oranye.</div>
-      <div class="mu" style="margin-top:5px">Parameter kepekaan, panjang minimum, dan celah dianalisis otomatis dari gambar. Persilangan garis dipotong otomatis; garis dobel dibuang. Kandidat bisa diedit dengan Pindah Titik/Hapus sebelum diterima.</div>
+      <div class="mu" style="margin-top:5px">Parameter kepekaan, panjang minimum, dan celah dianalisis otomatis dari gambar. Persilangan garis dipotong otomatis; garis dobel dibuang. Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.</div>
 
       <label class="mu" style="display:block;margin:10px 0 4px">Metode deteksi
         <select id="detectEngine" style="margin-top:4px;width:100%" title="Pilih mesin deteksi">
@@ -919,7 +888,7 @@
   </div>
 </div>
 
-<script src="js/core.js?v=5"></script>
+<script src="js/core.js?v=6"></script>
 <script src="js/detect.js?v=5"></script>
 <script src="js/mesin-jejak.js?v=5"></script>
 <script src="js/ui.js?v=5"></script>
@@ -929,7 +898,7 @@
 <script src="js/drawer.js?v=5"></script>
 
 
-<script src="js/info.js?v=4"></script>
+<script src="js/info.js?v=5"></script>
 
 
 <!-- PlotPeta: pengumuman dan chat bantuan -->
