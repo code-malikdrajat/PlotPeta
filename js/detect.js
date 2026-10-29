@@ -1,4 +1,4 @@
-// PlotPeta: Deteksi otomatis: gambar bantu, Hough, topologi, poligon bidang
+// PlotPeta: Deteksi Cepat: gambar bantu, Hough, topologi, poligon bidang
 
 // ===== ANALISIS OTOMATIS PARAMETER DETEKSI =====
 // Menganalisis area gambar untuk menentukan parameter optimal secara adaptif.
@@ -691,7 +691,7 @@ function runDet(R,poly=null){
       $('dMsg').textContent=
         cand.length+' jalur kandidat'
         +(nEnd?(', '+nEnd+' ujung bebas.'):'.')
-        +' Persilangan & duplikat sudah dibersihkan.'+(helperUsed?' Gambar bantu dipakai.':'')+topoNote+engineNote+' Kandidat bisa diedit dengan Pindah Titik/Hapus sebelum diterima.';
+        +' Persilangan & duplikat sudah dibersihkan.'+(helperUsed?' Gambar bantu dipakai.':'')+topoNote+engineNote+' Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.';
     }catch(x){cand=[];$('dMsg').textContent='Deteksi gagal: '+x.message}
     draw();
   },40);

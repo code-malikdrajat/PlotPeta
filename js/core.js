@@ -7,10 +7,9 @@ let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=
 let cal={pts:[],ok:false,M:null,mode:'local'};
 let cand=[],box=null,mv=null,polys=[],gaps=[],mapLocked=false;
 function editTarget(){return cand.length?cand:lines}
-function candMsg(){if(cand.length)$('dMsg').textContent=cand.length+' jalur kandidat. Kandidat bisa diedit dengan Pindah Titik/Hapus sebelum diterima.'}
+function candMsg(){if(cand.length)$('dMsg').textContent=cand.length+' jalur kandidat. Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.'}
 let helperPreview=null,helperPreviewImg=null,helperPreviewBusy=false;
 let selectionPoly=[], boxAction='detect', freehandDrawing=false;
-let ocrWorker=null, ocrBusy=false, reOcrTarget=null;
 let mapName='';
 const W=()=>plotCanvas.clientWidth,H=()=>plotCanvas.clientHeight,d1=()=>devicePixelRatio||1;
 function resize(){const r=$('wrap').getBoundingClientRect(),d=d1();plotCanvas.width=r.width*d;plotCanvas.height=r.height*d;plotCanvas.style.width=r.width+'px';plotCanvas.style.height=r.height+'px';draw()}
@@ -174,12 +173,7 @@ function setTool(t){
   }
   if(t==='M'){
     const n=cand.length?0:ensureIntersectionPoints();
-    $('st').innerHTML='<span class="status-dot"></span><span>Pindah Titik: drag titik, klik garis=potong, 2x segmen=hapus, klik titik lalu klik tujuan=tambah garis.'+(cand.length?' Kandidat deteksi bisa diedit sebelum diterima.':'')+(n?' Titik persilangan dibuat: '+n+'.':'')+'</span>';
-  }
-  if(t!=='ocr') reOcrTarget=null;
-  if(t==='ocr'){
-    $('st').innerHTML='<span class="status-dot" style="background:#10b981"></span><span>OCR Teks: Tarik kotak melingkupi teks nomor bidang pada peta.</span>';
-    const msg=$('ocrStatusMsg');if(msg)msg.innerHTML='Tarik kotak di atas teks nomor bidang (Nomor Hak &amp; SU) pada peta.';
+    $('st').innerHTML='<span class="status-dot"></span><span>Edit Titik: drag titik, klik garis=potong, 2x segmen=hapus, klik titik lalu klik tujuan=tambah garis.'+(cand.length?' Kandidat deteksi bisa diedit sebelum diterima.':'')+(n?' Titik persilangan dibuat: '+n+'.':'')+'</span>';
   }
   updateToolModeHint();
   document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
@@ -198,7 +192,7 @@ function updateToolModeHint(){
   if(!toolModeHint)return;
   if(tool==='A') toolModeHint.textContent=detectModeEl.value==='rect'?'Tarik kotak pada peta untuk mendeteksi garis.':detectModeEl.value==='poly'?'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk mendeteksi.':'Klik Deteksi seluruh peta pada panel kanan.';
   else if(tool==='E') toolModeHint.textContent=eraseModeEl.value==='click'?'Klik segmen garis yang ingin dihapus; bagian lain tetap.':eraseModeEl.value==='rect'?'Tarik kotak untuk menghapus objek/segmen di dalam area.':'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk menghapus.';
-  else toolModeHint.textContent='Pilih alat Deteksi Otomatis atau Hapus untuk menampilkan pilihannya di bawah tombol.';
+  else toolModeHint.textContent='Pilih alat Deteksi Cepat atau Hapus untuk menampilkan pilihannya di bawah tombol.';
 }
 detectModeEl?.addEventListener('change',updateToolModeHint); eraseModeEl?.addEventListener('change',()=>{erasePick=null;updateToolModeHint();draw()});
 $('topoTol')?.addEventListener('input',e=>{if($('val_topo'))$('val_topo').textContent=e.target.value+' px'});
@@ -277,7 +271,7 @@ function click(sp){
     }
     return;
   }
-  if(tool==='pan'||tool==='ocr'||tool==='T'){
+  if(tool==='pan'||tool==='T'){
     let hit=-1;
     texts.forEach((t,i)=>{const s=toS(t.p);if(Math.hypot(s[0]-sp[0],s[1]-sp[1])<18)hit=i});
     selT=hit;
@@ -316,14 +310,13 @@ plotCanvas.addEventListener('pointerdown',e=>{
       const s = toS(t.p);
       if(Math.hypot(s[0]-sp[0], s[1]-sp[1]) < 18) hitT = i;
     });
-    if(hitT >= 0 && (tool === 'ocr' || tool === 'pan' || tool === 'T')){
+    if(hitT >= 0 && (tool === 'pan' || tool === 'T')){
       selT = hitT;
       tform(true);
       showTextEditPopover(hitT);
       draw();
       return;
     }
-    if(tool==='ocr'){boxAction='ocr';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
     if(tool==='A' && detectModeEl?.value==='rect'){boxAction='detect';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
     if(tool==='E' && eraseModeEl?.value==='rect'){boxAction='erase';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
   }
@@ -380,7 +373,7 @@ plotCanvas.addEventListener('pointerup',e=>{
     const act=boxAction;
     box=null;
     const x=Math.max(0,a[0]),y=Math.max(0,a[1]),R={x,y,w:Math.min(iw,z[0])-x,h:Math.min(ih,z[1])-y};
-    if(act==='erase') eraseRegion(R,null); else if(act==='ocr') runOcr(R); else runDet(R);
+    if(act==='erase') eraseRegion(R,null); else runDet(R);
     draw();return;
   }
   if(drag&&!drag.moved&&drag.btn===0)click([e.offsetX,e.offsetY]);
@@ -637,195 +630,6 @@ if(popEl){
 $('tdel').onclick=()=>{if(selT>=0){snapshot();texts.splice(selT,1);selT=-1;closeTextEditPopover();tform();stat();draw()}};
 const stat=()=>$('cnt').textContent=lines.length+' rangkaian garis, '+texts.length+' teks';
 
-function parseCadastralText(text){
-  if(!text)return {no:'',su:'',raw:''};
-  const raw=String(text).trim();
-  // Normalisasi separator seperti pipe atau backslash di antara angka (misal: 3997|1982 -> 3997/1982)
-  const norm=raw.replace(/(\d+)\s*[\\|lI]\s*(\d{2,4})/g,'$1/$2');
-  const lines=norm.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-
-  let no='', su='';
-  const suRegex=/(?:SU|S\.U|GS|G\.S|SURAT\s*UKUR)[\s.:]*([0-9\/\-]+(?:\/[0-9]+)?)/i;
-  const hakRegex=/(?:HAK\s+MILIK|MILIK|HGB|HM|HP|HGU|HPL|GIRIK|LETTER\s*C|M|C)[\s.:]+([0-9]+[A-Z0-9\/\-]*)/i;
-  const slashPattern=/\b\d{1,6}\s*\/\s*(?:19|20)?\d{2,4}\b/;
-
-  const rem=[];
-  for(const line of lines){
-    if(!su && suRegex.test(line)){
-      const m=line.match(suRegex);
-      const isGS=/GS|G\.S/i.test(line);
-      su=(isGS?'GS.':'SU.')+m[1].replace(/\s+/g,'');
-      continue;
-    }
-    if(!no && hakRegex.test(line)){
-      const m=line.match(hakRegex);
-      const u=line.toUpperCase();
-      let pfx='M.';
-      if(u.includes('HGB')) pfx='HGB.';
-      else if(u.includes('HGU')) pfx='HGU.';
-      else if(u.includes('HP')) pfx='HP.';
-      else if(u.includes('HPL')) pfx='HPL.';
-      else if(u.includes('LETTER')||u.includes('C.')||u.startsWith('C ')) pfx='C.';
-      no=pfx+m[1].replace(/\s+/g,'');
-      continue;
-    }
-    rem.push(line);
-  }
-
-  // Jika SU belum ditemukan, cari pola garis miring (seperti nomor/tahun)
-  if(!su){
-    const idx=rem.findIndex(l=>slashPattern.test(l));
-    if(idx>=0){
-      const match=rem[idx].match(slashPattern)[0].replace(/\s+/g,'');
-      const isGS=/GS|G\.S/i.test(rem[idx]);
-      su=(isGS?'GS.':'SU.')+match;
-      rem.splice(idx,1);
-    }
-  }
-
-  // Jika Nomor Hak belum ditemukan, ambil baris pertama yang ada angka/huruf
-  if(!no && rem.length>0){
-    let cand=rem[0].replace(/[^a-zA-Z0-9\/\.\-]/g,'').trim();
-    if(cand){
-      if(/^[Mm]\d+/.test(cand)) cand='M.'+cand.slice(1);
-      no=cand;
-      rem.shift();
-    }
-  }
-
-  // Jika SU masih kosong dan masih ada baris dengan slash
-  if(!su && rem.length>0){
-    let cand=rem[0].replace(/[^a-zA-Z0-9\/\.\-]/g,'').trim();
-    if(cand.includes('/')) su=cand.startsWith('SU')||cand.startsWith('GS')?cand:'SU.'+cand;
-  }
-
-  // Fallback jika pola regex tidak cocok tapi teks terdeteksi
-  if(!no && !su && raw){
-    const clean=raw.replace(/\r?\n+/g,' ').replace(/[^\w\s\/\.\-]/g,'').trim();
-    if(clean.includes('/')) su=clean.startsWith('SU')||clean.startsWith('GS')?clean:'SU.'+clean;
-    else no=clean;
-  }
-
-  return {no, su, raw};
-}
-
-async function initOcrWorker(progressCb){
-  if(ocrWorker) return ocrWorker;
-  if(typeof Tesseract==='undefined'){
-    throw new Error('Pustaka OCR (Tesseract.js) belum termuat. Periksa koneksi internet Anda.');
-  }
-  const worker=await Tesseract.createWorker('eng',1,{
-    logger:m=>{
-      if(progressCb && m.status==='recognizing text'){
-        progressCb(Math.round((m.progress||0)*100));
-      }
-    }
-  });
-  ocrWorker=worker;
-  return worker;
-}
-
-async function runOcr(R){
-  if(!img){alert('Buka peta terlebih dahulu.');return;}
-  if(!R||R.w<6||R.h<6){
-    $('st').innerHTML='<span class="status-dot" style="background:#f59e0b"></span><span>Kotak seleksi terlalu kecil; tarik kotak melingkupi teks nomor bidang.</span>';
-    return;
-  }
-  if(ocrBusy){
-    $('st').innerHTML='<span class="status-dot" style="background:#f59e0b"></span><span>Sedang memproses OCR sebelumnya...</span>';
-    return;
-  }
-  ocrBusy=true;
-  const statusEl=$('ocrStatusMsg');
-  const setStatus=txt=>{
-    if(statusEl)statusEl.innerHTML=txt;
-    $('st').innerHTML='<span class="status-dot" style="background:#10b981"></span><span>'+txt+'</span>';
-  };
-  setStatus('Menyiapkan gambar dan OCR...');
-
-  try{
-    // Potong area gambar ke canvas sementara dengan skala resolusi optimal
-    const off=document.createElement('canvas');
-    const scale=Math.max(1,Math.min(3,Math.round(90/Math.max(R.h,20))));
-    const cw=Math.round(R.w*scale), ch=Math.round(R.h*scale);
-    off.width=cw; off.height=ch;
-    const octx=off.getContext('2d');
-    octx.imageSmoothingEnabled=true;
-    octx.imageSmoothingQuality='high';
-    octx.drawImage(img,R.x,R.y,R.w,R.h,0,0,cw,ch);
-
-    // Pra-pemrosesan: grayscale & peningkatan kontras
-    const imgData=octx.getImageData(0,0,cw,ch);
-    const data=imgData.data;
-    let minLum=255, maxLum=0;
-    for(let i=0;i<data.length;i+=4){
-      const g=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
-      data[i]=g; data[i+1]=g; data[i+2]=g;
-      if(g<minLum)minLum=g;
-      if(g>maxLum)maxLum=g;
-    }
-    const lumRange=maxLum-minLum;
-    if(lumRange>25){
-      for(let i=0;i<data.length;i+=4){
-        let g=((data[i]-minLum)*255)/lumRange;
-        g=g>130?Math.min(255,g*1.1):Math.max(0,g*0.9);
-        data[i]=g; data[i+1]=g; data[i+2]=g;
-      }
-    }
-    octx.putImageData(imgData,0,0);
-
-    setStatus('Mengenali karakter OCR...');
-    const worker=await initOcrWorker(pct=>{
-      setStatus('Membaca teks bidang... '+pct+'%');
-    });
-
-    const res=await worker.recognize(off);
-    const rawText=res?.data?.text||'';
-    const parsed=parseCadastralText(rawText);
-
-    if(!parsed.no && !parsed.su){
-      setStatus('Teks tidak terdeteksi jelas ('+(rawText.trim()?'"'+esc(rawText.trim())+'"':'kosong')+'). Silakan tarik ulang atau ketik manual.');
-    }else{
-      snapshot();
-      const targetPt=[Math.round(R.x+R.w/2),Math.round(R.y+R.h/2)];
-      if(reOcrTarget!==null && texts[reOcrTarget]){
-        if(parsed.no) texts[reOcrTarget].no=parsed.no;
-        if(parsed.su) texts[reOcrTarget].su=parsed.su;
-        selT=reOcrTarget;
-        reOcrTarget=null;
-        setStatus('OCR diperbarui: <b>'+esc(parsed.no||'-')+'</b>'+(parsed.su?' / <b>'+esc(parsed.su)+'</b>':''));
-      }else{
-        texts.push({
-          p: targetPt,
-          no: parsed.no,
-          su: parsed.su
-        });
-        selT=texts.length-1;
-        setStatus('OCR berhasil: <b>'+esc(parsed.no||'-')+'</b>'+(parsed.su?' / <b>'+esc(parsed.su)+'</b>':''));
-      }
-      tform(true);
-      showTextEditPopover(selT);
-      stat();
-      draw();
-    }
-  }catch(err){
-    console.error('PlotPeta OCR error:',err);
-    setStatus('Gagal memproses OCR: '+(err&&err.message?err.message:'kesalahan sistem'));
-  }finally{
-    ocrBusy=false;
-  }
-}
-
-$('btnOcrTool')?.addEventListener('click',()=>setTool('ocr'));
-$('btnOcrSelected')?.addEventListener('click',()=>{
-  if(selT>=0){
-    reOcrTarget=selT;
-    setTool('ocr');
-    $('st').innerHTML='<span class="status-dot" style="background:#10b981"></span><span>Tarik kotak OCR di atas teks bidang pada peta untuk memperbarui teks terpilih.</span>';
-    const msg=$('ocrStatusMsg');if(msg)msg.innerHTML='Tarik kotak di atas teks nomor bidang pada peta untuk memperbarui teks terpilih.';
-  }
-});
-
 function draw(){
   const d=d1();
   ctx.setTransform(d,0,0,d,0,0);
@@ -981,19 +785,10 @@ function draw(){
   }
   if(box){
     ctx.save();
-    if(boxAction==='ocr'){
-      ctx.setLineDash([5,3]);
-      ctx.strokeStyle='#10b981';
-      ctx.lineWidth=1.8;
-      ctx.strokeRect(box.x0,box.y0,box.x1-box.x0,box.y1-box.y0);
-      ctx.fillStyle='rgba(16,185,129,0.15)';
-      ctx.fillRect(box.x0,box.y0,box.x1-box.x0,box.y1-box.y0);
-    } else {
-      ctx.setLineDash([6,4]);
-      ctx.strokeStyle='#0ea5e9';
-      ctx.lineWidth=1.6;
-      ctx.strokeRect(box.x0,box.y0,box.x1-box.x0,box.y1-box.y0);
-    }
+    ctx.setLineDash([6,4]);
+    ctx.strokeStyle='#0ea5e9';
+    ctx.lineWidth=1.6;
+    ctx.strokeRect(box.x0,box.y0,box.x1-box.x0,box.y1-box.y0);
     ctx.restore();
   }
   if(selectionPoly.length){

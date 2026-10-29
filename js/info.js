@@ -20,9 +20,9 @@
         <ol ${ul}>
           <li><strong>Buka peta:</strong> klik <em>Buka peta</em> lalu pilih gambar scan JPG, PNG, atau TIFF. Gambar diproses di browser Anda dan tidak diunggah ke server.</li>
           <li><strong>Kalibrasi (opsional):</strong> mode lokal tidak memerlukan kalibrasi. Untuk koordinat peta/UTM, pilih mode koordinat peta, klik empat titik referensi, isi koordinat X dan Y yang benar, lalu klik <em>Terapkan</em>.</li>
-          <li><strong>Deteksi otomatis:</strong> pilih alat <em>Deteksi otomatis</em>, lalu tarik area atau klik <em>Deteksi seluruh peta</em>. Dengan <em>Parameter otomatis</em> aktif, pengaturan dihitung dari gambar; garis dobel dibuang dan persilangan dipotong otomatis. Matikan opsi itu bila ingin menyetel slider sendiri. Periksa kandidat (oranye) sebelum klik <em>Terima semua</em>.</li>
-          <li><strong>Edit:</strong> gunakan <em>Garis penuh</em>, <em>Geser titik</em>, dan <em>Hapus</em> untuk memperbaiki hasil.</li>
-          <li><strong>Teks bidang &amp; OCR:</strong> gunakan alat <em>OCR Teks</em> lalu tarik kotak di atas tulisan bidang pada peta untuk membaca nomor hak dan surat ukur secara otomatis, atau pilih <em>Teks bidang</em> untuk mengisi secara manual.</li>
+          <li><strong>Deteksi Cepat:</strong> pilih alat <em>Deteksi Cepat</em>, lalu tarik area atau klik <em>Deteksi seluruh peta</em>. Dengan <em>Parameter otomatis</em> aktif, pengaturan dihitung dari gambar; garis dobel dibuang dan persilangan dipotong otomatis. Matikan opsi itu bila ingin menyetel slider sendiri. Periksa kandidat (oranye) sebelum klik <em>Terima semua</em>.</li>
+          <li><strong>Edit:</strong> gunakan <em>Garis penuh</em>, <em>Edit Garis</em>, dan <em>Hapus</em> untuk memperbaiki hasil.</li>
+          <li><strong>Teks bidang:</strong> pilih alat <em>Teks bidang</em>, klik peta, lalu ketik nomor hak dan surat ukur.</li>
           <li><strong>Simpan:</strong> <em>Simpan lokal</em> menyimpan proyek ke komputer Anda. <em>Cloud</em> (perlu login) menyimpan data garis, teks, dan kalibrasi ke akun Anda; gambar peta tidak ikut diunggah.</li>
           <li><strong>Ekspor DXF:</strong> memerlukan login dan 1 token. Setelah diunduh, buka di aplikasi CAD dan periksa skala, koordinat, serta layer.</li>
         </ol>
