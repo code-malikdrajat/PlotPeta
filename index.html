@@ -14,7 +14,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<link rel="stylesheet" href="css/style.css?v=5">
+<link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 
@@ -260,6 +260,14 @@
         </details>
       </div>
 
+      <button data-tool="AI" title="Deteksi AI (beta): tarik kotak pada peta; potongan peta dikirim ke penyedia AI">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"></path>
+          <path d="M19 3v4"></path><path d="M21 5h-4"></path>
+        </svg>
+        <span>Deteksi AI <span class="tool-beta">beta</span></span>
+      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
+
       <button data-tool="E" title="Hapus segmen garis atau teks">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="3 6 5 6 21 6"></polyline>
@@ -476,6 +484,25 @@
       </div>
       <button id="dAll" style="margin-top:8px;width:100%">Deteksi seluruh peta</button>
       <div class="mu" id="dMsg"></div>
+    </div>
+
+    <!-- Box 5b: Deteksi AI (beta) -->
+    <div class="box">
+      <div class="box-header">
+        <h3>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"></path><path d="M19 3v4"></path><path d="M21 5h-4"></path></svg>
+          <span>Deteksi AI</span>
+          <span class="brand-badge ai-beta">Beta</span>
+        </h3>
+      </div>
+      <div class="mu">Tarik kotak dengan alat Deteksi AI, atau analisis seluruh peta. Garis dan teks hasil AI berwarna ungu; periksa sebelum menyimpan.</div>
+
+      <div class="g2" style="margin-top:12px">
+        <button class="pri" id="aiAll">Analisis seluruh peta</button>
+        <button id="aiCancel" class="hide">Batal</button>
+      </div>
+      <div class="mu" id="aiMsg"></div>
+      <button id="aiClear" style="margin-top:8px;width:100%">Tandai hasil AI sudah diperiksa</button>
     </div>
 
     <!-- Box 6: Cadangan Teks DXF (Fallback) -->
@@ -813,11 +840,12 @@
   </div>
 </div>
 
-<script src="js/core.js?v=7"></script>
-<script src="js/detect.js?v=6"></script>
+<script src="js/core.js?v=8"></script>
+<script src="js/detect.js?v=7"></script>
 <script src="js/mesin-jejak.js?v=6"></script>
 <script src="js/ui.js?v=6"></script>
-<script src="js/supabase.js?v=7"></script>
+<script src="js/supabase.js?v=8"></script>
+<script src="js/ai.js?v=1"></script>
 <script src="js/startup.js?v=5"></script>
 
 <script src="js/drawer.js?v=5"></script>
