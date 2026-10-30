@@ -152,6 +152,26 @@ body {
   letter-spacing: 0.5px;
 }
 
+/* Deteksi AI (beta) */
+.ai-beta {
+  background: rgba(168, 85, 247, 0.14);
+  color: #a855f7;
+  border-color: rgba(168, 85, 247, 0.3);
+}
+.tool-beta {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 4px;
+  margin-left: 2px;
+  border-radius: 4px;
+  background: rgba(168, 85, 247, 0.16);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  vertical-align: middle;
+}
+
 /* Divider */
 .bar-div {
   width: 1px;
