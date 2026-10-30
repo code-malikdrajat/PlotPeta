@@ -14,7 +14,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
 
@@ -248,12 +248,16 @@
             <option value="all">Seluruh peta</option>
           </select>
         </label>
-        <label>Metode Deteksi
-          <select id="detectEngineDrawer" title="Pilih mesin deteksi">
-            <option value="hough">Standar (Hough + filter)</option>
-            <option value="trace">Mesin jejak (batas bidang)</option>
-          </select>
-        </label>
+        <details>
+          <summary>Lanjutan</summary>
+          <label>Metode deteksi
+            <select id="detectEngineDrawer" title="Pilih mesin deteksi">
+              <option value="trace" selected>Mesin jejak (disarankan)</option>
+              <option value="hough">Garis lurus (Hough)</option>
+            </select>
+          </label>
+          <div class="tool-mode-hint">Hough lebih cocok untuk garis lurus lepas; Mesin jejak untuk batas bidang tertutup.</div>
+        </details>
       </div>
 
       <button data-tool="E" title="Hapus segmen garis atau teks">
@@ -464,86 +468,7 @@
           <span>Deteksi Cepat</span>
         </h3>
       </div>
-      <div class="mu">Tarik kotak pada bagian peta untuk mendeteksi. Kandidat akan tampil oranye.</div>
-      <div class="mu" style="margin-top:5px">Parameter kepekaan, panjang minimum, dan celah dianalisis otomatis dari gambar. Persilangan garis dipotong otomatis; garis dobel dibuang. Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.</div>
-
-      <label class="mu" style="display:block;margin:10px 0 4px">Metode deteksi
-        <select id="detectEngine" style="margin-top:4px;width:100%" title="Pilih mesin deteksi">
-          <option value="hough">Standar (Hough + filter)</option>
-          <option value="trace">Mesin jejak (batas bidang)</option>
-        </select>
-      </label>
-      <div class="mu" id="detectEngineHint" style="margin-top:-2px;margin-bottom:4px">Mesin jejak menelusuri kerangka garis lalu memasangnya kembali menjadi batas bidang. Cocok untuk bidang tertutup; metode standar lebih baik untuk garis lurus lepas.</div>
-
-      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0 4px">
-        <input id="autoParamToggle" type="checkbox" checked style="width:auto">
-        <span>Parameter otomatis (analisis gambar)</span>
-      </label>
-      <div id="autoParamInfo" style="font-size:11px;color:var(--accent);margin-bottom:8px;min-height:16px"></div>
-
-      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0">
-        <input id="helperDetectToggle" type="checkbox" checked style="width:auto">
-        <span>Gunakan gambar bantu saat deteksi (hapus latar &amp; teks)</span>
-      </label>
-
-      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0">
-        <input id="helperViewToggle" type="checkbox" style="width:auto">
-        <span>Lihat gambar bantu (teks biru, garis hitam)</span>
-      </label>
-      <div class="mu" id="helperViewMsg" style="margin-top:-4px;margin-bottom:8px"></div>
-
-      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0 4px">
-        <input id="topoAutoToggle" type="checkbox" checked style="width:auto">
-        <span>Rapikan topologi hasil deteksi (join/extend/trim)</span>
-      </label>
-      <div id="topoManual" class="hide">
-        <div class="slider-row" style="margin-top:8px">
-          <span>Toleransi rapikan otomatis</span>
-          <span class="slider-val" id="val_topo">16 px</span>
-        </div>
-        <input id="topoTol" type="range" min="4" max="40" value="16" style="width:100%">
-        <div class="mu" style="margin-top:-4px;margin-bottom:8px">Menyambung ujung berdekatan, menutup undershoot, dan memotong overshoot pada kandidat deteksi.</div>
-      </div>
-
-      <div id="manualBasicSliders" class="hide">
-      <div class="slider-row">
-        <span>Kepekaan</span>
-        <span class="slider-val" id="val_dT">40</span>
-      </div>
-      <input id="dT" type="range" min="15" max="90" value="40" style="width:100%">
-
-      <div class="slider-row">
-        <span>Panjang minimum</span>
-        <span class="slider-val" id="val_dL">120 px</span>
-      </div>
-      <input id="dL" type="range" min="40" max="600" value="120" style="width:100%">
-
-      <div class="slider-row">
-        <span>Celah putus-putus</span>
-        <span class="slider-val" id="val_dG">50 px</span>
-      </div>
-      <input id="dG" type="range" min="10" max="120" value="50" style="width:100%">
-      </div>
-
-      <label class="mu" style="display:flex;align-items:center;gap:8px;margin:10px 0">
-        <input id="autoMagToggle" type="checkbox" checked style="width:auto">
-        <span>Aktifkan Magnet Otomatis (lindungi garis berkelok)</span>
-      </label>
-
-      <div id="manualMagnetSliders" class="hide">
-      <div class="slider-row">
-        <span>Radius Magnet Otomatis</span>
-        <span class="slider-val" id="val_magR">40 px</span>
-      </div>
-      <input id="magR" type="range" min="10" max="80" value="40" style="width:100%">
-
-      <div class="slider-row">
-        <span>Jarak sambung maks (otomatis)</span>
-        <span class="slider-val" id="val_linkMax">120 px</span>
-      </div>
-      <input id="linkMax" type="range" min="0" max="400" step="10" value="120" style="width:100%">
-      <div class="mu" style="margin-top:2px">Dua ujung garis yang arahnya saling melanjutkan disambung otomatis sampai jarak ini (0 = mati).</div>
-      </div>
+      <div class="mu">Pilih area lewat alat Deteksi Cepat di kiri, atau deteksi seluruh peta. Parameter dihitung otomatis dari gambar. Hasil (oranye) bisa diedit dengan Edit Titik/Hapus sebelum diterima.</div>
 
       <div class="g2" style="margin-top:12px">
         <button class="pri" id="dOk">Terima semua</button>
@@ -888,17 +813,17 @@
   </div>
 </div>
 
-<script src="js/core.js?v=6"></script>
-<script src="js/detect.js?v=5"></script>
-<script src="js/mesin-jejak.js?v=5"></script>
-<script src="js/ui.js?v=5"></script>
+<script src="js/core.js?v=7"></script>
+<script src="js/detect.js?v=6"></script>
+<script src="js/mesin-jejak.js?v=6"></script>
+<script src="js/ui.js?v=6"></script>
 <script src="js/supabase.js?v=7"></script>
 <script src="js/startup.js?v=5"></script>
 
 <script src="js/drawer.js?v=5"></script>
 
 
-<script src="js/info.js?v=5"></script>
+<script src="js/info.js?v=6"></script>
 
 
 <!-- PlotPeta: pengumuman dan chat bantuan -->
