@@ -5,7 +5,7 @@
  * di peta asli). Hasil harus ditinjau petugas sebelum dipakai.
  *
  * Bergantung pada (sudah ada di aplikasi): img, $(id), plotPetaBuildChains, plotPetaNumberEnds,
- * isian #dL (panjang minimum), #linkMax (jarak sambung maksimum), #pTol.
+ * dan isian #pTol.
  *
  * Titik masuk: detectTrace(R, opt)  dengan R = {x, y, w, h} (piksel gambar asli).
  * Keluaran: daftar jalur seperti detect(): {pts, closed, free, nums}; properti .stats berisi ringkasan.
@@ -484,18 +484,18 @@ function plotPetaCloseGaps(segs,o){
 // Pelacak batas: kembalikan jalur bernomor seperti detect(), siap diperiksa dan diterima.
 function detectTrace(R,opt){
   opt=opt||{};
-  const dL=opt.minLen??(+$('dL').value||120),linkMax=opt.linkMax??(+($('linkMax')?$('linkMax').value:120));
+  const minLen=opt.minLen??120,linkMax=opt.linkMax??120;
   const sc=Math.min(1,(opt.maxSide||2600)/Math.max(R.w,R.h));
   const {bin,w,h}=opt.ridge===false?ppBinarize(R,sc):ppBinarizeRidge(R,sc,opt.sigma,opt.rel);
   const sx=w/R.w,sy=h/R.h,pxs=Math.sqrt(sx*sy);
-  ppDropSmall(bin,w,h,Math.max(10,0.4*dL*pxs));
+  ppDropSmall(bin,w,h,Math.max(10,0.4*minLen*pxs));
   ppThin(bin,w,h);
   let G=ppSkeletonGraph(bin,w,h);
-  const overMax=Math.max(10,Math.min(30,0.15*dL));
-  G=ppCleanGraph(G,overMax*pxs,0.35*dL*pxs);
+  const overMax=Math.max(10,Math.min(30,0.15*minLen));
+  G=ppCleanGraph(G,overMax*pxs,0.35*minLen*pxs);
   let nPlus=0;
-  if(opt.textFilter!==false){G.edges=ppTextFilter(G.edges,pxs);G=ppCleanGraph(G,overMax*pxs,0.35*dL*pxs)}
-  if(opt.plusFilter!==false){nPlus=ppDropPlusMarks(G,pxs)+ppDropOpenPlus(G,pxs);G=ppCleanGraph(G,overMax*pxs,0.35*dL*pxs)}
+  if(opt.textFilter!==false){G.edges=ppTextFilter(G.edges,pxs);G=ppCleanGraph(G,overMax*pxs,0.35*minLen*pxs)}
+  if(opt.plusFilter!==false){nPlus=ppDropPlusMarks(G,pxs)+ppDropOpenPlus(G,pxs);G=ppCleanGraph(G,overMax*pxs,0.35*minLen*pxs)}
   const edges=ppRefineGraph(G,1.2);
   const segs=[];
   for(const e of edges)for(let i=0;i<e.v.length-1;i++){
@@ -505,9 +505,9 @@ function detectTrace(R,opt){
   const closed=plotPetaCloseGaps(segs,{linkMax,snap:0.6});
   const attachTol=Math.max(3,+($('pTol')?$('pTol').value:8)||8);
   let chains=plotPetaBuildChains(closed.segs,0.8,attachTol);
-  if(opt.isoFilter!==false){const IW=img.width,IH=img.height,minIso=Math.max(0.35*dL,0.016*Math.max(IW,IH));
+  if(opt.isoFilter!==false){const IW=img.width,IH=img.height,minIso=Math.max(0.35*minLen,0.016*Math.max(IW,IH));
     chains=chains.filter(c=>{if(c.closed||!c.free||!c.free[0]||!c.free[1])return true;let L=0;for(let i=1;i<c.pts.length;i++)L+=Math.hypot(c.pts[i][0]-c.pts[i-1][0],c.pts[i][1]-c.pts[i-1][1]);return L>=minIso})}
-  chains=chains.filter(c=>{let L=0;for(let i=1;i<c.pts.length;i++)L+=Math.hypot(c.pts[i][0]-c.pts[i-1][0],c.pts[i][1]-c.pts[i-1][1]);return c.closed||L>=Math.max(12,0.35*dL)});
+  chains=chains.filter(c=>{let L=0;for(let i=1;i<c.pts.length;i++)L+=Math.hypot(c.pts[i][0]-c.pts[i-1][0],c.pts[i][1]-c.pts[i-1][1]);return c.closed||L>=Math.max(12,0.35*minLen)});
   plotPetaNumberEnds(chains);
   chains.stats=Object.assign({},closed.stats,{abaikanSilang:nPlus});
   return chains;

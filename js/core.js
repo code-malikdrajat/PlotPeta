@@ -8,7 +8,6 @@ let cal={pts:[],ok:false,M:null,mode:'local'};
 let cand=[],box=null,mv=null,polys=[],gaps=[],mapLocked=false;
 function editTarget(){return cand.length?cand:lines}
 function candMsg(){if(cand.length)$('dMsg').textContent=cand.length+' jalur kandidat. Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.'}
-let helperPreview=null,helperPreviewImg=null,helperPreviewBusy=false;
 let selectionPoly=[], boxAction='detect', freehandDrawing=false;
 let mapName='';
 const W=()=>plotCanvas.clientWidth,H=()=>plotCanvas.clientHeight,d1=()=>devicePixelRatio||1;
@@ -34,13 +33,11 @@ function loadImg(src){
     img=im;
     iw=im.naturalWidth;
     ih=im.naturalHeight;
-    helperPreview=null;helperPreviewImg=null;erasePick=null;addLinePick=null;
-    if($('helperViewMsg'))$('helperViewMsg').textContent='';
+    erasePick=null;addLinePick=null;
     fitV();
     draw();
     updateDropzone();
     $('st').innerHTML='<span class="status-dot"></span><span>'+iw+' &times; '+ih+' px</span>';
-    if($('helperViewToggle')?.checked)refreshHelperView(true);
   };
   im.src=src;
 }
@@ -140,8 +137,7 @@ async function loadTiffFile(file){
       canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(rgba),w,h),0,0);
       loadedImage=canvas;shownW=w;shownH=h;
     }
-    img=loadedImage;iw=shownW;ih=shownH;helperPreview=null;helperPreviewImg=null;erasePick=null;addLinePick=null;if($('helperViewMsg'))$('helperViewMsg').textContent='';fitV();draw();updateDropzone();
-    if($('helperViewToggle')?.checked)refreshHelperView(true);
+    img=loadedImage;iw=shownW;ih=shownH;erasePick=null;addLinePick=null;fitV();draw();updateDropzone();
     $('st').innerHTML='<span class="status-dot"></span><span>'+w.toLocaleString('id-ID')+' × '+h.toLocaleString('id-ID')+' px · TIFF'+(notice?' · pratinjau diperkecil':'')+'</span>';
     if(notice) alert(notice+' Kamu bisa mulai digitasi dari pratinjau. Untuk digitasi otomatis yang menelusuri semua piksel asli, diperlukan pemrosesan TIFF bertile beresolusi penuh; pratinjau ini tidak mempertahankan detail piksel terkecil.');
   }catch(err){
@@ -182,10 +178,6 @@ function setTool(t){
 }
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
 const detectModeEl=$('detectMode'), eraseModeEl=$('eraseMode'), toolModeHint=$('toolModeHint');
-const detectEngineEl=$('detectEngine'), detectEngineDrawerEl=$('detectEngineDrawer');
-function syncDetectEngine(src,dst){ if(src&&dst) dst.value=src.value; }
-detectEngineEl?.addEventListener('change',()=>syncDetectEngine(detectEngineEl,detectEngineDrawerEl));
-detectEngineDrawerEl?.addEventListener('change',()=>syncDetectEngine(detectEngineDrawerEl,detectEngineEl));
 function updateToolModeHint(){
   document.querySelector('.detect-mode-options')?.classList.toggle('mode-visible', tool==='A');
   document.querySelector('.erase-mode-options')?.classList.toggle('mode-visible', tool==='E');
@@ -195,11 +187,6 @@ function updateToolModeHint(){
   else toolModeHint.textContent='Pilih alat Deteksi Cepat atau Hapus untuk menampilkan pilihannya di bawah tombol.';
 }
 detectModeEl?.addEventListener('change',updateToolModeHint); eraseModeEl?.addEventListener('change',()=>{erasePick=null;updateToolModeHint();draw()});
-$('topoTol')?.addEventListener('input',e=>{if($('val_topo'))$('val_topo').textContent=e.target.value+' px'});
-const topoAutoEl=$('topoAutoToggle'),topoManualEl=$('topoManual');
-const syncTopoManual=()=>topoManualEl?.classList.toggle('hide',!!topoAutoEl?.checked);
-topoAutoEl?.addEventListener('change',syncTopoManual);
-syncTopoManual();
 
 
 function snapPt(p){
@@ -636,12 +623,6 @@ function draw(){
   ctx.clearRect(0,0,W(),H());
   if(!img)return;
   ctx.drawImage(img,V.x,V.y,iw*V.s,ih*V.s);
-  if(helperPreview&&helperPreviewImg===img&&$('helperViewToggle')?.checked){
-    ctx.save();
-    ctx.globalAlpha=.86;ctx.fillStyle='#fff';ctx.fillRect(V.x,V.y,iw*V.s,ih*V.s);
-    ctx.globalAlpha=.96;ctx.drawImage(helperPreview,V.x,V.y,iw*V.s,ih*V.s);
-    ctx.restore();
-  }
   const path=pts=>{
     ctx.beginPath();
     pts.forEach((p,i)=>{const s=toS(p);i?ctx.lineTo(s[0],s[1]):ctx.moveTo(s[0],s[1])});
@@ -854,9 +835,6 @@ $('btnClearMap').onclick=async()=>{
   if(!confirm('Hapus peta yang sedang terbuka beserta semua garis, poligon, teks, dan kalibrasinya? Proyek yang sudah disimpan di Cloud tidak ikut terhapus.')) return;
   img=null; iw=0; ih=0; mapName='';
   lines=[]; texts=[]; polys=[]; gaps=[]; cand=[]; cur=[]; hist=[];
-  helperPreview=null; helperPreviewImg=null; helperPreviewBusy=false;
-  if($('helperViewToggle')) $('helperViewToggle').checked=false;
-  if($('helperViewMsg')) $('helperViewMsg').textContent='';
   selT=-1; dirty=false; box=null; mv=null; drag=null; mouse=null; erasePick=null;addLinePick=null;
   cal.pts=[]; cal.ok=false; cal.M=null;
   ['cx0','cy0','cx1','cy1','cx2','cy2','cx3','cy3'].forEach(id=>{ if($(id)) $(id).value=''; });

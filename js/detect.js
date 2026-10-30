@@ -218,7 +218,7 @@ function plotPetaNumberEnds(chains){
   return n;
 }
 function detect(R,opt){
-  const T=opt?.T ?? +$('dT').value,minL=opt?.minL ?? +$('dL').value,gapF=opt?.gapF ?? +$('dG').value;
+  const T=opt?.T ?? 40,minL=opt?.minL ?? 120,gapF=opt?.gapF ?? 50;
   const sc=detectionScale(R),w=Math.max(16,Math.round(R.w*sc)),h=Math.max(16,Math.round(R.h*sc));
   const oc=document.createElement('canvas');oc.width=w;oc.height=h;const o=oc.getContext('2d',{willReadFrequently:true});
   o.fillStyle='#fff';o.fillRect(0,0,w,h);o.imageSmoothingQuality='high';
@@ -360,13 +360,13 @@ function detect(R,opt){
   };
   // Magnet otomatis opsional. Segmen panjang (>150 px) dikecualikan sebagai
   // perlindungan konservatif bagi jalan/sungai berkelok; bukan deteksi kurva sempurna.
-  const useAutoMag=opt?.autoMag ?? ($('autoMagToggle')?.checked ?? true);
+  const useAutoMag=opt?.autoMag ?? true;
   if(useAutoMag){
   // ===== RAPIKAN: satu garis per tepi, tersambung di sudut =====
   // 1) fragmen segaris (termasuk segmen panjang) digabung jadi satu garis dan dicocokkan ulang (PCA);
   // 2) ujung garis ditarik ke titik potong terdekat dengan garis lain (termasuk garis panjang), dibatasi radius magnet;
   // 3) ujung yang berdekatan disatukan; garis kembar dan sisa pendek yang terisolasi dibuang.
-  const userMagR=opt?.magR ?? +($('magR')?.value || 40);
+  const userMagR=opt?.magR ?? 40;
   const R2=userMagR;
   const segLen=s=>Math.hypot(s.p[1][0]-s.p[0][0],s.p[1][1]-s.p[0][1]);
   let S=out.map(q=>({p:[[q[0],q[1]],[q[2],q[3]]],parts:[[q[0],q[1],q[2],q[3]]]}));
@@ -515,7 +515,7 @@ function detect(R,opt){
     return false;
   };
   const linkAll=()=>{
-    const linkMax=((opt?.linkMax ?? (+($('linkMax')?$('linkMax').value:120)))*sc);
+    const linkMax=((opt?.linkMax ?? 120)*sc);
     if(!(linkMax>0))return;
     const cosCont=Math.cos(30*Math.PI/180);
     const ends=[];
@@ -625,69 +625,50 @@ function finishSelection(){
 function runDet(R,poly=null){
   if(!img||R.w<20||R.h<20)return;
   $('dMsg').textContent='Mendeteksi...';
-  $('autoParamInfo').textContent='';
   setTimeout(async()=>{
     try{
-      const engine=$('detectEngine')?.value==='trace'?'trace':'hough';
-      let params;
-      // 1. Parameter otomatis jika toggle aktif
-      if($('autoParamToggle')?.checked){
-        const p=analyzeRegion(R);
-        $('dT').value=p.dT;$('dL').value=p.dL;$('dG').value=p.dG;
-        $('val_dT').textContent=p.dT;
-        $('val_dL').textContent=p.dL+' px';
-        $('val_dG').textContent=p.dG+' px';
-        $('magR').value=p.magR;$('linkMax').value=p.linkMax;
-        $('val_magR').textContent=p.magR+' px';
-        $('val_linkMax').textContent=p.linkMax+' px';
-        $('autoParamInfo').textContent=
-          'Auto → kepekaan: '+p.dT+', min: '+p.dL+'px, celah: '+p.dG+'px, magnet: '+p.magR+'px, sambung: '+p.linkMax+'px';
-        params={T:p.dT,minL:p.dL,gapF:p.dG,magR:p.magR,linkMax:p.linkMax,medRun:p.medRun||2,autoMag:true};
-      }else{
-        params={T:+$('dT').value,minL:+$('dL').value,gapF:+$('dG').value,magR:+($('magR')?.value||40),linkMax:+($('linkMax')?.value||120),medRun:2,autoMag:($('autoMagToggle')?.checked??true)};
-      }
+      const engine=$('detectEngineDrawer')?.value==='hough'?'hough':'trace';
+      const p=analyzeRegion(R);
+      const params={T:p.dT,minL:p.dL,gapF:p.dG,magR:p.magR,linkMax:p.linkMax,medRun:p.medRun||2,autoMag:true};
       cand=[];
       let helperUsed=false;
       if(engine==='trace'){
-        // 2a. Mesin jejak: raster -> kerangka 1 px -> graf -> garis dipasang ulang.
+        // Mesin jejak: raster -> kerangka 1 px -> graf -> garis dipasang ulang.
         if(typeof detectTrace!=='function') throw new Error('Mesin jejak belum termuat. Muat ulang halaman.');
         $('dMsg').textContent='Menelusuri batas bidang dengan mesin jejak...';
         await new Promise(r=>setTimeout(r,10));
         cand=detectTrace(R,{minLen:params.minL,linkMax:params.linkMax});
       }else{
-        // 2b. Gambar bantu: latar dihapus, teks dibuang, hanya garis hitam.
-        if($('helperDetectToggle')?.checked){
-          $('dMsg').textContent='Menyiapkan gambar bantu...';
+        // Hough: gambar bantu (latar dihapus, teks dibuang) selalu dicoba; gagal -> gambar asli.
+        $('dMsg').textContent='Menyiapkan gambar bantu...';
+        await new Promise(r=>setTimeout(r,10));
+        try{
+          const hd=buildHelperData(R,params,{preview:false});
+          params.source=hd.lineOnly;
+          helperUsed=true;
+        }catch(e){
+          $('dMsg').textContent='Gambar bantu gagal, memakai gambar asli...';
           await new Promise(r=>setTimeout(r,10));
-          try{
-            const hd=buildHelperData(R,params,{preview:false});
-            params.source=hd.lineOnly;
-            helperUsed=true;
-          }catch(e){
-            $('dMsg').textContent='Gambar bantu gagal, memakai gambar asli...';
-            await new Promise(r=>setTimeout(r,10));
-          }
         }
         $('dMsg').textContent='Mendeteksi...';
-        // 3. Deteksi dengan Hough + Smart Filter
         cand=detect(R,params);
       }
-      // 4. Filter berdasarkan area poligon jika ada
+      // Filter berdasarkan area poligon jika ada
       if(poly&&poly.length>=3) cand=cand.filter(c=>{
         let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;
         return n>=c.pts.length/2;
       });
       let topoNote='';
-      if(cand.length&&$('topoAutoToggle')?.checked){
+      if(cand.length){
         try{
-          const tr=cleanTopologyChains(cand,{mode:'all',tol:+($('topoTol')?.value||16)});
+          const tr=cleanTopologyChains(cand,{mode:'all',tol:16});
           cand=tr.chains;
           topoNote=' Topologi dirapikan ('+tr.stats.joins+' join, '+tr.stats.extends+' extend, '+tr.stats.trims+' trim).';
         }catch(e){console.warn('Rapikan topologi otomatis gagal:',e)}
       }
       if(cand.length&&cand[0].free) plotPetaNumberEnds(cand);
       const nEnd=cand.reduce((z,c)=>z+((c.nums||[]).filter(Boolean).length),0);
-      const engineNote=engine==='trace'?' Mesin jejak dipakai.':'';
+      const engineNote=engine==='hough'?' Metode Hough dipakai.':'';
       $('dMsg').textContent=
         cand.length+' jalur kandidat'
         +(nEnd?(', '+nEnd+' ujung bebas.'):'.')
@@ -711,30 +692,6 @@ $('dNo').onclick=()=>{cand=[];$('dMsg').textContent='';draw()};
 $('dAll').onclick=()=>{
   if(!img){$('dMsg').textContent='Buka peta dulu.';return}
   runDet({x:0,y:0,w:iw,h:ih});
-};
-
-async function refreshHelperView(force=false){
-  if(!img){$('helperViewMsg').textContent='Buka peta dulu.';return}
-  if(!force&&helperPreview&&helperPreviewImg===img){draw();return}
-  if(helperPreviewBusy)return;
-  helperPreviewBusy=true;
-  $('helperViewMsg').textContent='Menyiapkan gambar bantu...';
-  await new Promise(r=>setTimeout(r,20));
-  try{
-    const hd=buildHelperData({x:0,y:0,w:iw,h:ih},null,{preview:true});
-    helperPreview=hd.preview;helperPreviewImg=img;
-    $('helperViewMsg').textContent='Teks biru: '+hd.textComps+' komponen. Garis hitam dipertahankan.'+(hd.noiseComps?', '+hd.noiseComps+' bintik dibuang.':'');
-  }catch(e){
-    helperPreview=null;helperPreviewImg=null;
-    $('helperViewMsg').textContent='Gagal membuat gambar bantu: '+e.message;
-  }finally{
-    helperPreviewBusy=false;
-    draw();
-  }
-}
-$('helperViewToggle').onchange=()=>{
-  if($('helperViewToggle').checked)refreshHelperView();
-  else{$('helperViewMsg').textContent='';draw()}
 };
 
 function topoNearestLinePoint(sp,maxD=16){
@@ -952,11 +909,8 @@ function handleTopoTool(sp){
 }
 
 function helperParams(R){
-  if($('autoParamToggle')?.checked){
-    const p=analyzeRegion(R);
-    return {T:p.dT,minL:p.dL,gapF:p.dG,magR:p.magR,linkMax:p.linkMax,medRun:p.medRun||2,autoMag:true};
-  }
-  return {T:+$('dT').value,minL:+$('dL').value,gapF:+$('dG').value,magR:+($('magR')?.value||40),linkMax:+($('linkMax')?.value||120),medRun:2,autoMag:($('autoMagToggle')?.checked??true)};
+  const p=analyzeRegion(R);
+  return {T:p.dT,minL:p.dL,gapF:p.dG,magR:p.magR,linkMax:p.linkMax,medRun:p.medRun||2,autoMag:true};
 }
 
 function buildHelperData(R,params,opts){
@@ -1038,9 +992,6 @@ function buildHelperData(R,params,opts){
   }
   const lineCv=document.createElement('canvas');lineCv.width=w;lineCv.height=h;
   const lctx=lineCv.getContext('2d'),limg=lctx.createImageData(w,h),lpd=limg.data;
-  const wantPreview=opts?.preview!==false;
-  let prevCv=null,pctx=null,pimg=null,ppd=null;
-  if(wantPreview){prevCv=document.createElement('canvas');prevCv.width=w;prevCv.height=h;pctx=prevCv.getContext('2d');pimg=pctx.createImageData(w,h);ppd=pimg.data}
   for(let i=0;i<N;i++){
     const a=i*4;
     if(!ink[i]){
@@ -1049,17 +1000,14 @@ function buildHelperData(R,params,opts){
     }
     if(tm[i]===2){
       lpd[a]=lpd[a+1]=lpd[a+2]=lpd[a+3]=255;
-      if(wantPreview){ppd[a]=21;ppd[a+1]=101;ppd[a+2]=255;ppd[a+3]=255}
     }else if(tm[i]===4){
       lpd[a]=lpd[a+1]=lpd[a+2]=lpd[a+3]=255;
     }else{
       lpd[a]=lpd[a+1]=lpd[a+2]=0;lpd[a+3]=255;
-      if(wantPreview){ppd[a]=ppd[a+1]=ppd[a+2]=0;ppd[a+3]=255}
     }
   }
   lctx.putImageData(limg,0,0);
-  if(wantPreview)pctx.putImageData(pimg,0,0);
-  return {lineOnly:lineCv,preview:prevCv,w,h,sc,textComps,lineComps,noiseComps};
+  return {lineOnly:lineCv,w,h,sc,textComps,lineComps,noiseComps};
 }
 
 

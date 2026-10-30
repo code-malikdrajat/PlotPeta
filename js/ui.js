@@ -1,29 +1,6 @@
 // PlotPeta: Kontrol UI: slider, drag-drop, zoom, kunci peta, header, tema
 
 // ==================== LIVE SLIDERS & CONTROLS ====================
-const sliderPairs = [
-  ['dT', 'val_dT', ''],
-  ['dL', 'val_dL', ' px'],
-  ['dG', 'val_dG', ' px'],
-  ['linkMax', 'val_linkMax', ' px'],
-  ['magR', 'val_magR', ' px']
-];
-sliderPairs.forEach(([sliderId, labelId, suffix]) => {
-  const s = $(sliderId), l = $(labelId);
-  if(s && l){
-    s.addEventListener('input', () => { l.textContent = s.value + suffix; });
-  }
-});
-
-
-// Slider manual hanya tampil saat "Parameter otomatis" dimatikan.
-function syncManualSliders(){
-  const auto=$('autoParamToggle')?.checked ?? true;
-  $('manualBasicSliders')?.classList.toggle('hide',auto);
-  $('manualMagnetSliders')?.classList.toggle('hide',auto);
-}
-$('autoParamToggle')?.addEventListener('change',syncManualSliders);
-syncManualSliders();
 
 // Drag and drop onto Canvas
 const wrapEl = $('wrap');
