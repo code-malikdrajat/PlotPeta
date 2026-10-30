@@ -1429,6 +1429,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 .tool-mode-options label { display:flex; flex-direction:column; gap:4px; color:var(--text-muted); font-size:10.5px; font-weight:700; }
 .tool-mode-options select { width:100%; min-width:0; font-size:11px; padding:7px 6px; }
 .tool-mode-hint { color:var(--text-dim); font-size:10px; line-height:1.45; }
+.tool-mode-options details, .tool-mode-options summary { font-size:10.5px; color:var(--text-muted); cursor:pointer; }
 #main.drawer-collapsed .tool-mode-options { display:none; }
 @media (max-width:680px) { .tool-mode-options { display:none; } }
 /* Header layout: account tools and login are grouped on the right */
