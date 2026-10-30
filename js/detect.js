@@ -678,16 +678,30 @@ function runDet(R,poly=null){
   },40);
 }
 $('dOk').onclick=()=>{
-  if(!cand.length)return;
+  const pendingTexts=(typeof aiTexts==='undefined'?[]:aiTexts);
+  if(!cand.length&&!pendingTexts.length)return;
   snapshot();
-  cand.forEach(c=>lines.push({k:'P',pts:c.pts}));
+  cand.forEach(c=>lines.push({k:'P',pts:c.pts,ai:c.ai,weak:c.weak}));
+  pendingTexts.forEach(t=>texts.push({p:t.p,no:t.no,su:t.su,ai:true,fmtWarn:t.fmtWarn}));
+  if(pendingTexts.length)aiTexts=[];
   ensureIntersectionPoints(true);
   cand=[];
-  $('dMsg').textContent='Kandidat diterima sebagai garis.';
+  if(typeof aiSel!=='undefined')aiSel=-1;
+  closeTextEditPopover();tform();
+  $('dMsg').textContent='Kandidat diterima sebagai garis'+(pendingTexts.length?' dan teks':'')+'.';
   stat();
   draw();
 };
-$('dNo').onclick=()=>{cand=[];$('dMsg').textContent='';draw()};
+$('dNo').onclick=()=>{
+  cand=[];
+  if(typeof aiTexts!=='undefined')aiTexts=[];
+  if(typeof aiRaw!=='undefined')aiRaw=[];
+  if(typeof aiSel!=='undefined')aiSel=-1;
+  closeTextEditPopover();tform();
+  $('dMsg').textContent='';
+  stat();
+  draw();
+};
 
 $('dAll').onclick=()=>{
   if(!img){$('dMsg').textContent='Buka peta dulu.';return}

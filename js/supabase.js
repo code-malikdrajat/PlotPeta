@@ -327,7 +327,7 @@ async function openCloudProject(id){
 
   const o = p.data || {};
   lines = o.lines || []; erasePick = null;
-  polys = o.polys || []; gaps = []; cand = []; cal.ok = false; cal.M = null;
+  polys = o.polys || []; gaps = []; cand = []; aiTexts = []; aiRaw = []; cal.ok = false; cal.M = null;
   texts = o.texts || [];
   cal.pts = (o.cal || []).map(c => c.p);
   setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
@@ -339,7 +339,7 @@ async function openCloudProject(id){
   $('th').value = o.th || 5;
   if(o.ly) ['lP','lD','lSu','lM','lPoly'].forEach((i, k) => { $(i).value = o.ly[k]; });
 
-  hist = []; cur = []; selT = -1;
+  hist = []; cur = []; selT = -1; aiSel = -1;
   tform(); stat();
   if(cal.pts.length === 4) fitCal();
   dirty = false;
@@ -764,6 +764,12 @@ async function openLedgerModal(){
 // ==================== EXPORT DXF DENGAN VERIFIKASI TOKEN ====================
 $('exp').onclick = async () => {
   if(!ready()) return;
+
+  const aiLines = lines.filter(l => l.ai).length;
+  const aiTxts = texts.filter(t => t.ai).length;
+  if(aiLines + aiTxts > 0){
+    if(!confirm(`Ada ${aiLines} garis dan ${aiTxts} teks hasil AI yang belum ditandai diperiksa. Tetap ekspor?`)) return;
+  }
 
   // 1. Cek Sesi Pengguna
   if(!currentUser){

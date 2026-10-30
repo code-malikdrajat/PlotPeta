@@ -8,7 +8,7 @@ let cal={pts:[],ok:false,M:null,mode:'local'};
 let cand=[],box=null,mv=null,polys=[],gaps=[],mapLocked=false;
 function editTarget(){return cand.length?cand:lines}
 function candMsg(){if(cand.length)$('dMsg').textContent=cand.length+' jalur kandidat. Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.'}
-let selectionPoly=[], boxAction='detect', freehandDrawing=false;
+let selectionPoly=[], boxAction='detect', freehandDrawing=false, aiSel=-1;
 let mapName='';
 const W=()=>plotCanvas.clientWidth,H=()=>plotCanvas.clientHeight,d1=()=>devicePixelRatio||1;
 function resize(){const r=$('wrap').getBoundingClientRect(),d=d1();plotCanvas.width=r.width*d;plotCanvas.height=r.height*d;plotCanvas.style.width=r.width+'px';plotCanvas.style.height=r.height+'px';draw()}
@@ -19,8 +19,8 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const num=s=>{s=String(s).trim();s=/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)?s.replace(/\./g,'').replace(',','.'):s.replace(',','.');return parseFloat(s)};
 const f2=n=>n.toLocaleString('id-ID',{maximumFractionDigits:2,minimumFractionDigits:2});
 const toReal=p=>{if(cal.mode==='local')return [p[0],(ih||0)-p[1]];if(!cal.ok||!cal.M)return null;const m=cal.M;return[m[0]*p[0]+m[1]*p[1]+m[2],m[3]*p[0]+m[4]*p[1]+m[5]]};
-function snapshot(){hist.push(JSON.stringify({lines,texts,cand}));if(hist.length>100)hist.shift();dirty=true}
-function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];selT=-1;tform();candMsg()}erasePick=null;addLinePick=null;stat();draw()}
+function snapshot(){hist.push(JSON.stringify({lines,texts,cand,aiTexts}));if(hist.length>100)hist.shift();dirty=true}
+function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];aiTexts=o.aiTexts||[];selT=-1;aiSel=-1;closeTextEditPopover();tform();candMsg()}erasePick=null;addLinePick=null;stat();draw()}
 
 function updateDropzone(){
   const dz=$('dropzone');
@@ -171,6 +171,9 @@ function setTool(t){
     const n=cand.length?0:ensureIntersectionPoints();
     $('st').innerHTML='<span class="status-dot"></span><span>Edit Titik: drag titik, klik garis=potong, 2x segmen=hapus, klik titik lalu klik tujuan=tambah garis.'+(cand.length?' Kandidat deteksi bisa diedit sebelum diterima.':'')+(n?' Titik persilangan dibuat: '+n+'.':'')+'</span>';
   }
+  if(t==='AI'){
+    $('st').innerHTML='<span class="status-dot"></span><span>Deteksi AI: tarik kotak pada peta.</span>';
+  }
   updateToolModeHint();
   document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
   plotCanvas.style.cursor=mapLocked&&t==='pan'?'not-allowed':t==='pan'?'grab':'crosshair';
@@ -247,6 +250,15 @@ function click(sp){
       $('st').innerHTML='<span class="status-dot"></span><span>Teks dihapus.</span>';
       stat();draw();return;
     }
+    if(typeof aiTexts!=='undefined'){
+      let hitA=-1;
+      aiTexts.forEach((t,i)=>{const s=toS(t.p);if(Math.hypot(s[0]-sp[0],s[1]-sp[1])<14)hitA=i});
+      if(hitA>=0){
+        snapshot();aiTexts.splice(hitA,1);aiSel=-1;erasePick=null;closeTextEditPopover();tform();
+        $('st').innerHTML='<span class="status-dot"></span><span>Teks hasil AI dihapus.</span>';
+        stat();draw();return;
+      }
+    }
     const h=topoNearestLinePoint(sp,10);
     if(!h){
       $('st').innerHTML='<span class="status-dot"></span><span>Klik tepat pada segmen garis.</span>';
@@ -260,6 +272,7 @@ function click(sp){
   }
   if(tool==='pan'||tool==='T'){
     let hit=-1;
+    aiSel=-1;
     texts.forEach((t,i)=>{const s=toS(t.p);if(Math.hypot(s[0]-sp[0],s[1]-sp[1])<18)hit=i});
     selT=hit;
     tform(hit>=0);
@@ -292,18 +305,33 @@ plotCanvas.addEventListener('pointerdown',e=>{
       }
     }
     // Jika mengklik langsung pada titik teks bidang yang ada di peta
+    let hitA = -1;
+    aiTexts.forEach((t,i)=>{
+      const s = toS(t.p);
+      if(Math.hypot(s[0]-sp[0], s[1]-sp[1]) < 18) hitA = i;
+    });
     let hitT = -1;
     texts.forEach((t,i)=>{
       const s = toS(t.p);
       if(Math.hypot(s[0]-sp[0], s[1]-sp[1]) < 18) hitT = i;
     });
+    if(hitA >= 0 && (tool === 'pan' || tool === 'T')){
+      aiSel = hitA;
+      selT = -1;
+      tform(true);
+      showTextEditPopover(hitA, true);
+      draw();
+      return;
+    }
     if(hitT >= 0 && (tool === 'pan' || tool === 'T')){
+      aiSel = -1;
       selT = hitT;
       tform(true);
       showTextEditPopover(hitT);
       draw();
       return;
     }
+    if(tool==='AI'){boxAction='ai';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
     if(tool==='A' && detectModeEl?.value==='rect'){boxAction='detect';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
     if(tool==='E' && eraseModeEl?.value==='rect'){boxAction='erase';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
   }
@@ -360,7 +388,7 @@ plotCanvas.addEventListener('pointerup',e=>{
     const act=boxAction;
     box=null;
     const x=Math.max(0,a[0]),y=Math.max(0,a[1]),R={x,y,w:Math.min(iw,z[0])-x,h:Math.min(ih,z[1])-y};
-    if(act==='erase') eraseRegion(R,null); else runDet(R);
+    if(act==='erase') eraseRegion(R,null); else if(act==='ai') runAiDetect(R); else runDet(R);
     draw();return;
   }
   if(drag&&!drag.moved&&drag.btn===0)click([e.offsetX,e.offsetY]);
@@ -498,8 +526,20 @@ function fitCal(){
 }
 $('apply').onclick=fitCal;
 
+function selTextObj(){return aiSel>=0?(aiTexts[aiSel]||null):(selT>=0?(texts[selT]||null):null)}
+function commitAiText(){
+  if(aiSel<0)return;
+  const t=aiTexts[aiSel];
+  if(!t){aiSel=-1;return}
+  delete t.ai;delete t.fmtWarn;
+  aiTexts.splice(aiSel,1);
+  texts.push(t);
+  selT=texts.length-1;
+  aiSel=-1;
+  dirty=true;
+}
 function tform(foc){
-  const t=texts[selT];
+  const t=selTextObj();
   $('tform').classList.toggle('hide',!t);
   $('tmsg').classList.toggle('hide',!!t);
   if(t){
@@ -516,7 +556,7 @@ function tform(foc){
 function positionTextEditPopover(idx){
   const pop=$('textEditPopover');
   if(!pop||pop.classList.contains('hide'))return;
-  const t=texts[idx??selT];
+  const t=selTextObj();
   if(!t){pop.classList.add('hide');return;}
   const s=toS(t.p);
   const wrap=$('wrap');
@@ -537,16 +577,17 @@ function positionTextEditPopover(idx){
   pop.style.left=left+'px';
   pop.style.top=top+'px';
 }
-function showTextEditPopover(idx){
-  const t=texts[idx];
+function showTextEditPopover(idx,isAI=false){
+  const t=isAI?aiTexts[idx]:texts[idx];
   if(!t)return;
-  selT=idx;
+  aiSel=isAI?idx:-1;
+  selT=isAI?-1:idx;
   const pop=$('textEditPopover');
   if(!pop)return;
   $('popNo').value=t.no||'';
   $('popSu').value=t.su||'';
   pop.classList.remove('hide');
-  positionTextEditPopover(idx);
+  positionTextEditPopover();
   setTimeout(()=>{
     $('popNo').focus();
     $('popNo').select();
@@ -557,37 +598,48 @@ function closeTextEditPopover(){
   if(pop)pop.classList.add('hide');
 }
 $('tno').oninput=e=>{
-  if(texts[selT]){
-    texts[selT].no=e.target.value;
+  const t=selTextObj();
+  if(t){
+    t.no=e.target.value;
+    if(aiSel>=0)commitAiText();
     const p=$('popNo');if(p)p.value=e.target.value;
     dirty=true;draw();
   }
 };
 $('tsu').oninput=e=>{
-  if(texts[selT]){
-    texts[selT].su=e.target.value;
+  const t=selTextObj();
+  if(t){
+    t.su=e.target.value;
+    if(aiSel>=0)commitAiText();
     const p=$('popSu');if(p)p.value=e.target.value;
     dirty=true;draw();
   }
 };
 $('popNo')?.addEventListener('input',e=>{
-  if(selT>=0&&texts[selT]){
-    texts[selT].no=e.target.value;
+  const t=selTextObj();
+  if(t){
+    t.no=e.target.value;
+    if(aiSel>=0)commitAiText();
     $('tno').value=e.target.value;
     dirty=true;draw();
   }
 });
 $('popSu')?.addEventListener('input',e=>{
-  if(selT>=0&&texts[selT]){
-    texts[selT].su=e.target.value;
+  const t=selTextObj();
+  if(t){
+    t.su=e.target.value;
+    if(aiSel>=0)commitAiText();
     $('tsu').value=e.target.value;
     dirty=true;draw();
   }
 });
-$('popSave')?.addEventListener('click',()=>closeTextEditPopover());
-$('popoverClose')?.addEventListener('click',()=>closeTextEditPopover());
+$('popSave')?.addEventListener('click',()=>{commitAiText();closeTextEditPopover();});
+$('popoverClose')?.addEventListener('click',()=>{aiSel=-1;closeTextEditPopover();});
 $('popDel')?.addEventListener('click',()=>{
-  if(selT>=0&&texts[selT]){
+  if(aiSel>=0&&aiTexts[aiSel]){
+    snapshot();aiTexts.splice(aiSel,1);aiSel=-1;selT=-1;
+    closeTextEditPopover();tform();stat();draw();
+  }else if(selT>=0&&texts[selT]){
     snapshot();texts.splice(selT,1);selT=-1;
     closeTextEditPopover();tform();stat();draw();
   }
@@ -596,16 +648,16 @@ $('popNo')?.addEventListener('keydown',e=>{
   if(e.key==='Enter'){
     e.preventDefault();
     if(!$('popSu').value.trim())$('popSu').focus();
-    else closeTextEditPopover();
+    else {commitAiText();closeTextEditPopover();}
   }else if(e.key==='Escape'){
-    e.preventDefault();closeTextEditPopover();
+    e.preventDefault();aiSel=-1;closeTextEditPopover();
   }
 });
 $('popSu')?.addEventListener('keydown',e=>{
   if(e.key==='Enter'){
-    e.preventDefault();closeTextEditPopover();
+    e.preventDefault();commitAiText();closeTextEditPopover();
   }else if(e.key==='Escape'){
-    e.preventDefault();closeTextEditPopover();
+    e.preventDefault();aiSel=-1;closeTextEditPopover();
   }
 });
 const popEl=$('textEditPopover');
@@ -614,8 +666,11 @@ if(popEl){
   popEl.addEventListener('mousedown',e=>e.stopPropagation());
   popEl.addEventListener('wheel',e=>e.stopPropagation());
 }
-$('tdel').onclick=()=>{if(selT>=0){snapshot();texts.splice(selT,1);selT=-1;closeTextEditPopover();tform();stat();draw()}};
-const stat=()=>$('cnt').textContent=lines.length+' rangkaian garis, '+texts.length+' teks';
+$('tdel').onclick=()=>{
+  if(aiSel>=0&&aiTexts[aiSel]){snapshot();aiTexts.splice(aiSel,1);aiSel=-1;closeTextEditPopover();tform();stat();draw()}
+  else if(selT>=0){snapshot();texts.splice(selT,1);selT=-1;closeTextEditPopover();tform();stat();draw()}
+};
+const stat=()=>$('cnt').textContent=lines.length+' rangkaian garis, '+(texts.length+(typeof aiTexts==='undefined'?0:aiTexts.length))+' teks';
 
 function draw(){
   const d=d1();
@@ -629,27 +684,53 @@ function draw(){
   };
   lines.forEach(l=>{
     path(l.pts);
-    ctx.strokeStyle='#d62a2a';
-    ctx.lineWidth=1.8;
-    ctx.setLineDash([]);
+    if(l.ai){
+      ctx.strokeStyle='#a855f7';
+      ctx.lineWidth=2;
+      ctx.setLineDash(l.weak?[6,4]:[]);
+    }else{
+      ctx.strokeStyle='#d62a2a';
+      ctx.lineWidth=1.8;
+      ctx.setLineDash([]);
+    }
     ctx.stroke();
     ctx.setLineDash([]);
   });
   texts.forEach((t,i)=>{
     const s=toS(t.p);
+    const isAI=!!t.ai;
     ctx.textAlign='center';
     ctx.font='bold 12px "Plus Jakarta Sans", system-ui, sans-serif';
     ctx.lineWidth=3;
     ctx.strokeStyle='#fff';
-    ctx.fillStyle=i===selT?'#0ea5e9':'#111';
-    ctx.strokeText(t.no||'(no)',s[0],s[1]);
-    ctx.fillText(t.no||'(no)',s[0],s[1]);
+    ctx.fillStyle=i===selT?(isAI?'#7c3aed':'#0ea5e9'):(isAI?'#a855f7':'#111');
+    const label=isAI?('◆ '+(t.no||t.su||'(teks)')):(t.no||'(no)');
+    ctx.strokeText(label,s[0],s[1]);
+    ctx.fillText(label,s[0],s[1]);
     ctx.font='11px "Plus Jakarta Sans", system-ui, sans-serif';
-    if(t.su){
+    if(t.su&&(t.no||!isAI)){
       ctx.strokeText(t.su,s[0],s[1]+13);
       ctx.fillText(t.su,s[0],s[1]+13);
     }
-    ctx.fillStyle='#0ea5e9';
+    ctx.fillStyle=isAI?'#a855f7':'#0ea5e9';
+    ctx.fillRect(s[0]-2,s[1]-2,4,4);
+  });
+  (typeof aiTexts==='undefined'?[]:aiTexts).forEach((t,i)=>{
+    const s=toS(t.p);
+    ctx.textAlign='center';
+    ctx.font='bold 12px "Plus Jakarta Sans", system-ui, sans-serif';
+    ctx.lineWidth=3;
+    ctx.strokeStyle='#fff';
+    ctx.fillStyle=i===aiSel?'#7c3aed':'#a855f7';
+    const label=(t.fmtWarn?'⚠ ':'')+'◆ '+(t.no||t.su||'(teks)');
+    ctx.strokeText(label,s[0],s[1]);
+    ctx.fillText(label,s[0],s[1]);
+    if(t.su&&t.no){
+      ctx.font='11px "Plus Jakarta Sans", system-ui, sans-serif';
+      ctx.strokeText(t.su,s[0],s[1]+13);
+      ctx.fillText(t.su,s[0],s[1]+13);
+    }
+    ctx.fillStyle='#a855f7';
     ctx.fillRect(s[0]-2,s[1]-2,4,4);
   });
   if(cur.length){
@@ -701,12 +782,28 @@ function draw(){
   });
   cand.forEach(c=>{
     path(c.pts);
-    ctx.strokeStyle='#f59e0b';
-    ctx.lineWidth=2;
-    ctx.setLineDash([]);
+    if(c.ai){
+      ctx.strokeStyle='#a855f7';
+      ctx.lineWidth=2;
+      ctx.setLineDash(c.weak?[6,4]:[]);
+    }else{
+      ctx.strokeStyle='#f59e0b';
+      ctx.lineWidth=2;
+      ctx.setLineDash([]);
+    }
     ctx.stroke();
     ctx.setLineDash([]);
   });
+  if(window.__aiDebug===true&&typeof aiRaw!=='undefined'&&aiRaw.length){
+    ctx.strokeStyle='#ef4444';
+    ctx.lineWidth=.8;
+    aiRaw.forEach(pts=>{
+      if(!pts||pts.length<2)return;
+      path(pts);
+      ctx.stroke();
+    });
+    ctx.lineWidth=1.8;
+  }
 
   if(tool==='M')editTarget().forEach(l=>l.pts.forEach(p=>{
     const s=toS(p);
@@ -791,8 +888,8 @@ function draw(){
     ctx.textAlign='left';
     ctx.fillText('P'+(i+1),s[0]+10,s[1]-8);
   });
-  if(selT>=0 && !$('textEditPopover')?.classList.contains('hide')){
-    positionTextEditPopover(selT);
+  if((selT>=0||aiSel>=0) && !$('textEditPopover')?.classList.contains('hide')){
+    positionTextEditPopover();
   }
 }
 
@@ -834,8 +931,8 @@ $('btnClearMap').onclick=async()=>{
   }
   if(!confirm('Hapus peta yang sedang terbuka beserta semua garis, poligon, teks, dan kalibrasinya? Proyek yang sudah disimpan di Cloud tidak ikut terhapus.')) return;
   img=null; iw=0; ih=0; mapName='';
-  lines=[]; texts=[]; polys=[]; gaps=[]; cand=[]; cur=[]; hist=[];
-  selT=-1; dirty=false; box=null; mv=null; drag=null; mouse=null; erasePick=null;addLinePick=null;
+  lines=[]; texts=[]; polys=[]; gaps=[]; cand=[]; cur=[]; hist=[]; aiTexts=[]; aiRaw=[];
+  selT=-1; aiSel=-1; dirty=false; box=null; mv=null; drag=null; mouse=null; erasePick=null;addLinePick=null;
   cal.pts=[]; cal.ok=false; cal.M=null;
   ['cx0','cy0','cx1','cy1','cx2','cy2','cx3','cy3'].forEach(id=>{ if($(id)) $(id).value=''; });
   setCoordMode('local'); crs(); tform(); stat();
@@ -869,14 +966,14 @@ $('op').onchange=e=>{
     try{
       const o=JSON.parse(t);
       lines=o.lines||[];erasePick=null;addLinePick=null;
-      texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];
+      texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];aiTexts=[];aiRaw=[];
       cal.pts=(o.cal||[]).map(c=>c.p);
       setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
       crs();
       (o.cal||[]).forEach((c,i)=>{$('cx'+i).value=c.x;$('cy'+i).value=c.y});
       $('th').value=o.th||5;
       if(o.ly)['lP','lD','lSu','lM','lPoly'].forEach((i,k)=>{$(i).value=o.ly[k]});
-      hist=[];cur=[];selT=-1;tform();stat();
+      hist=[];cur=[];selT=-1;aiSel=-1;tform();stat();
       if(cal.pts.length===4)fitCal();
       dirty=false;
       if(img&&o.size&&(o.size[0]!==iw||o.size[1]!==ih))alert('Ukuran peta berbeda dari proyek. Pastikan membuka file peta yang sama.');
