@@ -479,6 +479,26 @@ th { white-space:nowrap; }
           <input type="number" id="setHargaPaket" min="10000" step="1000" value="100000">
           <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: Rp 100.000</span>
         </div>
+        <div class="form-group">
+          <label class="form-label">Biaya Ekspor DXF (Token)</label>
+          <input type="number" id="setBiayaDxf" min="0" value="1">
+          <span class="mono" style="font-size:11px;color:var(--text-dim)">0 = ekspor DXF gratis (tanpa token)</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Biaya Deteksi AI per Blok (Token)</label>
+          <input type="number" id="setBiayaAi" min="1" value="1">
+          <span class="mono" style="font-size:11px;color:var(--text-dim)">Dikali jumlah blok (tiap N tile)</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tile per Blok Deteksi AI</label>
+          <input type="number" id="setTileBlok" min="1" value="20">
+          <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: 20 tile per blok</span>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
+        <span class="mono" style="font-size:12px;color:var(--text-dim)">Pemakaian AI 7 hari terakhir</span>
+        <div id="aiUsageSummary" class="mono" style="font-size:12px;margin-top:6px;color:var(--text-dim)">Memuat…</div>
       </div>
     </div>
 
@@ -646,6 +666,32 @@ function showLoginScreen(errMsg = '', denied = false){
   }
 }
 
+// Ringkasan pemakaian AI 7 hari terakhir (tabel ai_usage & ai_runs, hanya dibaca admin).
+async function loadAiUsageSummary(){
+  const el = $('aiUsageSummary');
+  if(!el) return;
+  const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  try{
+    const [{ data: runs, error: e1 }, { data: usage, error: e2 }] = await Promise.all([
+      sb.from('ai_runs').select('tokens_charged,status,created_at').gte('created_at', since),
+      sb.from('ai_usage').select('cost_usd,ok,created_at').gte('created_at', since)
+    ]);
+    if(e1 || e2){
+      el.textContent = 'Ringkasan belum tersedia (jalankan SQL 5. plotpeta_biaya_token.sql).';
+      return;
+    }
+    const daftar = runs || [];
+    const proses = daftar.length;
+    const kembali = daftar.filter(r => r.status === 'refunded').reduce((a, r) => a + (Number(r.tokens_charged) || 0), 0);
+    const dipakai = daftar.filter(r => r.status === 'done').reduce((a, r) => a + (Number(r.tokens_charged) || 0), 0);
+    const aktif = daftar.filter(r => r.status === 'active').length;
+    const usd = (usage || []).reduce((a, r) => a + (Number(r.cost_usd) || 0), 0);
+    el.textContent = `${proses} proses • token dipakai: ${dipakai} (dikembalikan: ${kembali}${aktif ? ', aktif: ' + aktif : ''}) • biaya USD: $${usd.toFixed(4)}`;
+  }catch(e){
+    el.textContent = 'Ringkasan belum tersedia.';
+  }
+}
+
 function showDashboard(profile){
   $('adminLoginScreen').style.display = 'none';
   $('adminDashboard').style.display = 'flex';
@@ -654,6 +700,7 @@ function showDashboard(profile){
   // Load all dashboard sections
   loadPendingTopups();
   loadAllSettings();
+  loadAiUsageSummary();
   loadUsers();
   loadAllTopups();
   // Muat hitungan pesan belum dibaca segera setelah dashboard admin tampil.
@@ -701,6 +748,9 @@ async function loadAllSettings() {
     if(s.key === 'masa_berlaku_token_hari') $('setMasaHari').value = s.value;
     if(s.key === 'token_gratis_daftar') $('setTokenGratis').value = s.value;
     if(s.key === 'harga_paket_50') $('setHargaPaket').value = s.value;
+    if(s.key === 'token_biaya_ekspor_dxf') $('setBiayaDxf').value = s.value;
+    if(s.key === 'token_biaya_deteksi_ai') $('setBiayaAi').value = s.value;
+    if(s.key === 'ai_tile_per_blok') $('setTileBlok').value = s.value;
   });
 
   if(paymentError) {
@@ -863,15 +913,25 @@ $('btnSaveTokenSettings').onclick = async () => {
   const masa = parseInt($('setMasaHari').value);
   const gratis = parseInt($('setTokenGratis').value);
   const harga = parseInt($('setHargaPaket').value);
+  const biayaDxf = parseInt($('setBiayaDxf').value);
+  const biayaAi = parseInt($('setBiayaAi').value);
+  const tileBlok = parseInt($('setTileBlok').value);
 
   if(!Number.isInteger(masa) || masa < 1 || !Number.isInteger(gratis) || gratis < 0 || !Number.isInteger(harga) || harga < 1){
     alert('Periksa kembali nilai pengaturan token. Masa berlaku dan harga harus lebih dari 0; token gratis tidak boleh negatif.');
     return;
   }
+  if(!Number.isInteger(biayaDxf) || biayaDxf < 0 || !Number.isInteger(biayaAi) || biayaAi < 1 || !Number.isInteger(tileBlok) || tileBlok < 1){
+    alert('Periksa kembali biaya fitur. Biaya ekspor DXF tidak boleh negatif; biaya Deteksi AI dan tile per blok minimal 1.');
+    return;
+  }
   const { error } = await sb.from('settings').upsert([
     { key: 'masa_berlaku_token_hari', value: masa },
     { key: 'token_gratis_daftar', value: gratis },
-    { key: 'harga_paket_50', value: harga }
+    { key: 'harga_paket_50', value: harga },
+    { key: 'token_biaya_ekspor_dxf', value: biayaDxf },
+    { key: 'token_biaya_deteksi_ai', value: biayaAi },
+    { key: 'ai_tile_per_blok', value: tileBlok }
   ]);
   if(error) alert('Gagal menyimpan pengaturan token: ' + error.message);
   else alert('Pengaturan aturan token berhasil disimpan!');
