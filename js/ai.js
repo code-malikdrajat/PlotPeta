@@ -2,12 +2,14 @@
 // Memotong area peta menjadi tile, meminta Edge Function detect-ai (VLM) menggambar
 // garis batas + membaca teks, lalu menyelaraskan ("snap") hasilnya ke tinta gambar.
 // Hasil masuk sebagai kandidat (cand / aiTexts) yang harus diperiksa pengguna.
+// Biaya token: dipotong SEKALI di awal (aksi "start"); bila tidak ada hasil sama
+// sekali, token otomatis dikembalikan saat aksi "finish" (lihat sql/5).
 
 const AI_TILE = 1024, AI_OVERLAP = 0.12, AI_CONC = 3, AI_SNAP_R = 6, AI_COORD = 1000, AI_MAX_TILES = 60;
 
 var aiTexts = [];
 var aiRaw = [];
-let aiBusy = false, aiCancel = false, aiConfirmed = false;
+let aiBusy = false, aiCancel = false;
 
 const AI_RE_NO = /^(M|HM|HGB|HGU|HP|HPL|C)\.?\s?\d+[A-Z0-9\/\-]*$/i;
 const AI_RE_SU = /^(SU|GS)\.?\s?\d+\/\d{2,4}$/i;
@@ -17,6 +19,57 @@ function aiSay(msg) {
   if (a) a.textContent = msg;
   const b = $("aiMsg");
   if (b) b.textContent = msg;
+}
+
+// Biaya satu proses Deteksi AI (settings admin: deteksi_ai x tile_per_blok).
+// tokenBiaya dimuat supabase.js lewat get_biaya_token.
+function aiBiayaUntuk(tileCount) {
+  const tb = (typeof tokenBiaya === "object" && tokenBiaya) ? tokenBiaya : null;
+  const perBlok = tb && Number(tb.tile_per_blok) >= 1 ? Number(tb.tile_per_blok) : 20;
+  const raw = tb ? Number(tb.deteksi_ai) : NaN;
+  const biaya = tb && tb.deteksi_ai != null && Number.isFinite(raw) ? Math.max(0, raw) : 1;
+  return biaya * Math.ceil(Math.max(1, tileCount) / perBlok);
+}
+
+// Perbarui label biaya + saldo di box Deteksi AI (dipanggil setelah peta dimuat).
+function aiUpdateCostUI() {
+  const box = $("aiCost");
+  const btn = $("aiAll");
+  if (!img) { if (box) box.textContent = ""; return; }
+  const cost = aiBiayaUntuk(aiMakeTiles({ x: 0, y: 0, w: iw, h: ih }).length);
+  const perBlok = (typeof tokenBiaya === "object" && tokenBiaya && Number(tokenBiaya.tile_per_blok) >= 1)
+    ? Number(tokenBiaya.tile_per_blok) : 20;
+  if (box) box.textContent = "Biaya: " + cost + " token per " + perBlok + " tile. Saldo: " + currentTokenBalance + " token.";
+  if (btn) btn.textContent = "Jalankan (" + cost + " token)";
+}
+
+async function aiErrorFromInvoke(error, fallback) {
+  let msg = "";
+  let status = 0;
+  const ctx = error && error.context;
+  if (ctx) {
+    status = ctx.status || 0;
+    if (typeof ctx.json === "function") {
+      try {
+        const j = await ctx.json();
+        if (j && j.message) msg = j.message;
+      } catch (_) { /* abaikan */ }
+    }
+  }
+  const e = new Error(msg || fallback);
+  e.status = status;
+  return e;
+}
+
+async function aiInvoke(action, body, fallbackMsg) {
+  const { data, error } = await sb.functions.invoke("detect-ai", { body });
+  if (error) throw await aiErrorFromInvoke(error, fallbackMsg);
+  if (!data || data.ok !== true) {
+    const e = new Error((data && data.message) || fallbackMsg);
+    e.status = 0;
+    throw e;
+  }
+  return data;
 }
 
 function aiPositions(start, total, size, step) {
@@ -184,7 +237,7 @@ function aiBuildTexts(entries) {
   return out;
 }
 
-async function aiCallTile(tile) {
+async function aiCallTile(tile, runId) {
   const cv = document.createElement("canvas");
   cv.width = tile.w;
   cv.height = tile.h;
@@ -193,32 +246,13 @@ async function aiCallTile(tile) {
   cx.fillRect(0, 0, tile.w, tile.h);
   cx.drawImage(img, tile.x, tile.y, tile.w, tile.h, 0, 0, tile.w, tile.h);
   const image = cv.toDataURL("image/png");
-  const { data, error } = await sb.functions.invoke("detect-ai", {
-    body: { image, width: tile.w, height: tile.h },
-  });
-  if (error) {
-    let msg = "";
-    let status = 0;
-    const ctx = error.context;
-    if (ctx) {
-      status = ctx.status || 0;
-      if (typeof ctx.json === "function") {
-        try {
-          const j = await ctx.json();
-          if (j && j.message) msg = j.message;
-        } catch (_) { /* abaikan */ }
-      }
-    }
-    const e = new Error(msg || "Layanan AI gagal memproses potongan peta.");
-    e.status = status;
-    throw e;
-  }
-  if (!data || data.ok !== true) {
-    const e = new Error((data && data.message) || "Layanan AI gagal memproses potongan peta.");
-    e.status = 0;
-    throw e;
-  }
-  return data;
+  return await aiInvoke("tile", {
+    action: "tile",
+    run_id: runId,
+    image,
+    width: tile.w,
+    height: tile.h,
+  }, "Layanan AI gagal memproses potongan peta.");
 }
 
 async function runAiDetect(R) {
@@ -235,14 +269,26 @@ async function runAiDetect(R) {
     );
     return;
   }
-  if (!aiConfirmed) {
-    const ok = confirm(
-      "Potongan peta akan dikirim ke penyedia AI pihak ketiga untuk dianalisis (fitur beta). Lanjutkan?\n\n" +
-      "Area ini akan dipecah menjadi " + tiles.length + " potongan."
-    );
-    if (!ok) return;
-    aiConfirmed = true;
+
+  // Biaya fitur + saldo; konfirmasi sebelum mengirim apa pun.
+  if (typeof loadTokenBiaya === "function") {
+    try { await loadTokenBiaya(); } catch (_) { /* pakai nilai yang ada */ }
   }
+  const cost = aiBiayaUntuk(tiles.length);
+  if (cost > currentTokenBalance) {
+    aiSay(
+      "Saldo token tidak cukup (perlu " + cost + " token, saldo " + currentTokenBalance +
+      "). Silakan lakukan isi ulang token terlebih dahulu."
+    );
+    if (typeof openTopupModal === "function") openTopupModal();
+    return;
+  }
+  const ok = confirm(
+    "Deteksi AI memakai " + cost + " token (saldo " + currentTokenBalance +
+    "). Potongan peta dikirim ke penyedia AI. Lanjutkan?\n\n" +
+    "Area ini akan dipecah menjadi " + tiles.length + " potongan."
+  );
+  if (!ok) return;
 
   aiBusy = true;
   aiCancel = false;
@@ -253,17 +299,27 @@ async function runAiDetect(R) {
 
   const btnCancel = $("aiCancel");
   if (btnCancel) btnCancel.classList.remove("hide");
-  aiSay("Menganalisis " + tiles.length + " potongan peta dengan AI...");
+
+  let runId = null;
+  let baseMsg = null;
+  let refundTokens = 0;
 
   const results = [];
   const errors = [];
   let rateLimited = null;
 
   try {
+    // 1. start: potong token sekali untuk seluruh proses, dapatkan run_id.
+    const started = await aiInvoke("start", { action: "start", tiles: tiles.length },
+      "Gagal memulai proses Deteksi AI.");
+    runId = started.run_id;
+
+    aiSay("Menganalisis " + tiles.length + " potongan peta dengan AI... (" + cost + " token)");
+
     await aiConcurrent(tiles, AI_CONC, async (tile) => {
       if (aiCancel) return;
       try {
-        const data = await aiCallTile(tile);
+        const data = await aiCallTile(tile, runId);
         results.push({ tile, lines: data.lines || [], texts: data.texts || [] });
       } catch (e) {
         if (e && e.status === 429) {
@@ -276,6 +332,7 @@ async function runAiDetect(R) {
     });
 
     if (rateLimited) {
+      baseMsg = rateLimited;
       aiSay(rateLimited);
       return;
     }
@@ -356,7 +413,8 @@ async function runAiDetect(R) {
     const okTiles = results.length;
     const failTiles = errors.length;
     if (!okTiles && failTiles) {
-      aiSay("Deteksi AI gagal: " + (errors[0].message || "coba lagi."));
+      baseMsg = "Deteksi AI gagal: " + (errors[0].message || "coba lagi.");
+      aiSay(baseMsg);
     } else {
       let msg =
         "AI: " + cand.length + " jalur (" + weak + " tanpa dukungan tinta), " +
@@ -364,15 +422,31 @@ async function runAiDetect(R) {
         "Tile berhasil " + okTiles + "/" + tiles.length +
         (failTiles ? ", gagal " + failTiles : "") + ".";
       if (aiCancel && !rateLimited) msg += " Dibatalkan.";
+      baseMsg = msg;
       aiSay(msg);
     }
     stat();
     draw();
   } catch (e) {
     if (!rateLimited) {
-      aiSay("Deteksi AI gagal: " + (e && e.message ? e.message : "coba lagi."));
+      baseMsg = "Deteksi AI gagal: " + (e && e.message ? e.message : "coba lagi.");
+      aiSay(baseMsg);
     }
   } finally {
+    // 4. finish: tutup proses di server (token dikembalikan bila tanpa hasil),
+    //    termasuk saat dibatalkan atau gagal di tengah jalan.
+    if (runId && sb) {
+      try {
+        const f = await aiInvoke("finish", { action: "finish", run_id: runId }, "Proses ditutup.");
+        if (f && f.refunded) refundTokens = Number(f.tokens_charged) || 0;
+      } catch (_) { /* finish gagal: saldo tetap disegarkan di bawah */ }
+      if (typeof fetchUserTokens === "function") {
+        try { await fetchUserTokens(); } catch (_) { /* abaikan */ }
+      }
+    }
+    if (refundTokens > 0) {
+      aiSay((baseMsg ? baseMsg + " " : "") + refundTokens + " token dikembalikan.");
+    }
     aiBusy = false;
     if (btnCancel) btnCancel.classList.add("hide");
     draw();
