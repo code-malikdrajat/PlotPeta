@@ -632,12 +632,14 @@ function runDet(R,poly=null){
       const params={T:p.dT,minL:p.dL,gapF:p.dG,magR:p.magR,linkMax:p.linkMax,medRun:p.medRun||2,autoMag:true};
       cand=[];
       let helperUsed=false;
+      let traceStats=null;
       if(engine==='trace'){
         // Mesin jejak: raster -> kerangka 1 px -> graf -> garis dipasang ulang.
         if(typeof detectTrace!=='function') throw new Error('Mesin jejak belum termuat. Muat ulang halaman.');
         $('dMsg').textContent='Menelusuri batas bidang dengan mesin jejak...';
         await new Promise(r=>setTimeout(r,10));
         cand=detectTrace(R,{minLen:params.minL,linkMax:params.linkMax});
+        traceStats=cand.stats||null;
       }else{
         // Hough: gambar bantu (latar dihapus, teks dibuang) selalu dicoba; gagal -> gambar asli.
         $('dMsg').textContent='Menyiapkan gambar bantu...';
@@ -669,10 +671,20 @@ function runDet(R,poly=null){
       if(cand.length&&cand[0].free) plotPetaNumberEnds(cand);
       const nEnd=cand.reduce((z,c)=>z+((c.nums||[]).filter(Boolean).length),0);
       const engineNote=engine==='hough'?' Metode Hough dipakai.':'';
+      // Ringkasan filter mesin jejak: memudahkan penyetelan ambang saat uji lapangan.
+      let traceNote='';
+      if(traceStats){
+        const a=[];
+        if(traceStats.teksDibuang)a.push(traceStats.teksDibuang+' ruas tulisan dibuang');
+        if(traceStats.garisPutus)a.push(traceStats.garisPutus+' garis putus-putus dipertahankan');
+        if(traceStats.ruasLengkung)a.push(traceStats.ruasLengkung+' ruas lengkung');
+        if(traceStats.jauh)a.push(traceStats.jauh+' celah lebar ditutup');
+        if(a.length)traceNote=' Filter: '+a.join(', ')+'.';
+      }
       $('dMsg').textContent=
         cand.length+' jalur kandidat'
         +(nEnd?(', '+nEnd+' ujung bebas.'):'.')
-        +' Persilangan & duplikat sudah dibersihkan.'+(helperUsed?' Gambar bantu dipakai.':'')+topoNote+engineNote+' Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.';
+        +' Persilangan & duplikat sudah dibersihkan.'+(helperUsed?' Gambar bantu dipakai.':'')+topoNote+engineNote+traceNote+' Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.';
     }catch(x){cand=[];$('dMsg').textContent='Deteksi gagal: '+x.message}
     draw();
   },40);

@@ -20,6 +20,13 @@
  * Opsi (semuanya opsional): minLen, linkMax, maxSide, ridge:false (ambang gelap lama), textFilter:false,
  * plusFilter:false, isoFilter:false.
  *
+ * Opsi tambahan (default aman, perilaku lama tetap):
+ *   textCfg     : objek ambang filter teks (lihat PP_TEXT_DEFAULTS). Contoh: {dropScore:2.4}
+ *   curve       : {curveTurn, curveSmooth, curveEpsScale} untuk mempertahankan garis lengkung.
+ *   angTight    : toleransi sudut (derajat) untuk menutup celah lebar yang hampir segaris (default 12).
+ *   longFactor  : pengali linkMax untuk celah lebar tersebut (default 1.6).
+ * Ringkasan hasil tersedia di chains.stats (teksDibuang, garisPutus, ruasLengkung, linkMax, medianRuas).
+ *
  * Mencabut: pilih metode "Standar" di panel Deteksi Otomatis, atau hapus berkas ini dan barisnya di index.html.
  * ============================================================================ */
 // ==== PLOTPETA ENGINE BEGIN ====
@@ -121,7 +128,12 @@ function ppBinarizeRidge(R,sc,sigma,rel){
   for(let i=0;i<N;i++){const r=Rr[i];if(r>0){hh[Math.min(B-1,(r/mx*B)|0)]++;nz++}}
   const pct=q=>{let c=0,tg=nz*q;for(let k=0;k<B;k++){c+=hh[k];if(c>=tg)return (k+1)/B*mx}return mx};
   const p997=pct(0.997),pmed=pct(0.5);
-  const t=Math.max((rel||0.10)*p997,6*pmed);
+  // Ambang ridge = porsi dari puncak + lantai derau. Lantai derau (6*pmed) DIBATASI
+  // terhadap puncak: pada peta BERSIH hampir semua respons positif berasal dari garis,
+  // sehingga pmed ikut tinggi dan 6*pmed bisa melebihi puncak -> tidak ada piksel lolos
+  // (gejala: peta bersih menghasilkan 0 garis). Batas 0.30*p997 menjaga hasil tetap aman
+  // untuk peta berderau (di sana pmed kecil, jadi batas ini tidak berpengaruh).
+  const t=Math.max((rel||0.10)*p997,Math.min(6*pmed,0.30*p997));
   const bin=new Uint8Array(N);
   for(let i=0;i<N;i++)if(Rr[i]>t)bin[i]=1;
   for(let x=0;x<w;x++){bin[x]=0;bin[(h-1)*w+x]=0}
@@ -268,23 +280,145 @@ function ppCleanGraph(G,spurLen,isoLen){
   }
   return {nodes,edges};
 }
-// Saring tulisan: huruf menghasilkan banyak ruas pendek dan berkelok yang bergerombol,
-// sedangkan garis putus-putus berderet jarang dan lurus. Ruas panjang tidak pernah dibuang di sini.
-function ppTextFilter(edges,pxs){
-  const Ls=45*pxs,R=45*pxs,cell=R,grid=new Map();
-  const info=edges.map(e=>{const L=ppLen(e.pts),a=e.pts[0],b=e.pts[e.pts.length-1],ch=Math.hypot(a[0]-b[0],a[1]-b[1]);return {L,S:L?ch/L:1,m:e.pts[(e.pts.length/2)|0]}});
-  info.forEach((f,i)=>{if(f.L<Ls){const k=Math.floor(f.m[0]/cell)+','+Math.floor(f.m[1]/cell);(grid.get(k)||grid.set(k,[]).get(k)).push(i)}});
-  const keep=[];
-  edges.forEach((e,i)=>{
-    const f=info[i];let drop=false;
-    if(f.L<Ls){
-      let n=0;const cx=Math.floor(f.m[0]/cell),cy=Math.floor(f.m[1]/cell);
-      for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const l=grid.get((cx+a)+','+(cy+b));if(l)for(const j of l)if(j!==i&&Math.hypot(info[j].m[0]-f.m[0],info[j].m[1]-f.m[1])<=R)n++}
-      if(n>=5||(f.S<0.9&&n>=2))drop=true;
-    }
-    if(!drop&&f.L<250*pxs&&f.S<0.5)drop=true;
-    if(!drop)keep.push(e);
+// ---- Saringan tulisan / nomor bidang -----------------------------------------
+// Versi lama hanya membuang ruas pendek yang bergerombol, sehingga nomor bidang
+// ("Su. 123/45", "M. 678") yang ruasnya agak panjang dan lurus tetap lolos.
+// Versi ini menilai beberapa ciri sekaligus (semua dapat di-tune lewat opt.textCfg):
+//   1) panjang ruas (pendek / sedang),
+//   2) kepadatan tetangga dalam radius kecil,
+//   3) banyak ujung bebas di sekitar (huruf tidak menyambung ke jaringan batas),
+//   4) orientasi beragam dalam klaster (ciri huruf/angka),
+//   5) komponen terhubung kecil (satu huruf = 1-3 ruas) dan kelurusan rendah.
+// DUA hal dilindungi agar garis batas tidak ikut terbuang:
+//   - garis putus-putus: ruasnya sejajar, sebaris, dan orientasinya seragam;
+//   - ruas yang menghubungkan dua simpang (derajat >= 2) atau bertetangga dengan
+//     ruas panjang: bagian jaringan batas, bukan tulisan.
+const PP_TEXT_DEFAULTS={
+  radius:45,        // radius tetangga (px gambar asli)
+  shortLen:45,      // batas "ruas pendek"
+  mediumLen:250,    // ruas di atas ini tidak pernah dibuang oleh filter ini
+  longSup:180,      // ruas >= ini dianggap "dukungan garis panjang"
+  dropScore:2.0,    // skor minimum untuk membuang (naik = lebih longgar)
+  maxCompEdges:8,   // komponen <= ini dianggap kecil (huruf)
+  longGuard:2,      // jumlah dukungan garis panjang yang menahan pembuangan
+  parDeg:15,        // toleransi sudut untuk dianggap sejajar (derajat)
+  dashPar:0.65,     // porsi tetangga sejajar agar dicurigai garis putus-putus
+  dashSpread:18,    // sebaran orientasi maksimum (derajat) untuk garis putus-putus
+  dashPenalty:2.5,  // pengurang skor untuk garis putus-putus yang dilindungi
+  interiorBonus:1.2 // pengurang skor bila kedua ujung menempel di simpang
+};
+// Statistik jaringan ruas untuk menyetel ambang secara adaptif.
+// medLen (px asli) = median panjang ruas; shortRatio = porsi ruas < 60 px
+// (peta pudar/putus-putus atau banyak tulisan); perMpx = kerapatan ruas.
+function ppEdgeStats(edges,pxs,areaOrig){
+  const lens=edges.map(e=>ppLen(e.pts)/pxs).sort((a,b)=>a-b);
+  const n=lens.length,med=n?lens[(n/2)|0]:0;
+  let short=0;for(const L of lens)if(L<60)short++;
+  const area=Math.max(1,areaOrig||1);
+  return {n,medLen:med,shortRatio:n?short/n:0,perMpx:n/(area/1e6)};
+}
+// Ambang filter teks diturunkan dari minLen (panjang garis minimum pilihan pengguna)
+// dan dari statistik jaringan. Default tetap sama dengan perilaku lama (aman).
+function ppTextCfg(stats,opt){
+  opt=opt||{};
+  const minLen=opt.minLen??120;
+  const shortLen=Math.max(30,Math.min(95,0.45*minLen));
+  const cfg=Object.assign({},PP_TEXT_DEFAULTS,{
+    shortLen,
+    radius:Math.max(35,Math.min(110,shortLen)),
+    mediumLen:Math.max(160,Math.min(340,3.5*shortLen)),
+    longSup:Math.max(120,Math.min(260,2.6*shortLen))
   });
+  // Peta pudar/putus-putus: banyak ruas pendek -> filter dilonggarkan supaya
+  // garis putus-putus yang menjadi batas bidang tidak ikut terbuang.
+  if(stats&&stats.shortRatio>0.55)cfg.dropScore+=0.35;
+  if(stats&&stats.shortRatio>0.72)cfg.dropScore+=0.25;
+  // Penyetelan cepat saat uji lapangan tanpa mengubah berkas:
+  //   window.ppTextCfgOverride={dropScore:2.4, shortLen:60}  lalu jalankan deteksi lagi.
+  if(typeof window!=='undefined'&&window.ppTextCfgOverride)Object.assign(cfg,window.ppTextCfgOverride);
+  return Object.assign(cfg,opt.textCfg||{});
+}
+function ppTextFilter(edges,pxs,opt){
+  const o=Object.assign({},PP_TEXT_DEFAULTS,(opt&&opt.textCfg)||opt||{});
+  if(!edges.length)return edges;
+  const R=o.radius*pxs,Ls=o.shortLen*pxs,Lm=o.mediumLen*pxs,Lg=o.longSup*pxs;
+  const parTol=o.parDeg*Math.PI/180;
+  const info=edges.map(e=>{
+    const P=e.pts,L=ppLen(P),a=P[0],b=P[P.length-1];
+    const ch=Math.hypot(b[0]-a[0],b[1]-a[1]);
+    return {L,S:L>1e-9?ch/L:1,ang:Math.atan2(b[1]-a[1],b[0]-a[0]),a,b,m:P[(P.length/2)|0]};
+  });
+  // Derajat simpul + ukuran komponen terhubung (huruf = komponen kecil).
+  const deg=new Map(),parent=new Map();
+  const find=x=>{let r=x;while(parent.get(r)!==r)r=parent.get(r);while(parent.get(x)!==r){const y=parent.get(x);parent.set(x,r);x=y}return r};
+  for(const e of edges){
+    deg.set(e.a,(deg.get(e.a)||0)+1);deg.set(e.b,(deg.get(e.b)||0)+1);
+    if(!parent.has(e.a))parent.set(e.a,e.a);
+    if(!parent.has(e.b))parent.set(e.b,e.b);
+    const ra=find(e.a),rb=find(e.b);if(ra!==rb)parent.set(ra,rb);
+  }
+  const compSize=new Map();
+  for(const e of edges){const r=find(e.a);compSize.set(r,(compSize.get(r)||0)+1)}
+  // Kisi spasial hanya untuk ruas yang mungkin dibuang (ruas panjang tidak perlu tetangga).
+  const cell=Math.max(R,1),grid=new Map();
+  info.forEach((f,i)=>{
+    if(f.L>Lm)return;
+    const k=Math.floor(f.m[0]/cell)+','+Math.floor(f.m[1]/cell);
+    const arr=grid.get(k);if(arr)arr.push(i);else grid.set(k,[i]);
+  });
+  const keep=[];let dropped=0,dashes=0;
+  edges.forEach((e,i)=>{
+    const f=info[i];
+    if(f.L>=Lm){keep.push(e);return}          // ruas panjang tidak pernah dibuang di sini
+    const cx=Math.floor(f.m[0]/cell),cy=Math.floor(f.m[1]/cell),nbs=[];
+    for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){
+      const arr=grid.get((cx+a)+','+(cy+b));if(!arr)continue;
+      for(const j of arr){
+        if(j===i)continue;
+        const g=info[j];if(Math.hypot(g.m[0]-f.m[0],g.m[1]-f.m[1])<=R)nbs.push(j);
+      }
+    }
+    const nNb=nbs.length,angs=[];
+    let nEnd=0,nPar=0,nLong=0,nCol=0;
+    const ux=Math.cos(f.ang),uy=Math.sin(f.ang);
+    for(const j of nbs){
+      const g=info[j];angs.push(g.ang);
+      if(g.L>=Lg)nLong++;
+      for(const p of [g.a,g.b])if(Math.hypot(p[0]-f.m[0],p[1]-f.m[1])<=R)nEnd++;
+      let da=Math.abs(g.ang-f.ang)%Math.PI;da=Math.min(da,Math.PI-da);
+      if(da<=parTol)nPar++;
+      // sebaris dengan ruas ini? (untuk mengenali garis putus-putus)
+      const vx=g.m[0]-f.m[0],vy=g.m[1]-f.m[1];
+      if(Math.abs(vx*uy-vy*ux)<=Math.max(6*pxs,0.25*f.L))nCol++;
+    }
+    const par=nNb?nPar/nNb:0,col=nNb?nCol/nNb:0;
+    let spread=0;
+    if(angs.length>=2){
+      angs.sort((x,y)=>x-y);
+      let gap=angs[0]+Math.PI-angs[angs.length-1];
+      for(let k=1;k<angs.length;k++)gap=Math.max(gap,angs[k]-angs[k-1]);
+      spread=(Math.PI-gap)*180/Math.PI;
+    }
+    const isDash=par>=o.dashPar&&spread<=o.dashSpread&&col>=0.5;
+    const comp=compSize.get(find(e.a))||1;
+    let score=0;
+    if(f.L<Ls)score+=1.2;
+    else score+=0.8*(1-(f.L-Ls)/Math.max(1,Lm-Ls));
+    score+=Math.min(1.2,nNb/6);
+    score+=Math.min(1.0,nEnd/(2+2*Math.max(1,nNb)));
+    if(spread>25)score+=Math.min(1.0,(spread-25)/45);
+    score+=1.4*(1-f.S);
+    if(comp<=o.maxCompEdges&&f.L<Ls*2.5)score+=0.5;
+    score-=1.1*par;
+    if(nLong>=o.longGuard)score-=0.8;
+    if((deg.get(e.a)||0)>=2&&(deg.get(e.b)||0)>=2)score-=o.interiorBonus;
+    if(comp>o.maxCompEdges)score-=0.3;
+    if(isDash){score-=o.dashPenalty;dashes++}
+    // goresan terpencil yang pendek dan berkelok: hampir pasti bukan batas bidang
+    const isolated=comp<=3&&f.L<Lm&&f.S<0.55;
+    if(isolated||score>=o.dropScore)dropped++;else keep.push(e);
+  });
+  keep.stats={teksDibuang:dropped,garisPutus:dashes};
   return keep;
 }
 // Buang tanda silang kisi (+): komponen graf kecil berujung 4 yang membentuk salib.
@@ -366,12 +500,53 @@ function ppDropOpenPlus(G,pxs){
   G.edges=edges.filter((_,k)=>!drop.has(k));
   return n;
 }
+// Metrik kelengkungan polyline: total belok (derajat), belok terbesar, dan jumlah
+// belokan tajam (>= 25 derajat). Kurva sungai/jalan = banyak belokan kecil;
+// sudut bidang = satu belokan besar.
+function ppCurveMetrics(pts){
+  let turn=0,maxTurn=0,bigTurns=0;
+  for(let i=1;i<pts.length-1;i++){
+    const a=pts[i-1],b=pts[i],c=pts[i+1];
+    const ux=b[0]-a[0],uy=b[1]-a[1],vx=c[0]-b[0],vy=c[1]-b[1];
+    const lu=Math.hypot(ux,uy),lv=Math.hypot(vx,vy);
+    if(lu<1e-9||lv<1e-9)continue;
+    const t=Math.acos(Math.max(-1,Math.min(1,(ux*vx+uy*vy)/(lu*lv))))*180/Math.PI;
+    turn+=t;if(t>maxTurn)maxTurn=t;if(t>=25)bigTurns++;
+  }
+  return {turn,maxTurn,bigTurns};
+}
+// Penghalusan ringan (rata-rata berbobot 1-2-1); ujung tidak digeser.
+function ppSmoothLine(pts,passes){
+  let P=pts.map(p=>[p[0],p[1]]);
+  for(let k=0;k<(passes|0);k++){
+    if(P.length<3)break;
+    const Q=P.map(p=>[p[0],p[1]]);
+    for(let i=1;i<P.length-1;i++){
+      Q[i][0]=(P[i-1][0]+2*P[i][0]+P[i+1][0])/4;
+      Q[i][1]=(P[i-1][1]+2*P[i][1]+P[i+1][1])/4;
+    }
+    P=Q;
+  }
+  return P;
+}
 // Pasang garis lurus pada tiap ruas (Douglas-Peucker), lalu hitung ulang sudut dan simpang dari
 // perpotongan garis-garis itu. Hasilnya tidak menggeser sudut ke dalam seperti kerangka mentah.
-function ppRefineGraph(G,eps){
+// Ruas yang terdeteksi LENGKUNG (total belok tinggi tanpa belokan tajam) tidak dipaksa lurus:
+// titik Douglas-Peucker dipertahankan (dengan epsilon lebih longgar) lalu dihaluskan ringan.
+function ppRefineGraph(G,eps,opt){
+  const o=Object.assign({curveTurn:35,curveSmooth:1,curveEpsScale:1.8},opt||{});
   const {nodes,edges}=G,pos=nodes.map(n=>[n.x,n.y]),ends=nodes.map(()=>[]);
   for(const e of edges){
-    const idx=ppDP(e.pts,eps),P=e.pts;e.idx=idx;e.fits=[];
+    const P=e.pts;
+    // Kelengkungan diukur pada polyline yang sudah diringkas Douglas-Peucker (eps 2 px):
+    // kerangka piksel mentah punya "tangga" yang membuat sudut lokal tampak tajam.
+    const coarse=ppDP(P,2).map(k=>P[k]);
+    const met=ppCurveMetrics(coarse);
+    e.curve=P.length>=5&&met.turn>=o.curveTurn&&met.bigTurns===0;
+    e.metrics=met;
+    const eEps=e.curve?Math.max(eps,eps*o.curveEpsScale):eps;
+    const idx=ppDP(P,eEps);e.idx=idx;e.fits=[];
+    if(e.curve)continue;   // ruas lengkung: jangan dipasangi garis lurus
     for(let k=0;k<idx.length-1;k++)e.fits.push(ppFit(P,idx[k],idx[k+1]));
     ends[e.a].push(e.fits[0]);ends[e.b].push(e.fits[e.fits.length-1]);
   }
@@ -385,9 +560,14 @@ function ppRefineGraph(G,eps){
   });
   for(const e of edges){
     const P=e.pts,v=[pos[e.a]];
+    if(e.curve){
+      const mid=e.idx.slice(1,-1).map(k=>P[k]);
+      for(const p of ppSmoothLine(mid,o.curveSmooth))v.push(p);
+      v.push(pos[e.b]);e.v=v;continue;
+    }
     for(let k=1;k<e.idx.length-1;k++){
-      const A=e.fits[k-1],B=e.fits[k],o=P[e.idx[k]];let q=o;
-      if(A.len>=6&&B.len>=6){const X=ppInter(A,B);if(X&&X.s>=0.12&&Math.hypot(X.x-o[0],X.y-o[1])<=4)q=[X.x,X.y]}
+      const A=e.fits[k-1],B=e.fits[k],o2=P[e.idx[k]];let q=o2;
+      if(A.len>=6&&B.len>=6){const X=ppInter(A,B);if(X&&X.s>=0.12&&Math.hypot(X.x-o2[0],X.y-o2[1])<=4)q=[X.x,X.y]}
       v.push(q);
     }
     v.push(pos[e.b]);e.v=v;
@@ -396,10 +576,16 @@ function ppRefineGraph(G,eps){
 }
 // Tutup celah berdasarkan ARAH garis (bukan sekadar jarak):
 //  - ujung bertemu ujung yang saling menghadap: dijembatani lurus,
+//  - celah LEBIH LEBAR hanya ditutup bila kedua ujung hampir segaris (angTight),
+//    aman untuk garis scan yang terputus,
 //  - dua ujung yang garisnya berpotongan di depan: disatukan di titik sudut,
 //  - ujung yang menembak ke tengah garis lain: ditarik sampai menempel (T-junction).
 function plotPetaCloseGaps(segs,o){
   const snap=o.snap??0.6,linkMax=o.linkMax,cosT=Math.cos((o.angMax??40)*Math.PI/180);
+  // Parameter baru (default = perilaku lama + jangkauan tambahan yang aman):
+  //  angTight  : toleransi sudut untuk celah lebar (derajat, default 12)
+  //  longFactor: pengali linkMax untuk celah lebar yang hampir segaris (default 1.6)
+  const cosTight=Math.cos((o.angTight??12)*Math.PI/180),longFactor=Math.max(1,o.longFactor??1.6);
   const nodes=[],grid=new Map(),cell=Math.max(snap*2,1);
   const nodeOf=(x,y)=>{
     const cx=Math.floor(x/cell),cy=Math.floor(y/cell);let best=-1,bd=snap;
@@ -409,7 +595,7 @@ function plotPetaCloseGaps(segs,o){
   };
   const E=[];
   for(const s of segs){const a=nodeOf(s[0][0],s[0][1]),b=nodeOf(s[1][0],s[1][1]);if(a===b)continue;E.push({a,b});nodes[a].adj.push(E.length-1);nodes[b].adj.push(E.length-1)}
-  if(!(linkMax>0)||!E.length)return {segs:E.map(e=>[[nodes[e.a].x,nodes[e.a].y],[nodes[e.b].x,nodes[e.b].y]]),stats:{join:0,corner:0,tee:0}};
+  if(!(linkMax>0)||!E.length)return {segs:E.map(e=>[[nodes[e.a].x,nodes[e.a].y],[nodes[e.b].x,nodes[e.b].y]]),stats:{join:0,corner:0,tee:0,jauh:0}};
   const other=(e,n)=>E[e].a===n?E[e].b:E[e].a;
   // rantai: telusuri lewat simpul berderajat 2 untuk mendapat id rantai, panjang, dan arah di ujung bebas
   const chain=new Int32Array(E.length).fill(-1),chains=[];
@@ -437,10 +623,15 @@ function plotPetaCloseGaps(segs,o){
   const fl=[...info.keys()];
   for(let i=0;i<fl.length;i++)for(let j=i+1;j<fl.length;j++){
     const a=fl[i],b=fl[j],A=info.get(a),B=info.get(b),vx=nodes[b].x-nodes[a].x,vy=nodes[b].y-nodes[a].y,d=Math.hypot(vx,vy);
-    if(d>linkMax*1.6)continue;
+    if(d>linkMax*Math.max(1.6,longFactor))continue;
     if(A.ch===B.ch&&chains[A.ch].len<4*Math.max(d,1))continue;
     const cA=d>1e-9?(A.u[0]*vx+A.u[1]*vy)/d:1,cB=d>1e-9?-(B.u[0]*vx+B.u[1]*vy)/d:1;
     if(d<=linkMax&&cA>=cosT&&cB>=cosT){cands.push({cost:d*(1+(1-cA)+(1-cB)),t:'join',a,b});continue}
+    // Celah lebar: hanya bila kedua ujung hampir segaris (bukti arah kuat),
+    // sehingga garis yang tidak berhubungan tidak ikut tersambung.
+    if(d<=linkMax*longFactor&&cA>=cosTight&&cB>=cosTight){
+      cands.push({cost:d*2.4+(1-cA)*40+(1-cB)*40,t:'join',a,b,jauh:true});continue;
+    }
     const den=A.u[0]*B.u[1]-A.u[1]*B.u[0];
     if(Math.abs(den)<0.34)continue;
     const ta=((nodes[b].x-nodes[a].x)*B.u[1]-(nodes[b].y-nodes[a].y)*B.u[0])/den;
@@ -462,11 +653,11 @@ function plotPetaCloseGaps(segs,o){
     if(best)cands.push({cost:Math.max(best.t,0)*1.12,t:'tee',a,k:best.k,s:best.s,X:[ax+best.t*A.u[0],ay+best.t*A.u[1]]});
   }
   cands.sort((x,y)=>x.cost-y.cost);
-  const used=new Set(),out=[],splits=new Map(),st={join:0,corner:0,tee:0};
+  const used=new Set(),out=[],splits=new Map(),st={join:0,corner:0,tee:0,jauh:0};
   const P=n=>[nodes[n].x,nodes[n].y];
   for(const c of cands){
     if(used.has(c.a)||(c.b!==undefined&&used.has(c.b)))continue;
-    used.add(c.a);if(c.b!==undefined)used.add(c.b);st[c.t]++;
+    used.add(c.a);if(c.b!==undefined)used.add(c.b);st[c.t]++;if(c.jauh)st.jauh++;
     if(c.t==='join')out.push([P(c.a),P(c.b)]);
     else if(c.t==='corner'){out.push([P(c.a),c.X.slice()]);out.push([P(c.b),c.X.slice()])}
     else{out.push([P(c.a),c.X.slice()]);(splits.get(c.k)||splits.set(c.k,[]).get(c.k)).push({s:c.s,X:c.X.slice()})}
@@ -493,23 +684,45 @@ function detectTrace(R,opt){
   let G=ppSkeletonGraph(bin,w,h);
   const overMax=Math.max(10,Math.min(30,0.15*minLen));
   G=ppCleanGraph(G,overMax*pxs,0.35*minLen*pxs);
-  let nPlus=0;
-  if(opt.textFilter!==false){G.edges=ppTextFilter(G.edges,pxs);G=ppCleanGraph(G,overMax*pxs,0.35*minLen*pxs)}
+  // Statistik jaringan (median panjang ruas, porsi ruas pendek) untuk ambang adaptif.
+  const stat=ppEdgeStats(G.edges,pxs,(w/sx)*(h/sy));
+  let nPlus=0,nText=0,nDash=0;
+  if(opt.textFilter!==false){
+    const textCfg=ppTextCfg(stat,opt);
+    const kept=ppTextFilter(G.edges,pxs,textCfg);
+    if(kept.stats){nText=kept.stats.teksDibuang||0;nDash=kept.stats.garisPutus||0}
+    G.edges=kept;G=ppCleanGraph(G,overMax*pxs,0.35*minLen*pxs);
+  }
   if(opt.plusFilter!==false){nPlus=ppDropPlusMarks(G,pxs)+ppDropOpenPlus(G,pxs);G=ppCleanGraph(G,overMax*pxs,0.35*minLen*pxs)}
-  const edges=ppRefineGraph(G,1.2);
+  const edges=ppRefineGraph(G,1.2,opt.curve);
+  let nCurve=0;for(const e of edges)if(e.curve)nCurve++;
   const segs=[];
   for(const e of edges)for(let i=0;i<e.v.length-1;i++){
     const a=[R.x+e.v[i][0]/sx,R.y+e.v[i][1]/sy],b=[R.x+e.v[i+1][0]/sx,R.y+e.v[i+1][1]/sy];
     if(Math.hypot(a[0]-b[0],a[1]-b[1])>1e-6)segs.push([a,b]);
   }
-  const closed=plotPetaCloseGaps(segs,{linkMax,snap:0.6});
+  // linkMax adaptif: peta besar/beresolusi tinggi punya celah scan lebih lebar (px asli).
+  // Batas atas dijaga (180 px) supaya area seleksi kecil tidak jadi terlalu agresif.
+  const linkEff=Math.max(linkMax,Math.min(0.02*Math.max(R.w,R.h),180));
+  const closed=plotPetaCloseGaps(segs,{
+    linkMax:linkEff,snap:0.6,
+    angTight:opt.angTight??12,
+    longFactor:opt.longFactor??1.6
+  });
   const attachTol=Math.max(3,+($('pTol')?$('pTol').value:8)||8);
   let chains=plotPetaBuildChains(closed.segs,0.8,attachTol);
   if(opt.isoFilter!==false){const IW=img.width,IH=img.height,minIso=Math.max(0.35*minLen,0.016*Math.max(IW,IH));
     chains=chains.filter(c=>{if(c.closed||!c.free||!c.free[0]||!c.free[1])return true;let L=0;for(let i=1;i<c.pts.length;i++)L+=Math.hypot(c.pts[i][0]-c.pts[i-1][0],c.pts[i][1]-c.pts[i-1][1]);return L>=minIso})}
   chains=chains.filter(c=>{let L=0;for(let i=1;i<c.pts.length;i++)L+=Math.hypot(c.pts[i][0]-c.pts[i-1][0],c.pts[i][1]-c.pts[i-1][1]);return c.closed||L>=Math.max(12,0.35*minLen)});
   plotPetaNumberEnds(chains);
-  chains.stats=Object.assign({},closed.stats,{abaikanSilang:nPlus});
+  chains.stats=Object.assign({},closed.stats,{
+    abaikanSilang:nPlus,
+    teksDibuang:nText,
+    garisPutus:nDash,
+    ruasLengkung:nCurve,
+    linkMax:Math.round(linkEff),
+    medianRuas:Math.round(stat.medLen)
+  });
   return chains;
 }
 // ==== PLOTPETA ENGINE END ====
