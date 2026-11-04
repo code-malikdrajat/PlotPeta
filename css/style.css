@@ -779,6 +779,10 @@ textarea {
   border-radius: 4px;
   font-size: 11px;
 }
+#candClean input[type="range"] { width: 100%; }
+#candMinLenNum { width: 76px; padding: 3px 6px; font-size: 11px; text-align: right; }
+#candDroppedRow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+#candDroppedRow #candRestore { padding: 4px 9px; font-size: 11px; }
 
 .shortcut-list {
   display: grid;
