@@ -1,15 +1,18 @@
 // PlotPeta: Laci alat kiri dan alat favorit
 /* PlotPeta tool drawer and user favorites */
 (function () {
-  // ==================== Layer hasil "Perbaiki AI" ====================
-  // Oranye (#FF8C00): garis Deteksi Cepat yang valid.
-  // Ungu   (#8A2BE2): sambungan baru yang dihasilkan modul perbaikan AI.
-  // clearAndRedraw() menggambar ulang SEKALI (bukan clear bertahap) supaya
-  // kanvas tidak berkedip. State lapisan juga disalin ke `cand` agar tetap
-  // tampil saat peta digeser/di-zoom atau digambar ulang oleh core.js.
+  // ==================== Layer hasil "Perbaiki AI" (skema 3 warna) ====================
+  // Oranye (#FF8C00): kandidat Deteksi Cepat sebelum diperbaiki.
+  // Biru   (#1E90FF): garis oranye yang divalidasi BENAR oleh AI.
+  // Ungu   (#8A2BE2): sambungan baru yang dibuat AI untuk menutup celah.
+  // renderMultiLayer() menggambar ulang SEKALI (clearRect lalu draw() core.js)
+  // supaya kanvas tidak berkedip. State lapisan juga disalin ke `cand` agar
+  // tetap tampil saat peta digeser/di-zoom atau digambar ulang oleh core.js.
   const LAYER_ORANGE = '#FF8C00';
+  const LAYER_BLUE = '#1E90FF';
   const LAYER_PURPLE = '#8A2BE2';
-  let layerState = { orangeLines: [], purpleLines: [] };
+  const LAYER_WIDTH = { orange: 2, blue: 2.5, purple: 3 };
+  let layerState = { orangeLines: [], blueLines: [], purpleLines: [] };
 
   function layerPoints(line) {
     const raw = line && (line.points || line.pts);
@@ -46,59 +49,81 @@
     return cv && cv.getContext ? { canvas: cv, ctx: cv.getContext('2d') } : null;
   }
 
-  function paintLayers(ctx, state) {
-    if (!ctx || !state) return;
+  // Helper satu garis: bersih, tidak mengubah fungsi gambar yang sudah ada.
+  // `points` memakai koordinat gambar (diproyeksikan lewat toS bila tersedia).
+  function drawSingleLine(ctx, points, color, width) {
+    if (!ctx || typeof ctx.beginPath !== 'function' || !Array.isArray(points)) return false;
     const project = typeof toS === 'function' ? toS : (p => p);
-    const stroke = (line, color, width) => {
-      const pts = line.points.map(project);
-      if (pts.length < 2) return;
-      ctx.beginPath();
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = width;
-      ctx.setLineDash([]);
-      ctx.stroke();
-    };
+    const pts = [];
+    for (const p of points) {
+      if (!Array.isArray(p) || p.length < 2) continue;
+      const s = project([Number(p[0]), Number(p[1])]);
+      if (!Array.isArray(s) || !Number.isFinite(s[0]) || !Number.isFinite(s[1])) continue;
+      pts.push(s);
+    }
+    if (pts.length < 2) return false;
     ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.strokeStyle = color || LAYER_ORANGE;
+    ctx.lineWidth = Number(width) > 0 ? Number(width) : LAYER_WIDTH.orange;
+    ctx.setLineDash([]);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    state.orangeLines.forEach(line => stroke(line, LAYER_ORANGE, 2));
-    state.purpleLines.forEach(line => stroke(line, line.color || LAYER_PURPLE, 2.2));
+    ctx.stroke();
     ctx.restore();
+    return true;
+  }
+
+  function paintLayers(ctx, state) {
+    if (!ctx || !state) return;
+    state.orangeLines.forEach(line => drawSingleLine(ctx, line.points, LAYER_ORANGE, LAYER_WIDTH.orange));
+    state.blueLines.forEach(line => drawSingleLine(ctx, line.points, LAYER_BLUE, LAYER_WIDTH.blue));
+    state.purpleLines.forEach(line => drawSingleLine(ctx, line.points, line.color || LAYER_PURPLE, LAYER_WIDTH.purple));
   }
 
   // Salin lapisan ke sumber data kanvas utama (dipakai draw() di core.js).
   function syncLayerState(state) {
     if (typeof cand === 'undefined') return false;
     if (typeof snapshot === 'function') snapshot();
-    cand = state.orangeLines.map(line => ({
-      k: line.k || 'P', pts: line.points, ai: true, aiOrange: true, refine: true,
-    })).concat(state.purpleLines.map(line => ({
-      k: 'P', pts: line.points, ai: true, purple: true, refine: true,
-    })));
+    const entry = (line, flags) => Object.assign({
+      k: line.k || 'P', pts: line.points, ai: true, refine: true,
+    }, line.id != null ? { id: line.id } : {}, flags);
+    cand = state.orangeLines.map(line => entry(line, { aiOrange: true }))
+      .concat(state.blueLines.map(line => entry(line, { aiBlue: true })))
+      .concat(state.purpleLines.map(line => entry(line, { purple: true })));
     if (typeof syncCandClean === 'function') syncCandClean();
     if (typeof candMsg === 'function') candMsg();
     return true;
   }
 
   // Ganti seluruh lapisan lalu gambar ulang sekali (tanpa flicker).
-  function clearAndRedraw(input) {
+  function renderMultiLayer(input) {
     const src = input || {};
     layerState = {
       orangeLines: normalizeLayers(src.orangeLines, LAYER_ORANGE),
+      blueLines: normalizeLayers(src.blueLines, LAYER_BLUE),
       purpleLines: normalizeLayers(src.purpleLines, LAYER_PURPLE),
     };
+    const c = layerContext();
+    if (c) c.ctx.clearRect(0, 0, c.canvas.width, c.canvas.height);
     if (syncLayerState(layerState) && typeof draw === 'function') {
       draw();
-    } else {
-      const c = layerContext();
-      if (c) {
-        c.ctx.clearRect(0, 0, c.canvas.width, c.canvas.height);
-        paintLayers(c.ctx, layerState);
-      }
+    } else if (c) {
+      paintLayers(c.ctx, layerState);
     }
     return layerState;
+  }
+
+  // Kompatibilitas dengan pemanggil lama.
+  function clearAndRedraw(input) {
+    const src = input || {};
+    return renderMultiLayer({
+      orangeLines: src.orangeLines,
+      blueLines: src.blueLines,
+      purpleLines: src.purpleLines,
+    });
   }
 
   // Render lapisan saja (mis. dipanggil setelah core.js menggambar ulang).
@@ -110,8 +135,11 @@
 
   window.PlotPetaDrawer = window.PlotPetaDrawer || {};
   Object.assign(window.PlotPetaDrawer, {
-    colors: { orange: LAYER_ORANGE, purple: LAYER_PURPLE },
+    colors: { orange: LAYER_ORANGE, blue: LAYER_BLUE, purple: LAYER_PURPLE },
+    widths: LAYER_WIDTH,
+    renderMultiLayer,
     clearAndRedraw,
+    drawSingleLine,
     draw: drawLayers,
     layers: () => layerState,
   });

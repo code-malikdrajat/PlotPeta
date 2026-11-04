@@ -688,18 +688,20 @@ function refineSetBusy(on, message) {
 
 // Cadangan bila js/drawer.js tidak termuat: tulis lapisan ke kandidat aktif.
 function refineApplyLayers(layers) {
+  const src = layers || {};
   if (typeof cand === "undefined") return;
   if (typeof snapshot === "function") snapshot();
-  cand = layers.orangeLines.map(l => ({
-    k: l.k || "P", pts: l.points, ai: true, aiOrange: true, refine: true,
-  })).concat(layers.purpleLines.map(l => ({
-    k: "P", pts: l.points, ai: true, purple: true, refine: true,
-  })));
+  const entry = (line, flags) => Object.assign({
+    k: line.k || "P", pts: line.points, ai: true, refine: true,
+  }, line.id != null ? { id: line.id } : {}, flags);
+  cand = (src.orangeLines || []).map(l => entry(l, { aiOrange: true }))
+    .concat((src.blueLines || []).map(l => entry(l, { aiBlue: true })))
+    .concat((src.purpleLines || []).map(l => entry(l, { purple: true })));
   if (typeof syncCandClean === "function") syncCandClean();
   if (typeof candMsg === "function") candMsg();
 }
 
-async function perbaikiHasilDeteksi(linesData, canvasElement) {
+async function jalankanPerbaikanAI(garisOranyeDeteksiCepat, canvasElement) {
   if (refineBusy) { aiSay("Perbaikan garis masih berjalan..."); return null; }
   if (!sb || typeof sb.functions === "undefined") {
     aiSay("Layanan tidak tersedia. Muat ulang halaman lalu coba lagi.");
@@ -711,8 +713,8 @@ async function perbaikiHasilDeteksi(linesData, canvasElement) {
     return null;
   }
 
-  const source = Array.isArray(linesData) && linesData.length
-    ? linesData
+  const source = Array.isArray(garisOranyeDeteksiCepat) && garisOranyeDeteksiCepat.length
+    ? garisOranyeDeteksiCepat
     : (typeof cand !== "undefined" && cand.length ? cand : []);
   const usedIds = new Set();
   const byId = new Map();
@@ -763,17 +765,24 @@ async function perbaikiHasilDeteksi(linesData, canvasElement) {
     ]);
     if (error) throw await aiErrorFromInvoke(error, "Layanan perbaikan garis gagal.");
     const payload = data && data.data ? data.data : data;
-    if (!payload || !Array.isArray(payload.valid_lines)) {
+    const hasRefineData = payload && typeof payload === "object" && (
+      Array.isArray(payload.removed_line_ids) ||
+      Array.isArray(payload.ai_connections) ||
+      Array.isArray(payload.valid_lines)
+    );
+    if (!hasRefineData) {
       throw new Error((data && data.message) || "Jawaban perbaikan garis tidak valid.");
     }
 
+    // Garis oranye yang tidak ada di removed_line_ids = tervalidasi AI -> biru.
     const removedIds = new Set(
       (Array.isArray(payload.removed_line_ids) ? payload.removed_line_ids : []).map(String),
     );
     const kept = lines.filter(l => !removedIds.has(l.id));
-    const orangeLines = kept.map(l => Object.assign({}, byId.get(l.id) || {}, {
+    const blueLines = kept.map(l => Object.assign({}, byId.get(l.id) || {}, {
       id: l.id,
       points: l.points,
+      color: "#1E90FF",
     }));
     const purpleLines = [];
     for (const c of (Array.isArray(payload.ai_connections) ? payload.ai_connections : [])) {
@@ -788,19 +797,20 @@ async function perbaikiHasilDeteksi(linesData, canvasElement) {
       });
     }
 
-    const layers = { orangeLines, purpleLines };
+    const layers = { orangeLines: [], blueLines, purpleLines };
     const drawer = window.PlotPetaDrawer;
-    if (drawer && typeof drawer.clearAndRedraw === "function") drawer.clearAndRedraw(layers);
+    if (drawer && typeof drawer.renderMultiLayer === "function") drawer.renderMultiLayer(layers);
+    else if (drawer && typeof drawer.clearAndRedraw === "function") drawer.clearAndRedraw(layers);
     else refineApplyLayers(layers);
 
     if (typeof syncCandClean === "function") syncCandClean();
     if (typeof stat === "function") stat();
     if (typeof draw === "function") draw();
     aiSay(
-      "Perbaikan garis selesai: " + orangeLines.length + " garis valid, " +
-      (lines.length - kept.length) + " noise dibuang, " + purpleLines.length + " sambungan ungu."
+      "Perbaikan AI selesai: " + blueLines.length + " garis biru tervalidasi, " +
+      purpleLines.length + " sambungan ungu dibuat, " + (lines.length - kept.length) + " noise dibuang."
     );
-    return { ok: true, orangeLines, purpleLines, removedLineIds: [...removedIds] };
+    return { ok: true, orangeLines: [], blueLines, purpleLines, removedLineIds: [...removedIds] };
   } catch (e) {
     const msg = e && e.message ? e.message : "coba lagi.";
     aiSay("Perbaikan garis gagal: " + msg);
@@ -811,4 +821,9 @@ async function perbaikiHasilDeteksi(linesData, canvasElement) {
   }
 }
 
+function perbaikiHasilDeteksi(garisOranyeDeteksiCepat, canvasElement) {
+  return jalankanPerbaikanAI(garisOranyeDeteksiCepat, canvasElement);
+}
+
+window.jalankanPerbaikanAI = jalankanPerbaikanAI;
 window.perbaikiHasilDeteksi = perbaikiHasilDeteksi;

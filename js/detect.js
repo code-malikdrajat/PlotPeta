@@ -666,6 +666,24 @@ function finishSelection(){
   return false;
 }
 
+// Setiap kandidat menyimpan id unik agar Perbaiki AI bisa memfilter
+// removed_line_ids tanpa menghapus seluruh garis.
+function ensureCandIds(list){
+  if(!Array.isArray(list)) return list;
+  const seen=new Set();
+  list.forEach((c,i)=>{
+    if(!c||typeof c!=='object') return;
+    let id=c.id!=null?String(c.id).trim():'';
+    if(!id||seen.has(id)){
+      let n=i+1;
+      id='line_'+n;
+      while(seen.has(id)) id='line_'+(++n)+'_'+(i+1);
+    }
+    seen.add(id);
+    if(c.id!==id) c.id=id;
+  });
+  return list;
+}
 function runDet(R,poly=null){
   if(!img||R.w<20||R.h<20)return;
   candDropped=[];
@@ -715,6 +733,7 @@ function runDet(R,poly=null){
           topoNote=' Topologi dirapikan ('+tr.stats.joins+' join, '+tr.stats.extends+' extend, '+tr.stats.trims+' trim).';
         }catch(e){console.warn('Rapikan topologi otomatis gagal:',e)}
       }
+      ensureCandIds(cand);
       if(cand.length&&cand[0].free) plotPetaNumberEnds(cand);
       const nEnd=cand.reduce((z,c)=>z+((c.nums||[]).filter(Boolean).length),0);
       const engineNote=engine==='hough'?' Metode Hough dipakai.':'';

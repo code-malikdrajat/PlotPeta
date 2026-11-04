@@ -847,7 +847,11 @@ function draw(){
     path(c.pts);
     if(c.purple){
       ctx.strokeStyle='#8A2BE2';
-      ctx.lineWidth=2.2;
+      ctx.lineWidth=3;
+      ctx.setLineDash([]);
+    }else if(c.aiBlue){
+      ctx.strokeStyle='#1E90FF';
+      ctx.lineWidth=2.5;
       ctx.setLineDash([]);
     }else if(c.aiOrange){
       ctx.strokeStyle='#FF8C00';
