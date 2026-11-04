@@ -14,7 +14,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<link rel="stylesheet" href="css/style.css?v=7">
+<link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body>
 
@@ -191,7 +191,7 @@
           <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
         </svg>
         <span>Geser</span>
-      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">â˜†</span></button>
+      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <button data-tool="cal" title="Langkah 1: Kalibrasi 4 titik grid peta">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -202,7 +202,7 @@
           <line x1="12" y1="22" x2="12" y2="18"></line>
         </svg>
         <span>1. Kalibrasi</span>
-      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">â˜†</span></button>
+      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <button data-tool="P" title="Digitasi garis penuh (solid line)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -211,7 +211,7 @@
           <circle cx="20" cy="5" r="2.5" fill="currentColor"></circle>
         </svg>
         <span>Garis penuh</span>
-      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">â˜†</span></button>
+      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 <button data-tool="T" title="Tambahkan teks nomor hak dan surat ukur">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="4 7 4 4 20 4 20 7"></polyline>
@@ -219,7 +219,7 @@
           <line x1="12" y1="4" x2="12" y2="20"></line>
         </svg>
         <span>Teks bidang</span>
-      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">â˜†</span></button>
+      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <button data-tool="M" title="Edit titik: drag titik, klik garis untuk potong, 2x segmen untuk hapus, klik titik lalu klik tujuan untuk menambah garis">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -231,14 +231,14 @@
           <line x1="12" y1="2" x2="12" y2="22"></line>
         </svg>
         <span>Edit Garis</span>
-      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">â˜†</span></button>
+      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <button data-tool="A" title="Deteksi Cepat: deteksi garis otomatis menggunakan AI/Computer Vision">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
         </svg>
         <span>Deteksi Cepat</span>
-      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">â˜†</span></button>
+      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <div class="tool-mode-options detect-mode-options" aria-label="Metode Deteksi Cepat">
         <label>Area Deteksi
@@ -260,21 +260,13 @@
         </details>
       </div>
 
-      <button data-tool="AI" title="Deteksi AI (beta): tarik kotak pada peta; potongan peta dikirim ke penyedia AI">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"></path>
-          <path d="M19 3v4"></path><path d="M21 5h-4"></path>
-        </svg>
-        <span>Deteksi AI <span class="tool-beta">beta</span> <span class="tool-token" title="Fitur berbayar (token)">T</span></span>
-      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">â˜†</span></button>
-
       <button data-tool="E" title="Hapus segmen garis atau teks">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="3 6 5 6 21 6"></polyline>
           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
         </svg>
         <span>Hapus</span>
-      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">â˜†</span></button>
+      <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span></button>
 
       <div class="tool-mode-options erase-mode-options" aria-label="Metode Hapus">
         <label>Metode Hapus
@@ -305,7 +297,7 @@
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           <span>Edit Teks Bidang</span>
         </span>
-        <button type="button" id="popoverClose" class="popover-close-btn" title="Tutup">âœ•</button>
+        <button type="button" id="popoverClose" class="popover-close-btn" title="Tutup">✕</button>
       </div>
       <div class="popover-body">
         <label class="popover-label">
@@ -436,11 +428,12 @@
           <span>Poligon Bidang</span>
         </h3>
       </div>
-      <div class="mu">Dibuat otomatis dari ruang tertutup di jaringan garis. Buat ulang jika garis diubah.</div>
+      <div class="mu">Poligon terbentuk dari ruang tertutup di jaringan garis. Bila opsi otomatis aktif, poligon diperbarui sendiri saat garis berubah. Poligon ikut diekspor ke DXF.</div>
       <label class="mu" style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
         <span>Toleransi sambung (px)</span>
         <input id="pTol" value="8" style="width:70px;text-align:center">
       </label>
+      <label class="mu" style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="polyAuto" type="checkbox" checked style="width:auto"><span>Buat poligon otomatis saat garis tersambung</span></label>
       <div class="g2">
         <button class="pri" id="pMk">Buat poligon</button>
         <button id="pDel">Hapus poligon</button>
@@ -484,25 +477,39 @@
       </div>
       <button id="dAll" style="margin-top:8px;width:100%">Deteksi seluruh peta</button>
       <div class="mu" id="dMsg"></div>
-    </div>
 
-    <!-- Box 5b: Deteksi AI (beta) -->
-    <div class="box">
-      <div class="box-header">
-        <h3>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"></path><path d="M19 3v4"></path><path d="M21 5h-4"></path></svg>
-          <span>Deteksi AI</span>
-          <span class="brand-badge ai-beta">Beta</span>
-        </h3>
+      <div id="aiRefineBox" class="hide" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div class="mu" style="font-weight:700">Perbaiki dengan AI</div>
+        <div class="mu">Garis hasil Deteksi Cepat dikirim sebagai petunjuk. AI menyambung garis yang putus, membuang noise, dan membaca teks hak/su. Hasil AI menimpa kandidat.</div>
+        <div class="mu" id="aiCost"></div>
+        <button class="pri" id="aiRefine" style="margin-top:8px;width:100%">Perbaiki dengan AI</button>
+        <button id="aiCancel" class="hide" style="margin-top:8px;width:100%">Batal</button>
+        <div class="mu" id="aiMsg"></div>
       </div>
-      <div class="mu">Tarik kotak dengan alat Deteksi AI, atau analisis seluruh peta. Garis dan teks hasil AI berwarna ungu; periksa sebelum menyimpan.</div>
 
-      <div class="mu" id="aiCost"></div>
-      <div class="g2" style="margin-top:12px">
-        <button class="pri" id="aiAll">Analisis seluruh peta</button>
-        <button id="aiCancel" class="hide">Batal</button>
+      <div id="candClean" class="hide">
+        <div class="mu" style="font-weight:700;margin-top:10px">Bersihkan hasil</div>
+        <div class="slider-row"><span>Panjang minimum jalur</span><span class="slider-val" id="val_candMinLen">0 px</span></div>
+        <input type="range" id="candMinLen" min="0" max="300" step="5" value="0" aria-label="Panjang minimum jalur">
+        <div class="slider-row" style="margin-top:4px"><span>atau ketik (px)</span><input id="candMinLenNum" type="number" min="0" max="2000" step="1" value="0" aria-label="Panjang minimum jalur (piksel)"></div>
+        <div class="mu">Jalur yang lebih pendek dari ini ditandai merah.</div>
+        <label class="mu" style="display:flex;align-items:flex-start;gap:7px;margin-top:8px;cursor:pointer">
+          <input type="checkbox" id="candIsolated" checked style="margin-top:2px">
+          <span>Terpisah (tidak menempel jalur lain)</span>
+        </label>
+        <label class="mu" style="display:flex;align-items:flex-start;gap:7px;margin-top:6px;cursor:pointer">
+          <input type="checkbox" id="candDangling" checked style="margin-top:2px">
+          <span>Cabang yang menempel satu ujung</span>
+        </label>
+        <label class="mu" style="display:flex;align-items:flex-start;gap:7px;margin-top:6px;cursor:pointer">
+          <input type="checkbox" id="candBetween" style="margin-top:2px">
+          <span>Ruas antar-persimpangan (hati-hati, bisa garis batas)</span>
+        </label>
+        <div class="mu" id="candCleanInfo"></div>
+        <div id="candPolyInfo" class="mu" style="margin-top:4px"></div>
+        <button id="candPrune" style="margin-top:8px;width:100%">Buang jalur pendek</button>
+        <div id="candDroppedRow" class="hide"><span id="candDroppedInfo" class="mu"></span> <button id="candRestore" type="button">Pulihkan</button></div>
       </div>
-      <div class="mu" id="aiMsg"></div>
       <button id="aiClear" style="margin-top:8px;width:100%">Tandai hasil AI sudah diperiksa</button>
     </div>
 
@@ -535,8 +542,8 @@
       <strong style="color:var(--text-main); font-size:14px;">PlotPeta</strong>: <em>Solusi Cerdas Digitasi Peta</em>
     </div>
     <div style="padding:4px 8px 8px; font-size:11px; color:var(--text-muted); display:flex; flex-wrap:wrap; gap:6px;">
-      <a href="#" id="btnHelp" style="color:var(--accent); text-decoration:none;">Panduan</a><span>â€¢</span>
-      <a href="#" id="btnTos" style="color:var(--accent); text-decoration:none;">Syarat &amp; Ketentuan</a><span>â€¢</span>
+      <a href="#" id="btnHelp" style="color:var(--accent); text-decoration:none;">Panduan</a><span>•</span>
+      <a href="#" id="btnTos" style="color:var(--accent); text-decoration:none;">Syarat &amp; Ketentuan</a><span>•</span>
       <a href="#" id="btnPrivacy" style="color:var(--accent); text-decoration:none;">Privasi</a>
     </div>
 </div>
@@ -635,7 +642,7 @@
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <b style="font-size:15px;color:var(--text-main)">Paket 50 Token</b>
-          <div class="mu" style="font-size:12px;margin-top:2px">Token dipakai untuk fitur berbayar (Deteksi AI, ekspor DXF sesuai pengaturan).</div>
+          <div class="mu" style="font-size:12px;margin-top:2px">Token dipakai untuk fitur berbayar (Perbaiki dengan AI, ekspor DXF sesuai pengaturan).</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:17px;font-weight:700;color:var(--accent)" id="topupNominalDisplay">Rp 100.000</div>
@@ -701,7 +708,7 @@
       <div class="pay-card" id="userBankCard">
         <div class="pay-card-head">
           <div style="display:flex;align-items:center;gap:6px">
-            <span>TF â€” Transfer Bank</span>
+            <span>TF — Transfer Bank</span>
             <span class="mono" style="font-weight:700;color:var(--text-main)" id="userBankName">BCA</span>
           </div>
           <span class="mu" style="font-size:11px">Atas Nama: <b id="userBankAn" style="color:var(--text-main)">-</b></span>
@@ -841,23 +848,23 @@
   </div>
 </div>
 
-<script src="js/core.js?v=9"></script>
-<script src="js/detect.js?v=8"></script>
+<script src="js/core.js?v=13"></script>
+<script src="js/detect.js?v=11"></script>
 <script src="js/mesin-jejak.js?v=7"></script>
 <script src="js/ui.js?v=6"></script>
-<script src="js/supabase.js?v=9"></script>
-<script src="js/ai.js?v=2"></script>
-<script src="js/startup.js?v=5"></script>
+<script src="js/supabase.js?v=11"></script>
+<script src="js/ai.js?v=3"></script>
+<script src="js/startup.js?v=7"></script>
 
 <script src="js/drawer.js?v=5"></script>
 
 
-<script src="js/info.js?v=7"></script>
+<script src="js/info.js?v=8"></script>
 
 
 <!-- PlotPeta: pengumuman dan chat bantuan -->
 
-<div id="ppNoticeBar" title="Pengumuman PlotPeta"><span style="flex:0 0 auto;margin-right:8px" aria-hidden="true">â€¢</span><div id="ppTickerViewport" aria-label="Pengumuman berjalan"><div id="ppTickerTrack"></div></div></div>
+<div id="ppNoticeBar" title="Pengumuman PlotPeta"><span style="flex:0 0 auto;margin-right:8px" aria-hidden="true">•</span><div id="ppTickerViewport" aria-label="Pengumuman berjalan"><div id="ppTickerTrack"></div></div></div>
 <button id="ppHelpFab" type="button">Bantuan & Pesan <span id="ppHelpDot" style="display:none"></span></button>
 <div id="ppHelpPanel" role="dialog" aria-modal="false" aria-labelledby="ppHelpTitle" aria-hidden="true" tabindex="-1"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><b id="ppHelpTitle">Pengumuman &amp; Chat Admin</b><button id="ppHelpClose" type="button">Tutup</button></div><div id="ppHelpNotices" style="margin-top:10px"></div><hr style="border-color:var(--border);margin:12px 0"><b>Pesan pribadi ke admin</b><div id="ppChatMessages" style="max-height:260px;overflow:auto;margin:8px 0"></div><textarea id="ppChatInput" rows="3" maxlength="3000" placeholder="Tulis pesan atau pertanyaan..."></textarea><button id="ppChatSend" type="button">Kirim pesan</button><div id="ppChatStatus" style="font-size:12px;margin-top:7px;color:var(--text-muted)">Masuk dengan Google untuk menggunakan chat.</div></div>
 <script src="js/support.js?v=4"></script>
