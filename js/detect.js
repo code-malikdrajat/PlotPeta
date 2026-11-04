@@ -609,12 +609,56 @@ function detect(R,opt){
 
 function pointInPolygon(pt,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];const intersect=((yi>pt[1])!==(yj>pt[1]))&&(pt[0]<(xj-xi)*(pt[1]-yi)/(yj-yi+1e-12)+xi);if(intersect)inside=!inside;}return inside;}
 function eraseRegion(R,poly){
-  if(!img)return; const inside=(pt)=>poly?pointInPolygon(toS(pt),poly):(pt[0]>=R.x&&pt[0]<=R.x+R.w&&pt[1]>=R.y&&pt[1]<=R.y+R.h);
-  const beforeL=lines.length,beforeT=texts.length; let changed=false;
-  const keep=[];
-  for(const l of lines){const pts=l.pts;const selected=pts.some(inside)||pts.slice(0,-1).some((p,i)=>inside([(p[0]+pts[i+1][0])/2,(p[1]+pts[i+1][1])/2]));if(!selected)keep.push(l);else changed=true;}
-  const keptTexts=texts.filter(t=>!inside(t.p)); if(keptTexts.length!==texts.length)changed=true;
-  if(changed){snapshot();lines=keep;texts=keptTexts;selT=-1;tform();stat();$('st').innerHTML='<span class="status-dot"></span><span>Area hapus selesai: '+(beforeL-lines.length)+' objek garis dan '+(beforeT-texts.length)+' teks dihapus</span>';}
+  if(!img)return;
+  const inside=(pt)=>poly?pointInPolygon(toS(pt),poly):(pt[0]>=R.x&&pt[0]<=R.x+R.w&&pt[1]>=R.y&&pt[1]<=R.y+R.h);
+  // Saat ada kandidat, hanya kandidat yang dihapus (teks tidak ikut).
+  const target=cand.length?cand:lines;
+  const useTexts=!cand.length;
+  const copyProps=l=>{const o={};for(const k in l)if(k!=='pts'&&k!=='closed'&&k!=='free'&&k!=='nums')o[k]=l[k];return o};
+  let removedSegs=0;
+  const kept=[];
+  for(const l of target){
+    const pts=l.pts||[];
+    if(pts.length<2){kept.push(l);continue}
+    // Hapus per ruas: ruas hilang bila titik tengahnya di dalam area, atau kedua ujungnya di dalam.
+    const alive=[];
+    let hitPath=false;
+    for(let i=0;i<pts.length-1;i++){
+      const a=pts[i],b=pts[i+1];
+      const hit=inside([(a[0]+b[0])/2,(a[1]+b[1])/2])||(inside(a)&&inside(b));
+      alive.push(!hit);
+      if(hit){removedSegs++;hitPath=true;}
+    }
+    // Jalur yang tidak tersentuh dipertahankan apa adanya agar propertinya
+    // (mis. free/nums) tidak hilang dan filter "hanya jalur terpisah" tetap akurat.
+    if(!hitPath){kept.push(l);continue}
+    // Gabungkan ruas yang bertahan menjadi potongan jalur baru.
+    let run=null;
+    for(let i=0;i<alive.length;i++){
+      if(alive[i]){
+        if(!run){run=copyProps(l);run.pts=[pts[i]];kept.push(run)}
+        run.pts.push(pts[i+1]);
+      }else run=null;
+    }
+  }
+  const keptTexts=useTexts?texts.filter(t=>!inside(t.p)):texts;
+  let aiKept=null;
+  if(useTexts&&typeof aiTexts!=='undefined') aiKept=aiTexts.filter(t=>!inside(t.p));
+  const removedTexts=useTexts?(texts.length-keptTexts.length)+(aiKept?aiTexts.length-aiKept.length:0):0;
+  if(!removedSegs&&!removedTexts)return;
+  snapshot();
+  if(target===cand) target.splice(0,target.length,...kept);
+  else lines=kept;
+  if(useTexts){
+    texts=keptTexts;
+    if(aiKept) aiTexts=aiKept;
+    selT=-1;tform();
+  }
+  hoverSeg=null;erasePick=null;
+  stat();
+  if(target===cand)candMsg();
+  syncCandClean();
+  $('st').innerHTML='<span class="status-dot"></span><span>Area hapus selesai: '+removedSegs+' ruas'+(useTexts?' dan '+removedTexts+' teks':'')+' dihapus.</span>';
 }
 function finishSelection(){
   if(tool==='A'&&detectModeEl?.value==='poly'&&selectionPoly.length>=3){const poly=selectionPoly.map(toI);const xs=poly.map(p=>p[0]),ys=poly.map(p=>p[1]);const R={x:Math.max(0,Math.floor(Math.min(...xs))),y:Math.max(0,Math.floor(Math.min(...ys))),w:Math.min(iw,Math.ceil(Math.max(...xs)))-Math.max(0,Math.floor(Math.min(...xs))),h:Math.min(ih,Math.ceil(Math.max(...ys)))-Math.max(0,Math.floor(Math.min(...ys)))};runDet(R,poly);selectionPoly=[];draw();return true;}
@@ -624,6 +668,8 @@ function finishSelection(){
 
 function runDet(R,poly=null){
   if(!img||R.w<20||R.h<20)return;
+  candDropped=[];
+  lastDetR=R;
   $('dMsg').textContent='Mendeteksi...';
   setTimeout(async()=>{
     try{
@@ -631,15 +677,15 @@ function runDet(R,poly=null){
       const p=analyzeRegion(R);
       const params={T:p.dT,minL:p.dL,gapF:p.dG,magR:p.magR,linkMax:p.linkMax,medRun:p.medRun||2,autoMag:true};
       cand=[];
+      syncCandClean();
       let helperUsed=false;
-      let traceStats=null;
       if(engine==='trace'){
         // Mesin jejak: raster -> kerangka 1 px -> graf -> garis dipasang ulang.
         if(typeof detectTrace!=='function') throw new Error('Mesin jejak belum termuat. Muat ulang halaman.');
         $('dMsg').textContent='Menelusuri batas bidang dengan mesin jejak...';
         await new Promise(r=>setTimeout(r,10));
         cand=detectTrace(R,{minLen:params.minL,linkMax:params.linkMax});
-        traceStats=cand.stats||null;
+        candDropped=(cand.dropped||[]);
       }else{
         // Hough: gambar bantu (latar dihapus, teks dibuang) selalu dicoba; gagal -> gambar asli.
         $('dMsg').textContent='Menyiapkan gambar bantu...';
@@ -671,24 +717,134 @@ function runDet(R,poly=null){
       if(cand.length&&cand[0].free) plotPetaNumberEnds(cand);
       const nEnd=cand.reduce((z,c)=>z+((c.nums||[]).filter(Boolean).length),0);
       const engineNote=engine==='hough'?' Metode Hough dipakai.':'';
-      // Ringkasan filter mesin jejak: memudahkan penyetelan ambang saat uji lapangan.
-      let traceNote='';
-      if(traceStats){
-        const a=[];
-        if(traceStats.teksDibuang)a.push(traceStats.teksDibuang+' ruas tulisan dibuang');
-        if(traceStats.garisPutus)a.push(traceStats.garisPutus+' garis putus-putus dipertahankan');
-        if(traceStats.ruasLengkung)a.push(traceStats.ruasLengkung+' ruas lengkung');
-        if(traceStats.jauh)a.push(traceStats.jauh+' celah lebar ditutup');
-        if(a.length)traceNote=' Filter: '+a.join(', ')+'.';
-      }
       $('dMsg').textContent=
         cand.length+' jalur kandidat'
         +(nEnd?(', '+nEnd+' ujung bebas.'):'.')
-        +' Persilangan & duplikat sudah dibersihkan.'+(helperUsed?' Gambar bantu dipakai.':'')+topoNote+engineNote+traceNote+' Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.';
-    }catch(x){cand=[];$('dMsg').textContent='Deteksi gagal: '+x.message}
+        +' Persilangan & duplikat sudah dibersihkan.'+(helperUsed?' Gambar bantu dipakai.':'')+topoNote+engineNote+(candDropped.length?' '+candDropped.length+' coretan dibuang otomatis.':'')+' Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.';
+    }catch(x){cand=[];candDropped=[];$('dMsg').textContent='Deteksi gagal: '+x.message}
     draw();
+    syncCandClean();
+    if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
   },40);
 }
+
+// ===== Bersihkan hasil: buang jalur pendek (dengan pratinjau) =====
+function chainLen(c){
+  const pts=(c&&c.pts)||[];let L=0;
+  for(let i=1;i<pts.length;i++)L+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);
+  return L;
+}
+function candMinLen(){
+  const el=$('candMinLenNum')||$('candMinLen');
+  if(!el)return 0;
+  const v=parseFloat(el.value);
+  return isFinite(v)?Math.max(0,Math.min(2000,v)):0;
+}
+function candResetLen(){
+  const sl=$('candMinLen');if(sl)sl.value=0;
+  const nu=$('candMinLenNum');if(nu)nu.value=0;
+}
+// Ujung dianggap bebas bila free[k] dan tidak menempel tepi kotak deteksi (<= 8 px gambar).
+function candEndFree(c,k){
+  if(!c||!Array.isArray(c.free)||c.free[k]!==true)return false;
+  const pts=c.pts||[];if(!pts.length)return false;
+  if(!lastDetR)return true;
+  const p=k===0?pts[0]:pts[pts.length-1],R=lastDetR;
+  const d=Math.min(p[0]-R.x,R.x+R.w-p[0],p[1]-R.y,R.y+R.h-p[1]);
+  return d>8;
+}
+function candShortByCat(){
+  const lim=candMinLen(),out={terpisah:[],cabang:[],antar:[]};
+  if(!(lim>0))return out;
+  for(const c of cand){
+    if(c.closed||!Array.isArray(c.free))continue;
+    if(!(chainLen(c)<lim))continue;
+    const a=candEndFree(c,0),b=candEndFree(c,1);
+    if(a&&b)out.terpisah.push(c);
+    else if(a||b)out.cabang.push(c);
+    else out.antar.push(c);
+  }
+  return out;
+}
+function candShortGroups(){
+  const cats=candShortByCat();
+  const iso=$('candIsolated')?$('candIsolated').checked:true;
+  const dang=$('candDangling')?$('candDangling').checked:true;
+  const bet=$('candBetween')?$('candBetween').checked:false;
+  return {terpisah:iso?cats.terpisah:[],cabang:dang?cats.cabang:[],antar:bet?cats.antar:[]};
+}
+function candShort(){
+  const g=candShortGroups();
+  return g.terpisah.concat(g.cabang,g.antar);
+}
+function candCleanInfo(){
+  const lim=candMinLen();
+  const val=$('val_candMinLen');if(val)val.textContent=lim+' px';
+  const info=$('candCleanInfo');if(!info)return;
+  if(!cand.length){info.textContent='';return}
+  if(!(lim>0)){info.textContent='Atur panjang minimum untuk menandai jalur yang lebih pendek.';return}
+  const g=candShortGroups(),list=g.terpisah.concat(g.cabang,g.antar);
+  let total=0;for(const c of list)total+=chainLen(c);
+  let txt=list.length
+    ? list.length+' jalur akan dibuang ('+g.terpisah.length+' terpisah, '+g.cabang.length+' menempel satu ujung, '+g.antar.length+' antar-persimpangan), total '+Math.round(total)+' px'
+    : 'Tidak ada jalur yang lebih pendek dari '+lim+' px.';
+  if(cal.mode==='map'&&cal.ok&&cal.M){
+    const per=Math.sqrt(Math.abs(cal.M[0]*cal.M[4]-cal.M[1]*cal.M[3]))*lim;
+    if(isFinite(per))txt+=' (batas ± '+f2(per)+' satuan peta)';
+  }
+  info.textContent=txt;
+}
+function syncCandClean(){
+  const box=$('candClean');if(!box)return;
+  const hasCand=cand.length>0;
+  box.classList.toggle('hide',!hasCand&&!candDropped.length);
+  const row=$('candDroppedRow');
+  if(row)row.classList.toggle('hide',!candDropped.length);
+  const dInfo=$('candDroppedInfo');
+  if(dInfo)dInfo.textContent=candDropped.length?candDropped.length+' coretan dibuang otomatis.':'';
+  if(!hasCand)candResetLen();
+  if(hasCand)candCleanInfo();
+  else{const info=$('candCleanInfo');if(info)info.textContent=''}
+}
+function candPrune(){
+  const list=candShort();
+  candResetLen();
+  if(!list.length){$('dMsg').textContent='Tidak ada jalur pendek yang memenuhi syarat.';candCleanInfo();return}
+  snapshot();
+  const drop=new Set(list);
+  for(let i=cand.length-1;i>=0;i--)if(drop.has(cand[i]))cand.splice(i,1);
+  candCleanInfo();
+  syncCandClean();
+  if(cand.length)candMsg();else $('dMsg').textContent='Tidak ada kandidat tersisa.';
+  draw();
+}
+$('candMinLen')?.addEventListener('input',()=>{
+  const nu=$('candMinLenNum'),sl=$('candMinLen');
+  if(nu&&sl)nu.value=sl.value;
+  candCleanInfo();draw();
+});
+$('candMinLenNum')?.addEventListener('input',()=>{
+  const sl=$('candMinLen');
+  if(sl)sl.value=String(Math.min(300,candMinLen()));
+  candCleanInfo();draw();
+});
+['candIsolated','candDangling','candBetween'].forEach(id=>{
+  $(id)?.addEventListener('change',()=>{candCleanInfo();draw()});
+});
+$('candPrune')?.addEventListener('click',candPrune);
+$('candRestore')?.addEventListener('click',()=>{
+  if(!candDropped.length)return;
+  snapshot();
+  for(const d of candDropped){
+    if(!d||!d.pts||d.pts.length<2)continue;
+    cand.push({k:'P',pts:d.pts.map(p=>p.slice()),closed:false,free:[true,true],nums:[0,0]});
+  }
+  candDropped=[];
+  candMsg();
+  syncCandClean();
+  draw();
+});
+syncCandClean();
 $('dOk').onclick=()=>{
   const pendingTexts=(typeof aiTexts==='undefined'?[]:aiTexts);
   if(!cand.length&&!pendingTexts.length)return;
@@ -698,14 +854,17 @@ $('dOk').onclick=()=>{
   if(pendingTexts.length)aiTexts=[];
   ensureIntersectionPoints(true);
   cand=[];
+  candDropped=[];
   if(typeof aiSel!=='undefined')aiSel=-1;
   closeTextEditPopover();tform();
   $('dMsg').textContent='Kandidat diterima sebagai garis'+(pendingTexts.length?' dan teks':'')+'.';
   stat();
   draw();
+  syncCandClean();
 };
 $('dNo').onclick=()=>{
   cand=[];
+  candDropped=[];
   if(typeof aiTexts!=='undefined')aiTexts=[];
   if(typeof aiRaw!=='undefined')aiRaw=[];
   if(typeof aiSel!=='undefined')aiSel=-1;
@@ -713,6 +872,7 @@ $('dNo').onclick=()=>{
   $('dMsg').textContent='';
   stat();
   draw();
+  syncCandClean();
 };
 
 $('dAll').onclick=()=>{
@@ -757,6 +917,7 @@ function manualCutAt(li,si,t){
   keep.push({k:l.k||'P',pts:A});
   keep.push({k:l.k||'P',pts:B});
   target.splice(0,target.length,...keep);
+  hoverSeg=null;
   if(target===cand)candMsg();
   return true;
 }
@@ -770,8 +931,9 @@ function deleteSegmentAt(li,si){
   target.splice(li,1);
   if(A.length>1)target.push({k:l.k||'P',pts:A});
   if(B.length>1)target.push({k:l.k||'P',pts:B});
-  erasePick=null;
+  erasePick=null;hoverSeg=null;
   if(target===cand)candMsg();
+  syncCandClean();
   $('st').innerHTML='<span class="status-dot"></span><span>1 segmen dihapus'+(kept?'; bagian lain tetap.':'.')+'</span>';
   stat();draw();return true;
 }
@@ -1227,7 +1389,7 @@ function cleanTopologyChains(chains,opt={}){
   return {chains:out,stats};
 }
 
-function polygonize(){
+function polygonize(src=lines){
   const tol=Math.max(1,num($('pTol').value)||8),V=[],hash=new Map();
   const vid=(x,y)=>{
     const cx=Math.floor(x/tol),cy=Math.floor(y/tol);
@@ -1242,7 +1404,7 @@ function polygonize(){
     return V.length-1;
   };
   const S=[];
-  lines.forEach(l=>{
+  src.forEach(l=>{
     for(let i=0;i<l.pts.length-1;i++){
       const a=vid(l.pts[i][0],l.pts[i][1]),b=vid(l.pts[i+1][0],l.pts[i+1][1]);
       if(a!==b)S.push([a,b]);
@@ -1317,6 +1479,104 @@ function polygonize(){
   }));
   return{polys:out,gaps:gp};
 }
+// ===== Poligon otomatis dari jaringan garis =====
+const POLY_AUTO_MAX_SEG=6000;
+let polyAutoSig=null,candPolySig=null,polyPrev=[],polyAutoBusy=false;
+function segCount(arr){
+  let n=0;
+  for(const l of arr||[]){const pts=(l&&l.pts)||[];if(pts.length>1)n+=pts.length-1}
+  return n;
+}
+function linesSig(arr){
+  let n=0,s1=0,s2=0,i=0;
+  for(const l of arr||[]){
+    const pts=(l&&l.pts)||[];
+    n+=pts.length;
+    for(const p of pts){
+      s1+=p[0]*(i%7+1)+p[1]*(i%5+1);
+      s2+=p[0]*(i%11+1)-p[1]*(i%3+1);
+      i++;
+    }
+  }
+  return (arr?arr.length:0)+'|'+n+'|'+s1.toFixed(1)+'|'+s2.toFixed(1);
+}
+function runAutoPoly(){
+  polyAutoBusy=true;
+  if(!lines.length){
+    polys=[];gaps=[];$('pMsg').textContent='';
+    polyAutoBusy=false;draw();return;
+  }
+  const n=segCount(lines);
+  if(n>POLY_AUTO_MAX_SEG){
+    $('pMsg').textContent='Terlalu banyak ruas ('+n+') untuk poligon otomatis. Tekan Buat poligon.';
+    polyAutoBusy=false;draw();return;
+  }
+  setTimeout(()=>{
+    try{
+      const r=polygonize();
+      polys=r.polys;
+      gaps=r.gaps;
+      $('pMsg').textContent=polys.length+' poligon dibuat otomatis (ikut diekspor ke DXF). '+gaps.length+' ujung garis menggantung (cincin merah).';
+    }catch(x){$('pMsg').textContent='Gagal: '+x.message}
+    finally{polyAutoBusy=false;draw()}
+  },30);
+}
+function runPolyPreview(){
+  polyAutoBusy=true;
+  const all=lines.concat(cand);
+  if(segCount(all)>POLY_AUTO_MAX_SEG){
+    polyPrev=[];
+    const info=$('candPolyInfo');if(info)info.textContent='Terlalu banyak ruas untuk pratinjau poligon.';
+    polyAutoBusy=false;draw();return;
+  }
+  setTimeout(()=>{
+    try{
+      const r=polygonize(all);
+      polyPrev=r.polys||[];
+      const info=$('candPolyInfo');
+      if(info)info.textContent='Kandidat dan garis yang ada membentuk '+polyPrev.length+' bidang tertutup.';
+    }catch(x){
+      polyPrev=[];
+      const info=$('candPolyInfo');if(info)info.textContent='Pratinjau poligon gagal.';
+    }
+    finally{polyAutoBusy=false;draw()}
+  },30);
+}
+function autoPolyTick(){
+  if(!img||polyAutoBusy)return;
+  if(!$('polyAuto')?.checked)return;
+  if(cur.length||mv||(drag&&drag.moved)||box||freehandDrawing||selectionPoly.length||addLinePick)return;
+  if(document.hidden)return;
+  const sig=linesSig(lines);
+  if(polyAutoSig===null){polyAutoSig=sig;return}
+  if(sig!==polyAutoSig){polyAutoSig=sig;runAutoPoly()}
+  if(!polyAutoBusy){
+    if(cand.length){
+      const csig=linesSig(lines)+'#'+linesSig(cand);
+      if(csig!==candPolySig){candPolySig=csig;runPolyPreview()}
+    }else if(polyPrev.length){
+      polyPrev=[];candPolySig=null;
+      const info=$('candPolyInfo');if(info)info.textContent='';
+      draw();
+    }
+  }
+}
+window.polyAutoSync=()=>{
+  polyAutoSig=linesSig(lines);
+  candPolySig=null;
+  polyPrev=[];
+  const info=$('candPolyInfo');if(info)info.textContent='';
+};
+(function initPolyAuto(){
+  const el=$('polyAuto');if(!el)return;
+  try{if(localStorage.getItem('plotpeta-poly-auto')==='0')el.checked=false}catch(_){}
+  el.addEventListener('change',()=>{
+    try{localStorage.setItem('plotpeta-poly-auto',el.checked?'1':'0')}catch(_){}
+    polyAutoSig=null;
+    if(el.checked&&img&&!polyAutoBusy){polyAutoSig=linesSig(lines);runAutoPoly()}
+  });
+})();
+setInterval(autoPolyTick,500);
 $('pMk').onclick=()=>{
   if(!lines.length){$('pMsg').textContent='Belum ada garis.';return}
   $('pMsg').textContent='Memproses...';
@@ -1330,4 +1590,8 @@ $('pMk').onclick=()=>{
     draw();
   },30);
 };
-$('pDel').onclick=()=>{polys=[];gaps=[];$('pMsg').textContent='';draw()};
+$('pDel').onclick=()=>{
+  polys=[];gaps=[];
+  $('pMsg').textContent=$('polyAuto')?.checked?'Poligon dihapus. Poligon otomatis akan dibuat lagi saat garis berubah.':'';
+  draw();
+};

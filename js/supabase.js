@@ -12,6 +12,7 @@ let currentProfile = null;
 let currentTokenBalance = 0;
 let currentUniqueCode = Math.floor(100 + Math.random() * 899);
 let currentPaketHarga = 100000; // diganti dari server (get_harga_paket); 100000 hanya cadangan jika gagal dimuat
+let tokenBiaya = { ekspor_dxf: 1, deteksi_ai: 1, tile_per_blok: 20 }; // diganti dari get_biaya_token saat halaman dimuat; bawaan = perilaku lama
 
 // Auth Modal
 function openAuthModal(tab = 'login'){
@@ -327,7 +328,7 @@ async function openCloudProject(id){
 
   const o = p.data || {};
   lines = o.lines || []; erasePick = null;
-  polys = o.polys || []; gaps = []; cand = []; aiTexts = []; aiRaw = []; cal.ok = false; cal.M = null;
+  polys = o.polys || []; gaps = []; cand = []; aiTexts = []; aiRaw = []; lastDetR = null; cal.ok = false; cal.M = null;
   texts = o.texts || [];
   cal.pts = (o.cal || []).map(c => c.p);
   setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
@@ -344,6 +345,8 @@ async function openCloudProject(id){
   if(cal.pts.length === 4) fitCal();
   dirty = false;
   draw();
+  if(window.polyAutoSync)window.polyAutoSync();
+  if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
   $('modalCloud').classList.remove('open');
   alert(`Proyek "${p.nama}" berhasil dimuat. Pastikan membuka file peta yang sesuai jika belum dibuka.`);
 }
@@ -576,6 +579,37 @@ async function loadPaketHarga(){
   }catch(_){}
   updateNominalDisplay();
 }
+
+// Biaya fitur berbayar (ekspor DXF, Perbaiki dengan AI) dari pengaturan admin (get_biaya_token).
+// Dipanggil sekali saat halaman dimuat dan sebelum tiap proses Perbaiki dengan AI.
+async function loadTokenBiaya(){
+  if(!sb) return tokenBiaya;
+  try{
+    const { data, error } = await sb.rpc('get_biaya_token');
+    const r = (data && typeof data === 'object' && !Array.isArray(data)) ? data : null;
+    if(!error && r){
+      const eks = Number(r.ekspor_dxf), ai = Number(r.deteksi_ai), per = Number(r.tile_per_blok);
+      tokenBiaya = {
+        ekspor_dxf: Number.isInteger(eks) && eks >= 0 ? eks : 1,
+        deteksi_ai: Number.isInteger(ai) && ai >= 1 ? ai : 1,
+        tile_per_blok: Number.isInteger(per) && per >= 1 ? per : 20
+      };
+    }
+  }catch(_){}
+  applyTokenBiayaTexts();
+  return tokenBiaya;
+}
+
+// Teks UI yang menyebut biaya mengikuti pengaturan, bukan angka tetap.
+function applyTokenBiayaTexts(){
+  const bebas = tokenBiaya.ekspor_dxf === 0;
+  const exp = $('exp');
+  if(exp) exp.title = bebas ? 'Simpan DXF AutoCAD (gratis; tanpa token)' : 'Simpan DXF AutoCAD (Memotong 1 token)';
+  const pill = $('tokenPill');
+  if(pill && currentUser) pill.title = bebas
+    ? `${currentTokenBalance} token aktif`
+    : `Saldo token Anda (1 download DXF = 1 token)`;
+}
 $('btnTopupPill').onclick = openTopupModal;
 
 async function loadPublicPaymentInfo(){
@@ -773,7 +807,11 @@ $('exp').onclick = async () => {
 
   // 1. Cek Sesi Pengguna
   if(!currentUser){
-    alert('Untuk mengunduh file DXF AutoCAD, silakan masuk atau daftar akun terlebih dahulu.\n\nDapatkan 3 token gratis saat mendaftar akun baru!');
+    if(tokenBiaya.ekspor_dxf === 0){
+      alert('Untuk mengunduh file DXF AutoCAD, silakan masuk atau daftar akun terlebih dahulu.');
+    } else {
+      alert('Untuk mengunduh file DXF AutoCAD, silakan masuk atau daftar akun terlebih dahulu.\n\nDapatkan 3 token gratis saat mendaftar akun baru!');
+    }
     openAuthModal('register');
     return;
   }
@@ -824,12 +862,20 @@ $('exp').onclick = async () => {
     $('outmsg').textContent = 'Simpan otomatis tidak tersedia. Salin teks ini ke Notepad, simpan sebagai bidang_tanah.dxf.';
   } else {
     if(window.__ppSaved) await window.__ppSaved();
-    alert(`Berhasil mengunduh DXF!\n1 token telah dipotong. Sisa saldo token Anda: ${res.remaining} token.`);
+    // Biaya 0 (gratis) tidak menyebut pemotongan token sama sekali.
+    if(res.charged === 0){
+      alert('Berhasil mengunduh DXF!');
+    } else {
+      alert(`Berhasil mengunduh DXF!\n1 token telah dipotong. Sisa saldo token Anda: ${res.remaining} token.`);
+    }
   }
 };
 
 // Listen Auth state change
 if(sb){
+  // Muat biaya fitur berbayar sekali saat halaman dimuat (tooltips, label alat, dll).
+  loadTokenBiaya();
+
   // Proses perubahan sesi satu per satu, dan jangan panggil Supabase langsung di dalam
   // callback onAuthStateChange (bisa macet saat halaman baru dimuat).
   let authChain = Promise.resolve();

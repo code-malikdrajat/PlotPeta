@@ -97,7 +97,7 @@ updateDropzone();
       }
       if(prj){
         const o=JSON.parse(prj);
-        lines=o.lines||[];erasePick=null;addLinePick=null;texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];
+        lines=o.lines||[];erasePick=null;addLinePick=null;texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];lastDetR=null;
         cal.ok=false;cal.M=null;
         cal.pts=(o.cal||[]).map(c=>c.p);
         setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
@@ -112,6 +112,8 @@ updateDropzone();
       }
       dirty=false;
       draw();
+      if(window.polyAutoSync)window.polyAutoSync();
+      if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
       toast('Peta dan pekerjaan terakhir Anda dipulihkan otomatis.');
     }catch(e){
       console.warn('Pemulihan otomatis gagal:',e);

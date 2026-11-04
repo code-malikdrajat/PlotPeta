@@ -1,11 +1,12 @@
-// PlotPeta: Deteksi AI (BETA)
-// Memotong area peta menjadi tile, meminta Edge Function detect-ai (VLM) menggambar
-// garis batas + membaca teks, lalu menyelaraskan ("snap") hasilnya ke tinta gambar.
-// Hasil masuk sebagai kandidat (cand / aiTexts) yang harus diperiksa pengguna.
+// PlotPeta: Perbaiki dengan AI (refine)
+// Kandidat Deteksi Cepat dikirim sebagai petunjuk per tile. Edge Function detect-ai
+// meminta VLM menyambung/memperbaiki garis, membuang noise, dan membaca teks hak/su.
+// Hasil AI menimpa kandidat Cepat; snap ke tinta dan pembentukan poligon tetap di client.
 // Biaya token: dipotong SEKALI di awal (aksi "start"); bila tidak ada hasil sama
 // sekali, token otomatis dikembalikan saat aksi "finish" (lihat sql/5).
 
 const AI_TILE = 1024, AI_OVERLAP = 0.12, AI_CONC = 3, AI_SNAP_R = 6, AI_COORD = 1000, AI_MAX_TILES = 60;
+const AI_MIN_INK = 0.004, AI_HINT_MAX = 240;
 
 var aiTexts = [];
 var aiRaw = [];
@@ -21,7 +22,7 @@ function aiSay(msg) {
   if (b) b.textContent = msg;
 }
 
-// Biaya satu proses Deteksi AI (settings admin: deteksi_ai x tile_per_blok).
+// Biaya satu proses Perbaiki dengan AI (settings admin: deteksi_ai x tile_per_blok).
 // tokenBiaya dimuat supabase.js lewat get_biaya_token.
 function aiBiayaUntuk(tileCount) {
   const tb = (typeof tokenBiaya === "object" && tokenBiaya) ? tokenBiaya : null;
@@ -31,16 +32,38 @@ function aiBiayaUntuk(tileCount) {
   return biaya * Math.ceil(Math.max(1, tileCount) / perBlok);
 }
 
-// Perbarui label biaya + saldo di box Deteksi AI (dipanggil setelah peta dimuat).
+// Tampilkan bagian "Perbaiki dengan AI" hanya setelah Deteksi Cepat dijalankan.
+// Saat proses berjalan, tombol utama diganti tombol Batal.
+function aiUpdateRefineUI() {
+  const box = $("aiRefineBox"), btn = $("aiRefine"), cancel = $("aiCancel");
+  const detected = !!img && typeof lastDetR !== "undefined" && !!lastDetR;
+  if (box) box.classList.toggle("hide", !detected && !aiBusy);
+  if (btn) btn.classList.toggle("hide", !detected || aiBusy);
+  if (cancel) cancel.classList.toggle("hide", !aiBusy);
+}
+
+// Perbarui label biaya + saldo di panel Deteksi Cepat.
 function aiUpdateCostUI() {
   const box = $("aiCost");
-  const btn = $("aiAll");
-  if (!img) { if (box) box.textContent = ""; return; }
-  const cost = aiBiayaUntuk(aiMakeTiles({ x: 0, y: 0, w: iw, h: ih }).length);
+  const btn = $("aiRefine");
+  const detected = !!img && typeof lastDetR !== "undefined" && !!lastDetR;
+  if (!img) {
+    if (box) box.textContent = "";
+    aiUpdateRefineUI();
+    return;
+  }
+  const baseTiles = aiMakeTiles({ x: 0, y: 0, w: iw, h: ih });
+  const tileCount = detected ? baseTiles.filter(t => aiInkRatio(t) >= AI_MIN_INK).length : baseTiles.length;
+  const cost = aiBiayaUntuk(tileCount);
   const perBlok = (typeof tokenBiaya === "object" && tokenBiaya && Number(tokenBiaya.tile_per_blok) >= 1)
     ? Number(tokenBiaya.tile_per_blok) : 20;
-  if (box) box.textContent = "Biaya: " + cost + " token per " + perBlok + " tile. Saldo: " + currentTokenBalance + " token.";
-  if (btn) btn.textContent = "Jalankan (" + cost + " token)";
+  if (box) {
+    box.textContent = detected
+      ? "Biaya: " + cost + " token per " + perBlok + " tile. Saldo: " + currentTokenBalance + " token."
+      : "Jalankan Deteksi Cepat dulu, lalu tekan Perbaiki dengan AI.";
+  }
+  if (btn) btn.textContent = "Perbaiki dengan AI (" + cost + " token)";
+  aiUpdateRefineUI();
 }
 
 async function aiErrorFromInvoke(error, fallback) {
@@ -93,6 +116,98 @@ function aiMakeTiles(R) {
     for (const x of xs) tiles.push({ x, y, w, h });
   }
   return tiles;
+}
+
+// Perkiraan cepat rasio piksel tinta pada tile. Dipakai untuk melewati tile kosong
+// supaya tidak membuang token dan waktu. Sampel diambil pada resolusi asli (stride 2)
+// agar garis tipis tidak hilang karena penskalaan.
+const aiInkCache = new Map();
+let aiInkImg = null;
+function aiInkRatio(tile) {
+  if (aiInkImg !== img) { aiInkImg = img; aiInkCache.clear(); }
+  const key = tile.x + "," + tile.y + "," + tile.w + "," + tile.h;
+  if (aiInkCache.has(key)) return aiInkCache.get(key);
+  const w = Math.max(1, Math.round(tile.w)), h = Math.max(1, Math.round(tile.h));
+  const cv = document.createElement("canvas");
+  cv.width = w;
+  cv.height = h;
+  const cx = cv.getContext("2d", { willReadFrequently: true });
+  cx.fillStyle = "#fff";
+  cx.fillRect(0, 0, w, h);
+  cx.drawImage(img, tile.x, tile.y, w, h, 0, 0, w, h);
+  const d = cx.getImageData(0, 0, w, h).data;
+  const stride = 2;
+  let sum = 0, n = 0;
+  for (let y = 0; y < h; y += stride) {
+    for (let x = 0; x < w; x += stride) {
+      const i = (y * w + x) * 4;
+      sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      n++;
+    }
+  }
+  const th = Math.min(240, sum / Math.max(1, n) - 8);
+  let ink = 0;
+  for (let y = 0; y < h; y += stride) {
+    for (let x = 0; x < w; x += stride) {
+      const i = (y * w + x) * 4;
+      if (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < th) ink++;
+    }
+  }
+  const ratio = ink / Math.max(1, n);
+  aiInkCache.set(key, ratio);
+  return ratio;
+}
+
+// Potong satu ruas ke kotak tile (Liang-Barsky). Null bila tidak beririsan.
+function aiClipSeg(ax, ay, bx, by, r) {
+  const dx = bx - ax, dy = by - ay;
+  let t0 = 0, t1 = 1;
+  const p = [-dx, dx, -dy, dy];
+  const q = [ax - r.x0, r.x1 - ax, ay - r.y0, r.y1 - ay];
+  for (let i = 0; i < 4; i++) {
+    if (Math.abs(p[i]) < 1e-9) {
+      if (q[i] < 0) return null;
+      continue;
+    }
+    const t = q[i] / p[i];
+    if (p[i] < 0) {
+      if (t > t1) return null;
+      if (t > t0) t0 = t;
+    } else {
+      if (t < t0) return null;
+      if (t < t1) t1 = t;
+    }
+  }
+  return [[ax + dx * t0, ay + dy * t0], [ax + dx * t1, ay + dy * t1]];
+}
+
+// Polyline kandidat Cepat yang memotong tile -> koordinat 0-1000 (x kanan, y bawah).
+function aiHintsForTile(tile, source) {
+  const out = [];
+  if (!Array.isArray(source)) return out;
+  const r = { x0: tile.x, y0: tile.y, x1: tile.x + tile.w, y1: tile.y + tile.h };
+  for (const c of source) {
+    const pts = c && c.pts;
+    if (!Array.isArray(pts) || pts.length < 2) continue;
+    const segs = [];
+    for (let i = 0; i < pts.length - 1; i++) segs.push([pts[i], pts[i + 1]]);
+    if (c.closed && pts.length > 2) segs.push([pts[pts.length - 1], pts[0]]);
+    for (const pair of segs) {
+      const a = pair[0], b = pair[1];
+      if (!a || !b) continue;
+      const seg = aiClipSeg(a[0], a[1], b[0], b[1], r);
+      if (!seg) continue;
+      const p = seg[0], q = seg[1];
+      if (Math.hypot(q[0] - p[0], q[1] - p[1]) < 1.5) continue;
+      const norm = pnt => [
+        Math.round(((pnt[0] - r.x0) / tile.w) * AI_COORD * 10) / 10,
+        Math.round(((pnt[1] - r.y0) / tile.h) * AI_COORD * 10) / 10,
+      ];
+      out.push([norm(p), norm(q)]);
+      if (out.length >= AI_HINT_MAX) return out;
+    }
+  }
+  return out;
 }
 
 function aiConcurrent(items, n, worker) {
@@ -237,7 +352,7 @@ function aiBuildTexts(entries) {
   return out;
 }
 
-async function aiCallTile(tile, runId) {
+async function aiCallTile(tile, runId, hintSource) {
   const cv = document.createElement("canvas");
   cv.width = tile.w;
   cv.height = tile.h;
@@ -252,20 +367,37 @@ async function aiCallTile(tile, runId) {
     image,
     width: tile.w,
     height: tile.h,
+    mode: "refine",
+    lines_hint: aiHintsForTile(tile, hintSource),
   }, "Layanan AI gagal memproses potongan peta.");
+}
+
+async function runAiRefine() {
+  if (!img) { aiSay("Buka peta dulu."); return; }
+  if (typeof lastDetR === "undefined" || !lastDetR) {
+    aiSay("Jalankan Deteksi Cepat dulu, lalu tekan Perbaiki dengan AI.");
+    return;
+  }
+  return runAiDetect(null);
 }
 
 async function runAiDetect(R) {
   if (!img) return;
   if (!currentUser) { openAuthModal("login"); return; }
   if (aiBusy) return;
-  if (!R || !(R.w > 0) || !(R.h > 0)) return;
+  if (!R || !(R.w > 0) || !(R.h > 0)) R = { x: 0, y: 0, w: iw, h: ih };
 
-  const tiles = aiMakeTiles(R);
+  const allTiles = aiMakeTiles(R);
+  const tiles = allTiles.filter(t => aiInkRatio(t) >= AI_MIN_INK);
+  const skipped = allTiles.length - tiles.length;
+  if (!tiles.length) {
+    aiSay("Tidak ada area bertinta yang bisa diperbaiki.");
+    return;
+  }
   if (tiles.length > AI_MAX_TILES) {
     aiSay(
-      "Area terlalu besar: " + tiles.length + " potongan (maksimal " + AI_MAX_TILES +
-      "). Tarik kotak yang lebih kecil, lalu ulangi."
+      "Peta terlalu besar: " + tiles.length + " potongan bertinta (maksimal " + AI_MAX_TILES +
+      "). Gunakan peta yang lebih kecil atau bagi peta menjadi beberapa berkas."
     );
     return;
   }
@@ -284,11 +416,17 @@ async function runAiDetect(R) {
     return;
   }
   const ok = confirm(
-    "Deteksi AI memakai " + cost + " token (saldo " + currentTokenBalance +
-    "). Potongan peta dikirim ke penyedia AI. Lanjutkan?\n\n" +
-    "Area ini akan dipecah menjadi " + tiles.length + " potongan."
+    "Perbaiki dengan AI memakai " + cost + " token (saldo " + currentTokenBalance +
+    "). Kandidat Deteksi Cepat dikirim sebagai petunjuk. Hasil AI menimpa kandidat. Lanjutkan?\n\n" +
+    "Peta dipecah menjadi " + tiles.length + " potongan" +
+    (skipped ? " (" + skipped + " potongan kosong dilewati)" : "") + "."
   );
   if (!ok) return;
+
+  // Simpan kandidat Cepat agar tidak hilang bila proses gagal total.
+  const prevCand = cand.slice();
+  const prevTexts = aiTexts.slice();
+  const prevRaw = aiRaw.slice();
 
   aiBusy = true;
   aiCancel = false;
@@ -296,6 +434,9 @@ async function runAiDetect(R) {
   cand = [];
   aiTexts = [];
   aiRaw = [];
+  syncCandClean();
+  draw();
+  aiUpdateCostUI();
 
   const btnCancel = $("aiCancel");
   if (btnCancel) btnCancel.classList.remove("hide");
@@ -303,6 +444,7 @@ async function runAiDetect(R) {
   let runId = null;
   let baseMsg = null;
   let refundTokens = 0;
+  let aiProduced = false;
 
   const results = [];
   const errors = [];
@@ -311,19 +453,22 @@ async function runAiDetect(R) {
   try {
     // 1. start: potong token sekali untuk seluruh proses, dapatkan run_id.
     const started = await aiInvoke("start", { action: "start", tiles: tiles.length },
-      "Gagal memulai proses Deteksi AI.");
+      "Gagal memulai proses Perbaiki dengan AI.");
     runId = started.run_id;
 
-    aiSay("Menganalisis " + tiles.length + " potongan peta dengan AI... (" + cost + " token)");
+    aiSay(
+      "Memperbaiki " + tiles.length + " potongan peta dengan AI... (" + cost + " token)" +
+      (skipped ? " " + skipped + " potongan kosong dilewati." : "")
+    );
 
     await aiConcurrent(tiles, AI_CONC, async (tile) => {
       if (aiCancel) return;
       try {
-        const data = await aiCallTile(tile, runId);
+        const data = await aiCallTile(tile, runId, prevCand);
         results.push({ tile, lines: data.lines || [], texts: data.texts || [] });
       } catch (e) {
         if (e && e.status === 429) {
-          rateLimited = e.message || "Batas harian Deteksi AI tercapai. Coba lagi nanti.";
+          rateLimited = e.message || "Batas harian Perbaiki dengan AI tercapai. Coba lagi nanti.";
           aiCancel = true;
           return;
         }
@@ -412,15 +557,19 @@ async function runAiDetect(R) {
     const warn = aiTexts.filter(t => t.fmtWarn).length;
     const okTiles = results.length;
     const failTiles = errors.length;
-    if (!okTiles && failTiles) {
-      baseMsg = "Deteksi AI gagal: " + (errors[0].message || "coba lagi.");
+    aiProduced = okTiles > 0;
+    if (!okTiles) {
+      baseMsg = failTiles
+        ? "Perbaikan AI gagal: " + (errors[0].message || "coba lagi.")
+        : "Perbaikan AI tidak menghasilkan potongan yang berhasil.";
       aiSay(baseMsg);
     } else {
       let msg =
-        "AI: " + cand.length + " jalur (" + weak + " tanpa dukungan tinta), " +
-        aiTexts.length + " teks (" + warn + " perlu dicek). Periksa sebelum diterima. " +
+        "Perbaikan AI: " + cand.length + " jalur final (" + weak + " tanpa dukungan tinta), " +
+        aiTexts.length + " teks (" + warn + " perlu dicek). Poligon tetap dibentuk di perangkat. " +
         "Tile berhasil " + okTiles + "/" + tiles.length +
-        (failTiles ? ", gagal " + failTiles : "") + ".";
+        (failTiles ? ", gagal " + failTiles : "") +
+        (skipped ? ", " + skipped + " kosong dilewati" : "") + ".";
       if (aiCancel && !rateLimited) msg += " Dibatalkan.";
       baseMsg = msg;
       aiSay(msg);
@@ -429,7 +578,7 @@ async function runAiDetect(R) {
     draw();
   } catch (e) {
     if (!rateLimited) {
-      baseMsg = "Deteksi AI gagal: " + (e && e.message ? e.message : "coba lagi.");
+      baseMsg = "Perbaikan AI gagal: " + (e && e.message ? e.message : "coba lagi.");
       aiSay(baseMsg);
     }
   } finally {
@@ -444,24 +593,33 @@ async function runAiDetect(R) {
         try { await fetchUserTokens(); } catch (_) { /* abaikan */ }
       }
     }
+    if (!aiProduced) {
+      cand = prevCand;
+      aiTexts = prevTexts;
+      aiRaw = prevRaw;
+      if (prevCand.length) baseMsg = (baseMsg ? baseMsg + " " : "") + "Kandidat Deteksi Cepat dipertahankan.";
+      if (baseMsg) aiSay(baseMsg);
+    }
     if (refundTokens > 0) {
       aiSay((baseMsg ? baseMsg + " " : "") + refundTokens + " token dikembalikan.");
     }
     aiBusy = false;
+    aiUpdateCostUI();
+    if (typeof syncCandClean === "function") syncCandClean();
     if (btnCancel) btnCancel.classList.add("hide");
+    stat();
     draw();
   }
 }
 
-$("aiAll").onclick = () => {
-  if (!img) { aiSay("Buka peta dulu."); return; }
-  runAiDetect({ x: 0, y: 0, w: iw, h: ih });
+$("aiRefine").onclick = () => {
+  runAiRefine();
 };
 
 $("aiCancel").onclick = () => {
   if (!aiBusy) return;
   aiCancel = true;
-  aiSay("Membatalkan Deteksi AI...");
+  aiSay("Membatalkan Perbaiki dengan AI...");
 };
 
 $("aiClear").onclick = () => {

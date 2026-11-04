@@ -6,9 +6,11 @@ const LN={get P(){return $('lP').value.trim()||'020100'},get D(){return $('lD').
 let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=-1,mouse=null,drag=null,dirty=false,hist=[],erasePick=null,mClickTimer=null,mClickPt=null,mvStart=null,mvMoved=false,addLinePick=null;
 let cal={pts:[],ok:false,M:null,mode:'local'};
 let cand=[],box=null,mv=null,polys=[],gaps=[],mapLocked=false;
+let candDropped=[],lastDetR=null;
 function editTarget(){return cand.length?cand:lines}
 function candMsg(){if(cand.length)$('dMsg').textContent=cand.length+' jalur kandidat. Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.'}
 let selectionPoly=[], boxAction='detect', freehandDrawing=false, aiSel=-1;
+let hoverSeg=null, shiftDown=false, hoverRAF=0;
 let mapName='';
 const W=()=>plotCanvas.clientWidth,H=()=>plotCanvas.clientHeight,d1=()=>devicePixelRatio||1;
 function resize(){const r=$('wrap').getBoundingClientRect(),d=d1();plotCanvas.width=r.width*d;plotCanvas.height=r.height*d;plotCanvas.style.width=r.width+'px';plotCanvas.style.height=r.height+'px';draw()}
@@ -20,7 +22,7 @@ const num=s=>{s=String(s).trim();s=/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)?s.replac
 const f2=n=>n.toLocaleString('id-ID',{maximumFractionDigits:2,minimumFractionDigits:2});
 const toReal=p=>{if(cal.mode==='local')return [p[0],(ih||0)-p[1]];if(!cal.ok||!cal.M)return null;const m=cal.M;return[m[0]*p[0]+m[1]*p[1]+m[2],m[3]*p[0]+m[4]*p[1]+m[5]]};
 function snapshot(){hist.push(JSON.stringify({lines,texts,cand,aiTexts}));if(hist.length>100)hist.shift();dirty=true}
-function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];aiTexts=o.aiTexts||[];selT=-1;aiSel=-1;closeTextEditPopover();tform();candMsg()}erasePick=null;addLinePick=null;stat();draw()}
+function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];aiTexts=o.aiTexts||[];selT=-1;aiSel=-1;closeTextEditPopover();tform();candMsg()}erasePick=null;addLinePick=null;hoverSeg=null;stat();draw();if(typeof syncCandClean==='function')syncCandClean()}
 
 function updateDropzone(){
   const dz=$('dropzone');
@@ -33,10 +35,12 @@ function loadImg(src){
     img=im;
     iw=im.naturalWidth;
     ih=im.naturalHeight;
+    lastDetR=null;
     erasePick=null;addLinePick=null;
     fitV();
     draw();
     updateDropzone();
+    if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
     $('st').innerHTML='<span class="status-dot"></span><span>'+iw+' &times; '+ih+' px</span>';
   };
   im.src=src;
@@ -161,7 +165,7 @@ function setTool(t){
   if(cur.length&&(t==='P'||t==='D'))finish();
   else cur=[];
   tool=t;
-  erasePick=null;addLinePick=null;
+  erasePick=null;addLinePick=null;hoverSeg=null;
   selectionPoly=[]; box=null;
   if(t==='E'&&eraseModeEl?.value==='click'&&!cand.length){
     const n=ensureIntersectionPoints();
@@ -171,13 +175,11 @@ function setTool(t){
     const n=cand.length?0:ensureIntersectionPoints();
     $('st').innerHTML='<span class="status-dot"></span><span>Edit Titik: drag titik, klik garis=potong, 2x segmen=hapus, klik titik lalu klik tujuan=tambah garis.'+(cand.length?' Kandidat deteksi bisa diedit sebelum diterima.':'')+(n?' Titik persilangan dibuat: '+n+'.':'')+'</span>';
   }
-  if(t==='AI'){
-    $('st').innerHTML='<span class="status-dot"></span><span>Deteksi AI: tarik kotak pada peta.</span>';
-  }
   updateToolModeHint();
   document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
   plotCanvas.style.cursor=mapLocked&&t==='pan'?'not-allowed':t==='pan'?'grab':'crosshair';
   draw();
+  if(typeof syncCandClean==='function')syncCandClean();
 }
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
 const detectModeEl=$('detectMode'), eraseModeEl=$('eraseMode'), toolModeHint=$('toolModeHint');
@@ -186,7 +188,7 @@ function updateToolModeHint(){
   document.querySelector('.erase-mode-options')?.classList.toggle('mode-visible', tool==='E');
   if(!toolModeHint)return;
   if(tool==='A') toolModeHint.textContent=detectModeEl.value==='rect'?'Tarik kotak pada peta untuk mendeteksi garis.':detectModeEl.value==='poly'?'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk mendeteksi.':'Klik Deteksi seluruh peta pada panel kanan.';
-  else if(tool==='E') toolModeHint.textContent=eraseModeEl.value==='click'?'Klik segmen garis yang ingin dihapus; bagian lain tetap.':eraseModeEl.value==='rect'?'Tarik kotak untuk menghapus objek/segmen di dalam area.':'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk menghapus.';
+  else if(tool==='E') toolModeHint.textContent=eraseModeEl.value==='click'?'Klik: hapus satu ruas. Shift+klik: hapus seluruh jalur.':eraseModeEl.value==='rect'?'Tarik kotak untuk menghapus objek/segmen di dalam area.':'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk menghapus.';
   else toolModeHint.textContent='Pilih alat Deteksi Cepat atau Hapus untuk menampilkan pilihannya di bawah tombol.';
 }
 detectModeEl?.addEventListener('change',updateToolModeHint); eraseModeEl?.addEventListener('change',()=>{erasePick=null;updateToolModeHint();draw()});
@@ -215,7 +217,7 @@ function nearestVertex(sp,preferLi=-1){
   });
   return best;
 }
-function click(sp){
+function click(sp,ev){
   if(!img)return;
   const p=toI(sp);
   if(tool==='M'&&addLinePick){finishAddLineAt(sp);return}
@@ -263,6 +265,17 @@ function click(sp){
     if(!h){
       $('st').innerHTML='<span class="status-dot"></span><span>Klik tepat pada segmen garis.</span>';
       draw();return;
+    }
+    if(ev&&ev.shiftKey){
+      const target=editTarget();
+      if(!target[h.li])return;
+      snapshot();
+      target.splice(h.li,1);
+      erasePick=null;hoverSeg=null;
+      if(target===cand)candMsg();
+      if(typeof syncCandClean==='function')syncCandClean();
+      $('st').innerHTML='<span class="status-dot"></span><span>1 jalur dihapus.</span>';
+      stat();draw();return;
     }
     if(!deleteSegmentAt(h.li,h.si)){
       $('st').innerHTML='<span class="status-dot"></span><span>Segmen tidak ditemukan; klik ulang.</span>';
@@ -331,7 +344,6 @@ plotCanvas.addEventListener('pointerdown',e=>{
       draw();
       return;
     }
-    if(tool==='AI'){boxAction='ai';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
     if(tool==='A' && detectModeEl?.value==='rect'){boxAction='detect';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
     if(tool==='E' && eraseModeEl?.value==='rect'){boxAction='erase';box={x0:sp[0],y0:sp[1],x1:sp[0],y1:sp[1]};return}
   }
@@ -339,6 +351,19 @@ plotCanvas.addEventListener('pointerdown',e=>{
 });
 plotCanvas.addEventListener('pointermove',e=>{
   mouse=[e.offsetX,e.offsetY];
+  // Sorotan ruas pada mode Hapus > Klik (dihitung maks. sekali per frame).
+  const hoverOK=tool==='E'&&eraseModeEl?.value==='click'&&!!img&&!drag&&!mv&&!box&&!freehandDrawing&&!addLinePick;
+  if(hoverOK){
+    if(!hoverRAF)hoverRAF=requestAnimationFrame(()=>{
+      hoverRAF=0;
+      if(tool==='E'&&eraseModeEl?.value==='click'&&img)hoverSeg=topoNearestLinePoint(mouse||[0,0],10);
+      else hoverSeg=null;
+      draw();
+    });
+  }else{
+    if(hoverRAF){cancelAnimationFrame(hoverRAF);hoverRAF=0}
+    hoverSeg=null;
+  }
   if(addLinePick){draw();return}
   if(freehandDrawing){
     const last=selectionPoly[selectionPoly.length-1], next=[e.offsetX,e.offsetY];
@@ -388,10 +413,10 @@ plotCanvas.addEventListener('pointerup',e=>{
     const act=boxAction;
     box=null;
     const x=Math.max(0,a[0]),y=Math.max(0,a[1]),R={x,y,w:Math.min(iw,z[0])-x,h:Math.min(ih,z[1])-y};
-    if(act==='erase') eraseRegion(R,null); else if(act==='ai') runAiDetect(R); else runDet(R);
+    if(act==='erase') eraseRegion(R,null); else runDet(R);
     draw();return;
   }
-  if(drag&&!drag.moved&&drag.btn===0)click([e.offsetX,e.offsetY]);
+  if(drag&&!drag.moved&&drag.btn===0)click([e.offsetX,e.offsetY],e);
   drag=null;
 });
 plotCanvas.addEventListener('dblclick',e=>{
@@ -419,7 +444,7 @@ plotCanvas.addEventListener('dblclick',e=>{
     if(h)deleteSegmentAt(h.li,h.si);
   }
 });
-plotCanvas.addEventListener('pointerleave',()=>{if(tool==='trim'){mouse=null;draw()}});
+plotCanvas.addEventListener('pointerleave',()=>{if(tool==='trim'){mouse=null;draw()} if(hoverRAF){cancelAnimationFrame(hoverRAF);hoverRAF=0} if(hoverSeg){hoverSeg=null;draw()}});
 plotCanvas.addEventListener('pointerenter',e=>{if(tool==='trim'){mouse=[e.offsetX,e.offsetY];draw()}});
 plotCanvas.addEventListener('contextmenu',e=>e.preventDefault());
 plotCanvas.style.touchAction='none';
@@ -433,11 +458,13 @@ plotCanvas.addEventListener('wheel',e=>{
   draw();
 },{passive:false});
 addEventListener('keydown',e=>{
+  if(e.key==='Shift'&&!shiftDown){shiftDown=true;if(tool==='E'&&hoverSeg)draw()}
   if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
   if(e.key==='Enter'){if(!finishSelection())finish()}
-  else if(e.key==='Escape'){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}cur=[];selectionPoly=[];box=null;erasePick=null;addLinePick=null;draw()}
+  else if(e.key==='Escape'){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}cur=[];selectionPoly=[];box=null;erasePick=null;addLinePick=null;hoverSeg=null;draw()}
   else if(e.key==='Backspace'||(e.key==='z'&&(e.ctrlKey||e.metaKey))){e.preventDefault();undo()}
 });
+addEventListener('keyup',e=>{if(e.key==='Shift'&&shiftDown){shiftDown=false;if(tool==='E'&&hoverSeg)draw()}});
 addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
 
 function crs(){
@@ -780,6 +807,30 @@ function draw(){
     ctx.arc(s[0],s[1],8,0,7);
     ctx.stroke();
   });
+  // Pratinjau poligon dari garis + kandidat (belum diterima).
+  if(typeof polyPrev!=='undefined'&&polyPrev.length&&cand.length){
+    ctx.save();
+    ctx.fillStyle='rgba(245,158,11,.12)';
+    ctx.strokeStyle='rgba(245,158,11,.7)';
+    ctx.lineWidth=1.5;
+    ctx.setLineDash([6,4]);
+    polyPrev.forEach(pg=>{
+      path(pg);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+  // Coretan yang dibuang otomatis: samar merah putus-putus di bawah kandidat.
+  if(candDropped.length&&cand.length){
+    ctx.save();
+    ctx.strokeStyle='rgba(239,68,68,.45)';
+    ctx.lineWidth=1.5;
+    ctx.setLineDash([3,4]);
+    candDropped.forEach(d=>{if(d&&d.pts&&d.pts.length>1){path(d.pts);ctx.stroke()}});
+    ctx.restore();
+  }
   cand.forEach(c=>{
     path(c.pts);
     if(c.ai){
@@ -794,6 +845,36 @@ function draw(){
     ctx.stroke();
     ctx.setLineDash([]);
   });
+  // Pratinjau "Buang jalur pendek": jalur yang akan dibuang ditandai merah putus-putus.
+  if(cand.length&&typeof candShort==='function'){
+    const shorts=candShort();
+    if(shorts.length){
+      ctx.save();
+      ctx.strokeStyle='#ef4444';
+      ctx.lineWidth=2.6;
+      ctx.setLineDash([7,5]);
+      shorts.forEach(c=>{path(c.pts);ctx.stroke()});
+      ctx.restore();
+    }
+  }
+  // Sorotan hapus (mode Hapus > Klik): ruas merah, atau seluruh jalur bila Shift ditekan.
+  if(hoverSeg&&tool==='E'&&eraseModeEl?.value==='click'){
+    const tg=editTarget(),l=tg[hoverSeg.li];
+    if(l&&l.pts[hoverSeg.si]&&l.pts[hoverSeg.si+1]){
+      ctx.save();
+      ctx.strokeStyle='#ef4444';
+      ctx.lineWidth=3.5;
+      ctx.lineCap='round';
+      if(shiftDown){
+        ctx.setLineDash([7,5]);
+        path(l.pts);ctx.stroke();
+      }else{
+        const a=toS(l.pts[hoverSeg.si]),b=toS(l.pts[hoverSeg.si+1]);
+        ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
   if(window.__aiDebug===true&&typeof aiRaw!=='undefined'&&aiRaw.length){
     ctx.strokeStyle='#ef4444';
     ctx.lineWidth=.8;
@@ -932,6 +1013,7 @@ $('btnClearMap').onclick=async()=>{
   if(!confirm('Hapus peta yang sedang terbuka beserta semua garis, poligon, teks, dan kalibrasinya? Proyek yang sudah disimpan di Cloud tidak ikut terhapus.')) return;
   img=null; iw=0; ih=0; mapName='';
   lines=[]; texts=[]; polys=[]; gaps=[]; cand=[]; cur=[]; hist=[]; aiTexts=[]; aiRaw=[];
+  candDropped=[]; lastDetR=null;
   selT=-1; aiSel=-1; dirty=false; box=null; mv=null; drag=null; mouse=null; erasePick=null;addLinePick=null;
   cal.pts=[]; cal.ok=false; cal.M=null;
   ['cx0','cy0','cx1','cy1','cx2','cy2','cx3','cy3'].forEach(id=>{ if($(id)) $(id).value=''; });
@@ -939,6 +1021,9 @@ $('btnClearMap').onclick=async()=>{
   $('file').value='';
   $('st').innerHTML='<span class="status-dot"></span><span>Belum ada peta</span>';
   updateDropzone(); draw();
+  if(typeof syncCandClean==='function')syncCandClean();
+  if(window.polyAutoSync)window.polyAutoSync();
+  if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
   if(window.__ppClear){ try{await window.__ppClear();}catch(e){console.warn('Pemulihan otomatis tidak bisa dibersihkan:',e);} }
   alert('Peta dan pekerjaan yang sedang terbuka sudah dihapus.');
 };
@@ -966,7 +1051,7 @@ $('op').onchange=e=>{
     try{
       const o=JSON.parse(t);
       lines=o.lines||[];erasePick=null;addLinePick=null;
-      texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];aiTexts=[];aiRaw=[];
+      texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];aiTexts=[];aiRaw=[];lastDetR=null;
       cal.pts=(o.cal||[]).map(c=>c.p);
       setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
       crs();
@@ -978,6 +1063,8 @@ $('op').onchange=e=>{
       dirty=false;
       if(img&&o.size&&(o.size[0]!==iw||o.size[1]!==ih))alert('Ukuran peta berbeda dari proyek. Pastikan membuka file peta yang sama.');
       draw();
+      if(window.polyAutoSync)window.polyAutoSync();
+      if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
     }catch(x){alert('File proyek tidak valid.')}
   });
 };
