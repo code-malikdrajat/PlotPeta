@@ -651,15 +651,17 @@ $("aiClear").onclick = () => {
   aiSay("Hasil AI sudah ditandai diperiksa.");
 };
 
-// ==================== Perbaiki AI: sambung & bersihkan garis ====================
-// Mengirim segmen Deteksi Cepat ke Edge Function detect-ai (action "refine_lines"):
-// server menyambung celah <= 15 px / sudut <= 20 derajat dan membuang noise
-// pendek yang terpisah dari klaster. Tanpa model vision, jadi tanpa biaya token.
-// Hasil digambar ulang lewat PlotPetaDrawer (oranye = valid, ungu = sambungan).
-const REFINE_TIMEOUT_MS = 45000;
+// ==================== Perbaiki AI: validasi visual & sambung garis ====================
+// Mengirim segmen Deteksi Cepat + gambar peta asli ke Edge Function detect-ai
+// (action "refine_lines_with_image"). Server memakai Vision AI untuk menilai
+// apakah garis benar-benar mengikuti alur pada peta, lalu menyambung celah yang
+// memang punya jejak samar. Bila vision tidak tersedia, server memakai geometri.
+// Hasil digambar ulang lewat PlotPetaDrawer (biru = valid, ungu = sambungan).
+const REFINE_TIMEOUT_MS = 90000;
 const REFINE_MAX_LINES = 300;
 const REFINE_MAX_POINTS = 60;
 const REFINE_IMAGE_MAX = 1200000;
+const REFINE_IMAGE_SIDE = 1600;
 var refineBusy = false;
 
 function refinePointsOf(line) {
@@ -674,6 +676,51 @@ function refinePointsOf(line) {
     if (out.length >= REFINE_MAX_POINTS) break;
   }
   return out.length >= 2 ? out : [];
+}
+
+// Ambil gambar peta ASLI (tanpa overlay garis/teks) sebagai PNG base64.
+// Gambar diperkecil maksimal 1600 px agar payload hemat; koordinat garis tetap
+// memakai piksel gambar asli, jadi info skala ikut dikirim untuk server.
+function refineCaptureImage(canvasElement) {
+  const out = { image: "", info: null };
+  try {
+    if (typeof document === "undefined") return out;
+    const source = typeof img !== "undefined" && img && img.naturalWidth ? img : null;
+    const fallback = canvasElement || (typeof plotCanvas !== "undefined" ? plotCanvas : null);
+    if (!source && !(fallback && typeof fallback.toDataURL === "function")) return out;
+    const naturalW = source ? source.naturalWidth : fallback.width;
+    const naturalH = source ? source.naturalHeight : fallback.height;
+    if (!naturalW || !naturalH) return out;
+    const shrink = Math.min(1, REFINE_IMAGE_SIDE / Math.max(naturalW, naturalH));
+    let w = Math.max(1, Math.round(naturalW * shrink));
+    let h = Math.max(1, Math.round(naturalH * shrink));
+    const render = (cw, ch) => {
+      const cv = document.createElement("canvas");
+      cv.width = cw;
+      cv.height = ch;
+      const c = cv.getContext("2d");
+      c.fillStyle = "#fff";
+      c.fillRect(0, 0, cw, ch);
+      c.imageSmoothingQuality = "high";
+      c.drawImage(source || fallback, 0, 0, cw, ch);
+      return cv;
+    };
+    let cv = render(w, h);
+    let data = cv.toDataURL("image/png");
+    // PNG peta hasil pindai bisa besar; kecilkan bertahap sampai di bawah batas.
+    for (let i = 0; i < 4 && data.length > REFINE_IMAGE_MAX && w > 320; i++) {
+      w = Math.max(1, Math.round(w * 0.7));
+      h = Math.max(1, Math.round(h * 0.7));
+      cv = render(w, h);
+      data = cv.toDataURL("image/png");
+    }
+    if (data.length > REFINE_IMAGE_MAX) return out;
+    out.image = data;
+    out.info = { width: w, height: h, natural_width: naturalW, natural_height: naturalH };
+    return out;
+  } catch (_) {
+    return out;
+  }
 }
 
 function refineSetBusy(on, message) {
@@ -736,22 +783,18 @@ async function jalankanPerbaikanAI(garisOranyeDeteksiCepat, canvasElement) {
     return null;
   }
 
-  // Pratinjau kanvas hanya pelengkap: server memakai geometri, jadi gambar
-  // besar tidak perlu ikut (menghindari payload melewati batas server).
-  const canvas = canvasElement || (typeof plotCanvas !== "undefined" ? plotCanvas : null);
-  let image = "";
-  try {
-    if (canvas && typeof canvas.toDataURL === "function") {
-      image = canvas.toDataURL("image/png");
-      if (image.length > REFINE_IMAGE_MAX) image = "";
-    }
-  } catch (_) { image = ""; }
+  // Validasi lokal selesai (NaN/titik kosong/segmen < 2 titik sudah dibuang).
+  // Sekarang ambil gambar peta asli untuk analisis piksel oleh Vision AI.
+  const captured = refineCaptureImage(canvasElement);
 
-  refineSetBusy(true, "Memperbaiki garis: menyambung celah dan membuang noise...");
+  refineSetBusy(true, "Menganalisis gambar peta: memvalidasi garis dan menyambung celah...");
   let timer = 0;
   try {
-    const body = { action: "refine_lines", lines };
-    if (image) body.image = image;
+    const body = { action: "refine_lines_with_image", lines };
+    if (captured.image) {
+      body.image_base64 = captured.image;
+      body.image_info = captured.info;
+    }
     const timeout = new Promise((_, reject) => {
       timer = setTimeout(() => {
         const err = new Error("Perbaikan garis melewati batas waktu. Coba lagi.");
@@ -806,11 +849,13 @@ async function jalankanPerbaikanAI(garisOranyeDeteksiCepat, canvasElement) {
     if (typeof syncCandClean === "function") syncCandClean();
     if (typeof stat === "function") stat();
     if (typeof draw === "function") draw();
+    const mode = payload && typeof payload.mode === "string" ? payload.mode : "vision";
     aiSay(
       "Perbaikan AI selesai: " + blueLines.length + " garis biru tervalidasi, " +
-      purpleLines.length + " sambungan ungu dibuat, " + (lines.length - kept.length) + " noise dibuang."
+      purpleLines.length + " sambungan ungu dibuat, " + (lines.length - kept.length) + " noise dibuang." +
+      (mode === "geometry" ? " (vision tidak tersedia, memakai geometri)" : "")
     );
-    return { ok: true, orangeLines: [], blueLines, purpleLines, removedLineIds: [...removedIds] };
+    return { ok: true, mode, orangeLines: [], blueLines, purpleLines, removedLineIds: [...removedIds] };
   } catch (e) {
     const msg = e && e.message ? e.message : "coba lagi.";
     aiSay("Perbaikan garis gagal: " + msg);

@@ -83,6 +83,96 @@
     state.purpleLines.forEach(line => drawSingleLine(ctx, line.points, line.color || LAYER_PURPLE, LAYER_WIDTH.purple));
   }
 
+  // ==================== Penyelarasan teks & simbol OCR ====================
+  // Koordinat OCR berasal dari piksel gambar asli, sedangkan kanvas menampilkan
+  // gambar yang diskalakan. Rasio berikut memetakan piksel gambar -> kanvas.
+  // (canvas.width memakai devicePixelRatio, jadi dibagi dpr agar hasilnya
+  // berada di ruang koordinat logis yang dipakai ctx.)
+  function imageScale(canvas, image) {
+    const cv = canvas || (typeof plotCanvas !== 'undefined' ? plotCanvas : document.getElementById('plotCanvas'));
+    const im = image || (typeof img !== 'undefined' ? img : null);
+    const iw = Number(im && (im.naturalWidth || im.width)) || 0;
+    const ih = Number(im && (im.naturalHeight || im.height)) || 0;
+    const dpr = typeof devicePixelRatio === 'number' && devicePixelRatio > 0 ? devicePixelRatio : 1;
+    if (!cv || !iw || !ih) return { scaleX: 1, scaleY: 1, canvasWidth: 0, canvasHeight: 0, imageWidth: iw, imageHeight: ih };
+    const cw = Number(cv.clientWidth) || cv.width / dpr;
+    const ch = Number(cv.clientHeight) || cv.height / dpr;
+    return {
+      scaleX: cw / iw,
+      scaleY: ch / ih,
+      canvasWidth: cw,
+      canvasHeight: ch,
+      imageWidth: iw,
+      imageHeight: ih,
+    };
+  }
+
+  // Titik OCR -> koordinat kanvas. toS() sudah memuat skala gambar + pan/zoom,
+  // jadi dipakai lebih dulu; bila tidak ada, pakai rasio skala langsung.
+  function ocrAnchor(rawX, rawY, canvas, image) {
+    const x = Number(rawX), y = Number(rawY);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    if (typeof toS === 'function') {
+      const s = toS([x, y]);
+      if (Array.isArray(s) && Number.isFinite(s[0]) && Number.isFinite(s[1])) return s;
+    }
+    const sc = imageScale(canvas, image);
+    return [x * sc.scaleX, y * sc.scaleY];
+  }
+
+  // Label OCR selalu ber-anchor tengah (horizontal & vertikal) supaya titik
+  // koordinat tepat berada di atas tulisan tangan, bukan bergeser ke kanan/bawah.
+  function drawOcrLabel(ctx, text, x, y, opts) {
+    const label = String(text == null ? '' : text).trim();
+    if (!ctx || typeof ctx.fillText !== 'function' || !label) return false;
+    if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) return false;
+    const o = opts || {};
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = o.font || 'bold 12px "Plus Jakarta Sans", system-ui, sans-serif';
+    ctx.lineWidth = Number(o.strokeWidth) > 0 ? Number(o.strokeWidth) : 3;
+    ctx.strokeStyle = o.strokeStyle || '#fff';
+    ctx.fillStyle = o.color || '#111';
+    ctx.strokeText(label, Number(x), Number(y));
+    ctx.fillText(label, Number(x), Number(y));
+    ctx.restore();
+    return true;
+  }
+
+  // Ikon kecil (belah ketupat/segitiga) di titik anchor OCR.
+  function drawOcrSymbol(ctx, x, y, opts) {
+    if (!ctx || typeof ctx.beginPath !== 'function') return false;
+    const px = Number(x), py = Number(y);
+    if (!Number.isFinite(px) || !Number.isFinite(py)) return false;
+    const o = opts || {};
+    const kind = o.kind === 'triangle' ? 'triangle' : 'diamond';
+    const r = Number(o.size) > 0 ? Number(o.size) : 4;
+    ctx.save();
+    ctx.beginPath();
+    if (kind === 'triangle') {
+      ctx.moveTo(px, py - r);
+      ctx.lineTo(px + r, py + r);
+      ctx.lineTo(px - r, py + r);
+      ctx.closePath();
+    } else {
+      ctx.moveTo(px, py - r);
+      ctx.lineTo(px + r, py);
+      ctx.lineTo(px, py + r);
+      ctx.lineTo(px - r, py);
+      ctx.closePath();
+    }
+    if (o.outline) {
+      ctx.strokeStyle = o.outline;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    ctx.fillStyle = o.color || '#a855f7';
+    ctx.fill();
+    ctx.restore();
+    return true;
+  }
+
   // Salin lapisan ke sumber data kanvas utama (dipakai draw() di core.js).
   function syncLayerState(state) {
     if (typeof cand === 'undefined') return false;
@@ -140,6 +230,10 @@
     renderMultiLayer,
     clearAndRedraw,
     drawSingleLine,
+    imageScale,
+    ocrAnchor,
+    drawOcrLabel,
+    drawOcrSymbol,
     draw: drawLayers,
     layers: () => layerState,
   });

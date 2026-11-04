@@ -1,5 +1,22 @@
 // PlotPeta: Deteksi Cepat: gambar bantu, Hough, topologi, poligon bidang
 
+// ===== UTIL: debounce & ID unik =====
+// Debounce menunda pekerjaan berat (gambar ulang + hitung jalur pendek) sampai
+// pengguna berhenti mengetik/menggeser, sehingga UI tidak membeku.
+function debounce(fn,wait=400){
+  let timer=0;
+  return function(...args){
+    const ctx=this;
+    if(timer)clearTimeout(timer);
+    timer=setTimeout(()=>{timer=0;try{fn.apply(ctx,args)}catch(e){console.error(e)}},wait);
+  };
+}
+// ID unik per segmen: timestamp + 5 karakter acak, agar Perbaiki AI bisa
+// memfilter removed_line_ids tanpa menebak urutan array.
+function newCandId(){
+  return 'line_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+}
+
 // ===== ANALISIS OTOMATIS PARAMETER DETEKSI =====
 // Menganalisis area gambar untuk menentukan parameter optimal secara adaptif.
 function detectionScale(R){
@@ -671,14 +688,11 @@ function finishSelection(){
 function ensureCandIds(list){
   if(!Array.isArray(list)) return list;
   const seen=new Set();
-  list.forEach((c,i)=>{
+  list.forEach(c=>{
     if(!c||typeof c!=='object') return;
     let id=c.id!=null?String(c.id).trim():'';
-    if(!id||seen.has(id)){
-      let n=i+1;
-      id='line_'+n;
-      while(seen.has(id)) id='line_'+(++n)+'_'+(i+1);
-    }
+    if(!id||seen.has(id)) id=newCandId();
+    while(seen.has(id)) id=newCandId();
     seen.add(id);
     if(c.id!==id) c.id=id;
   });
@@ -838,18 +852,20 @@ function candPrune(){
   if(cand.length)candMsg();else $('dMsg').textContent='Tidak ada kandidat tersisa.';
   draw();
 }
-$('candMinLen')?.addEventListener('input',()=>{
+const candMinLenSync=debounce(()=>{
   const nu=$('candMinLenNum'),sl=$('candMinLen');
   if(nu&&sl)nu.value=sl.value;
   candCleanInfo();draw();
-});
-$('candMinLenNum')?.addEventListener('input',()=>{
+},400);
+$('candMinLen')?.addEventListener('input',candMinLenSync);
+$('candMinLenNum')?.addEventListener('input',debounce(()=>{
   const sl=$('candMinLen');
   if(sl)sl.value=String(Math.min(300,candMinLen()));
   candCleanInfo();draw();
-});
+},400));
+const candFilterSync=debounce(()=>{candCleanInfo();draw()},300);
 ['candIsolated','candDangling','candBetween'].forEach(id=>{
-  $(id)?.addEventListener('change',()=>{candCleanInfo();draw()});
+  $(id)?.addEventListener('change',candFilterSync);
 });
 $('candPrune')?.addEventListener('click',candPrune);
 $('candRestore')?.addEventListener('click',()=>{
@@ -1592,11 +1608,11 @@ window.polyAutoSync=()=>{
 (function initPolyAuto(){
   const el=$('polyAuto');if(!el)return;
   try{if(localStorage.getItem('plotpeta-poly-auto')==='0')el.checked=false}catch(_){}
-  el.addEventListener('change',()=>{
+  el.addEventListener('change',debounce(()=>{
     try{localStorage.setItem('plotpeta-poly-auto',el.checked?'1':'0')}catch(_){}
     polyAutoSig=null;
     if(el.checked&&img&&!polyAutoBusy){polyAutoSig=linesSig(lines);runAutoPoly()}
-  });
+  },300));
 })();
 setInterval(autoPolyTick,500);
 $('pMk').onclick=()=>{
