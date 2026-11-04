@@ -10,6 +10,8 @@ const AI_MIN_INK = 0.004, AI_HINT_MAX = 240;
 
 var aiTexts = [];
 var aiRaw = [];
+// Kandidat Deteksi Cepat asli sebagai lapisan referensi setelah AI mengoreksi.
+var aiHintOverlay = [];
 let aiBusy = false, aiCancel = false;
 
 const AI_RE_NO = /^(M|HM|HGB|HGU|HP|HPL|C)\.?\s?\d+[A-Z0-9\/\-]*$/i;
@@ -443,14 +445,12 @@ async function runAiDetect(R) {
   const prevTexts = aiTexts.slice();
   const prevRaw = aiRaw.slice();
 
+  // Jangan kosongkan kandidat di awal: garis oranye tetap tampil selama AI
+  // bekerja, lalu ditimpa hasil baru setelah semua tile selesai.
+  aiHintOverlay = [];
   aiBusy = true;
   aiCancel = false;
   aiSel = -1;
-  cand = [];
-  aiTexts = [];
-  aiRaw = [];
-  syncCandClean();
-  draw();
   aiUpdateCostUI();
 
   const btnCancel = $("aiCancel");
@@ -567,6 +567,8 @@ async function runAiDetect(R) {
 
     cand = chains.concat(weakChains);
     aiTexts = aiBuildTexts(textEntries);
+    // Simpan garis Cepat asli sebagai referensi oranye; hasil AI tetap jadi kandidat aktif.
+    if (results.length) aiHintOverlay = prevCand.slice();
 
     const weak = weakChains.length;
     const warn = aiTexts.filter(t => t.fmtWarn).length;
@@ -612,6 +614,7 @@ async function runAiDetect(R) {
       cand = prevCand;
       aiTexts = prevTexts;
       aiRaw = prevRaw;
+      aiHintOverlay = [];
       if (prevCand.length) baseMsg = (baseMsg ? baseMsg + " " : "") + "Kandidat Deteksi Cepat dipertahankan.";
       if (baseMsg) aiSay(baseMsg);
     }
@@ -647,3 +650,165 @@ $("aiClear").onclick = () => {
   draw();
   aiSay("Hasil AI sudah ditandai diperiksa.");
 };
+
+// ==================== Perbaiki AI: sambung & bersihkan garis ====================
+// Mengirim segmen Deteksi Cepat ke Edge Function detect-ai (action "refine_lines"):
+// server menyambung celah <= 15 px / sudut <= 20 derajat dan membuang noise
+// pendek yang terpisah dari klaster. Tanpa model vision, jadi tanpa biaya token.
+// Hasil digambar ulang lewat PlotPetaDrawer (oranye = valid, ungu = sambungan).
+const REFINE_TIMEOUT_MS = 45000;
+const REFINE_MAX_LINES = 300;
+const REFINE_MAX_POINTS = 60;
+const REFINE_IMAGE_MAX = 1200000;
+var refineBusy = false;
+
+function refinePointsOf(line) {
+  const raw = line && (line.points || line.pts);
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const p of raw) {
+    if (!Array.isArray(p) || p.length < 2) continue;
+    const x = Number(p[0]), y = Number(p[1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    out.push([x, y]);
+    if (out.length >= REFINE_MAX_POINTS) break;
+  }
+  return out.length >= 2 ? out : [];
+}
+
+function refineSetBusy(on, message) {
+  refineBusy = !!on;
+  const cv = typeof plotCanvas !== "undefined" ? plotCanvas : null;
+  if (cv && cv.setAttribute) {
+    if (on) cv.setAttribute("aria-busy", "true");
+    else cv.removeAttribute("aria-busy");
+  }
+  if (on && message) aiSay(message);
+}
+
+// Cadangan bila js/drawer.js tidak termuat: tulis lapisan ke kandidat aktif.
+function refineApplyLayers(layers) {
+  if (typeof cand === "undefined") return;
+  if (typeof snapshot === "function") snapshot();
+  cand = layers.orangeLines.map(l => ({
+    k: l.k || "P", pts: l.points, ai: true, aiOrange: true, refine: true,
+  })).concat(layers.purpleLines.map(l => ({
+    k: "P", pts: l.points, ai: true, purple: true, refine: true,
+  })));
+  if (typeof syncCandClean === "function") syncCandClean();
+  if (typeof candMsg === "function") candMsg();
+}
+
+async function perbaikiHasilDeteksi(linesData, canvasElement) {
+  if (refineBusy) { aiSay("Perbaikan garis masih berjalan..."); return null; }
+  if (!sb || typeof sb.functions === "undefined") {
+    aiSay("Layanan tidak tersedia. Muat ulang halaman lalu coba lagi.");
+    return null;
+  }
+  if (typeof currentUser !== "undefined" && !currentUser) {
+    aiSay("Silakan masuk terlebih dahulu untuk memakai Perbaiki AI.");
+    if (typeof openAuthModal === "function") openAuthModal("login");
+    return null;
+  }
+
+  const source = Array.isArray(linesData) && linesData.length
+    ? linesData
+    : (typeof cand !== "undefined" && cand.length ? cand : []);
+  const usedIds = new Set();
+  const byId = new Map();
+  const lines = [];
+  for (const raw of source.slice(0, REFINE_MAX_LINES)) {
+    const points = refinePointsOf(raw);
+    if (!points.length) continue;
+    const base = raw && raw.id != null && String(raw.id).trim()
+      ? String(raw.id).trim().slice(0, 64)
+      : "line_" + (lines.length + 1);
+    let id = base, n = 2;
+    while (usedIds.has(id)) id = base + "_" + (n++);
+    usedIds.add(id);
+    lines.push({ id, points });
+    byId.set(id, raw);
+  }
+  if (!lines.length) {
+    aiSay("Tidak ada segmen garis valid untuk diperbaiki.");
+    return null;
+  }
+
+  // Pratinjau kanvas hanya pelengkap: server memakai geometri, jadi gambar
+  // besar tidak perlu ikut (menghindari payload melewati batas server).
+  const canvas = canvasElement || (typeof plotCanvas !== "undefined" ? plotCanvas : null);
+  let image = "";
+  try {
+    if (canvas && typeof canvas.toDataURL === "function") {
+      image = canvas.toDataURL("image/png");
+      if (image.length > REFINE_IMAGE_MAX) image = "";
+    }
+  } catch (_) { image = ""; }
+
+  refineSetBusy(true, "Memperbaiki garis: menyambung celah dan membuang noise...");
+  let timer = 0;
+  try {
+    const body = { action: "refine_lines", lines };
+    if (image) body.image = image;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        const err = new Error("Perbaikan garis melewati batas waktu. Coba lagi.");
+        err.status = 408;
+        reject(err);
+      }, REFINE_TIMEOUT_MS);
+    });
+    const { data, error } = await Promise.race([
+      sb.functions.invoke("detect-ai", { body }),
+      timeout,
+    ]);
+    if (error) throw await aiErrorFromInvoke(error, "Layanan perbaikan garis gagal.");
+    const payload = data && data.data ? data.data : data;
+    if (!payload || !Array.isArray(payload.valid_lines)) {
+      throw new Error((data && data.message) || "Jawaban perbaikan garis tidak valid.");
+    }
+
+    const removedIds = new Set(
+      (Array.isArray(payload.removed_line_ids) ? payload.removed_line_ids : []).map(String),
+    );
+    const kept = lines.filter(l => !removedIds.has(l.id));
+    const orangeLines = kept.map(l => Object.assign({}, byId.get(l.id) || {}, {
+      id: l.id,
+      points: l.points,
+    }));
+    const purpleLines = [];
+    for (const c of (Array.isArray(payload.ai_connections) ? payload.ai_connections : [])) {
+      const points = refinePointsOf(c);
+      if (!points.length) continue;
+      purpleLines.push({
+        id: c && c.id != null ? String(c.id) : "purple_conn_" + (purpleLines.length + 1),
+        from: c && c.from != null ? String(c.from) : "",
+        to: c && c.to != null ? String(c.to) : "",
+        points,
+        color: (c && c.color) || "#8A2BE2",
+      });
+    }
+
+    const layers = { orangeLines, purpleLines };
+    const drawer = window.PlotPetaDrawer;
+    if (drawer && typeof drawer.clearAndRedraw === "function") drawer.clearAndRedraw(layers);
+    else refineApplyLayers(layers);
+
+    if (typeof syncCandClean === "function") syncCandClean();
+    if (typeof stat === "function") stat();
+    if (typeof draw === "function") draw();
+    aiSay(
+      "Perbaikan garis selesai: " + orangeLines.length + " garis valid, " +
+      (lines.length - kept.length) + " noise dibuang, " + purpleLines.length + " sambungan ungu."
+    );
+    return { ok: true, orangeLines, purpleLines, removedLineIds: [...removedIds] };
+  } catch (e) {
+    const msg = e && e.message ? e.message : "coba lagi.";
+    aiSay("Perbaikan garis gagal: " + msg);
+    return { ok: false, message: msg };
+  } finally {
+    if (timer) clearTimeout(timer);
+    refineSetBusy(false);
+  }
+}
+
+window.perbaikiHasilDeteksi = perbaikiHasilDeteksi;

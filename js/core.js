@@ -36,6 +36,7 @@ function loadImg(src){
     iw=im.naturalWidth;
     ih=im.naturalHeight;
     lastDetR=null;
+    if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];
     erasePick=null;addLinePick=null;
     fitV();
     draw();
@@ -831,9 +832,28 @@ function draw(){
     candDropped.forEach(d=>{if(d&&d.pts&&d.pts.length>1){path(d.pts);ctx.stroke()}});
     ctx.restore();
   }
+  // Referensi hasil Deteksi Cepat setelah dikoreksi AI: oranye samar putus-putus.
+  if(typeof aiHintOverlay!=='undefined'&&aiHintOverlay.length){
+    ctx.save();
+    ctx.strokeStyle='rgba(245,158,11,.5)';
+    ctx.lineWidth=1.4;
+    ctx.setLineDash([4,3]);
+    aiHintOverlay.forEach(c=>{
+      if(c&&c.pts&&c.pts.length>1){path(c.pts);ctx.stroke()}
+    });
+    ctx.restore();
+  }
   cand.forEach(c=>{
     path(c.pts);
-    if(c.ai){
+    if(c.purple){
+      ctx.strokeStyle='#8A2BE2';
+      ctx.lineWidth=2.2;
+      ctx.setLineDash([]);
+    }else if(c.aiOrange){
+      ctx.strokeStyle='#FF8C00';
+      ctx.lineWidth=2;
+      ctx.setLineDash([]);
+    }else if(c.ai){
       ctx.strokeStyle='#a855f7';
       ctx.lineWidth=2;
       ctx.setLineDash(c.weak?[6,4]:[]);

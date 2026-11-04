@@ -1,6 +1,121 @@
 // PlotPeta: Laci alat kiri dan alat favorit
 /* PlotPeta tool drawer and user favorites */
 (function () {
+  // ==================== Layer hasil "Perbaiki AI" ====================
+  // Oranye (#FF8C00): garis Deteksi Cepat yang valid.
+  // Ungu   (#8A2BE2): sambungan baru yang dihasilkan modul perbaikan AI.
+  // clearAndRedraw() menggambar ulang SEKALI (bukan clear bertahap) supaya
+  // kanvas tidak berkedip. State lapisan juga disalin ke `cand` agar tetap
+  // tampil saat peta digeser/di-zoom atau digambar ulang oleh core.js.
+  const LAYER_ORANGE = '#FF8C00';
+  const LAYER_PURPLE = '#8A2BE2';
+  let layerState = { orangeLines: [], purpleLines: [] };
+
+  function layerPoints(line) {
+    const raw = line && (line.points || line.pts);
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    for (const p of raw) {
+      if (!Array.isArray(p) || p.length < 2) continue;
+      const x = Number(p[0]), y = Number(p[1]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      out.push([x, y]);
+      if (out.length >= 500) break;
+    }
+    return out.length >= 2 ? out : [];
+  }
+
+  function normalizeLayer(line, color) {
+    const points = layerPoints(line);
+    if (!points.length) return null;
+    const out = { points, color };
+    if (line && line.id != null) out.id = String(line.id);
+    if (line && line.from != null) out.from = String(line.from);
+    if (line && line.to != null) out.to = String(line.to);
+    if (line && line.k) out.k = line.k;
+    return out;
+  }
+
+  function normalizeLayers(list, color) {
+    if (!Array.isArray(list)) return [];
+    return list.map(item => normalizeLayer(item, color)).filter(Boolean);
+  }
+
+  function layerContext() {
+    const cv = typeof plotCanvas !== 'undefined' ? plotCanvas : document.getElementById('plotCanvas');
+    return cv && cv.getContext ? { canvas: cv, ctx: cv.getContext('2d') } : null;
+  }
+
+  function paintLayers(ctx, state) {
+    if (!ctx || !state) return;
+    const project = typeof toS === 'function' ? toS : (p => p);
+    const stroke = (line, color, width) => {
+      const pts = line.points.map(project);
+      if (pts.length < 2) return;
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.setLineDash([]);
+      ctx.stroke();
+    };
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    state.orangeLines.forEach(line => stroke(line, LAYER_ORANGE, 2));
+    state.purpleLines.forEach(line => stroke(line, line.color || LAYER_PURPLE, 2.2));
+    ctx.restore();
+  }
+
+  // Salin lapisan ke sumber data kanvas utama (dipakai draw() di core.js).
+  function syncLayerState(state) {
+    if (typeof cand === 'undefined') return false;
+    if (typeof snapshot === 'function') snapshot();
+    cand = state.orangeLines.map(line => ({
+      k: line.k || 'P', pts: line.points, ai: true, aiOrange: true, refine: true,
+    })).concat(state.purpleLines.map(line => ({
+      k: 'P', pts: line.points, ai: true, purple: true, refine: true,
+    })));
+    if (typeof syncCandClean === 'function') syncCandClean();
+    if (typeof candMsg === 'function') candMsg();
+    return true;
+  }
+
+  // Ganti seluruh lapisan lalu gambar ulang sekali (tanpa flicker).
+  function clearAndRedraw(input) {
+    const src = input || {};
+    layerState = {
+      orangeLines: normalizeLayers(src.orangeLines, LAYER_ORANGE),
+      purpleLines: normalizeLayers(src.purpleLines, LAYER_PURPLE),
+    };
+    if (syncLayerState(layerState) && typeof draw === 'function') {
+      draw();
+    } else {
+      const c = layerContext();
+      if (c) {
+        c.ctx.clearRect(0, 0, c.canvas.width, c.canvas.height);
+        paintLayers(c.ctx, layerState);
+      }
+    }
+    return layerState;
+  }
+
+  // Render lapisan saja (mis. dipanggil setelah core.js menggambar ulang).
+  function drawLayers(ctx) {
+    const c = ctx && ctx.canvas ? { ctx } : layerContext();
+    if (c) paintLayers(c.ctx, layerState);
+    return layerState;
+  }
+
+  window.PlotPetaDrawer = window.PlotPetaDrawer || {};
+  Object.assign(window.PlotPetaDrawer, {
+    colors: { orange: LAYER_ORANGE, purple: LAYER_PURPLE },
+    clearAndRedraw,
+    draw: drawLayers,
+    layers: () => layerState,
+  });
+
   const main = document.getElementById('main');
   const drawer = document.getElementById('toolDrawer');
   const toggle = document.getElementById('toolDrawerToggle');

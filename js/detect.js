@@ -669,6 +669,7 @@ function finishSelection(){
 function runDet(R,poly=null){
   if(!img||R.w<20||R.h<20)return;
   candDropped=[];
+  if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];
   lastDetR=R;
   $('dMsg').textContent='Mendeteksi...';
   setTimeout(async()=>{
@@ -855,6 +856,7 @@ $('dOk').onclick=()=>{
   ensureIntersectionPoints(true);
   cand=[];
   candDropped=[];
+  if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];
   if(typeof aiSel!=='undefined')aiSel=-1;
   closeTextEditPopover();tform();
   $('dMsg').textContent='Kandidat diterima sebagai garis'+(pendingTexts.length?' dan teks':'')+'.';
@@ -865,6 +867,7 @@ $('dOk').onclick=()=>{
 $('dNo').onclick=()=>{
   cand=[];
   candDropped=[];
+  if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];
   if(typeof aiTexts!=='undefined')aiTexts=[];
   if(typeof aiRaw!=='undefined')aiRaw=[];
   if(typeof aiSel!=='undefined')aiSel=-1;
