@@ -32,6 +32,21 @@ function aiBiayaUntuk(tileCount) {
   return biaya * Math.ceil(Math.max(1, tileCount) / perBlok);
 }
 
+// Batasi area kerja ke dalam batas gambar (minimal 1x1 px).
+function aiClampArea(r) {
+  if (!r || !(Number(r.w) > 0) || !(Number(r.h) > 0)) return { x: 0, y: 0, w: iw, h: ih };
+  const x = Math.max(0, Math.min(iw - 1, Math.round(Number(r.x) || 0)));
+  const y = Math.max(0, Math.min(ih - 1, Math.round(Number(r.y) || 0)));
+  const x1 = Math.max(x + 1, Math.min(iw, Math.round((Number(r.x) || 0) + Number(r.w))));
+  const y1 = Math.max(y + 1, Math.min(ih, Math.round((Number(r.y) || 0) + Number(r.h))));
+  return { x, y, w: x1 - x, h: y1 - y };
+}
+
+// Area refine = area Deteksi Cepat terakhir, bukan seluruh peta.
+function aiRefineArea() {
+  return aiClampArea(typeof lastDetR !== "undefined" ? lastDetR : null);
+}
+
 // Tampilkan bagian "Perbaiki dengan AI" hanya setelah Deteksi Cepat dijalankan.
 // Saat proses berjalan, tombol utama diganti tombol Batal.
 function aiUpdateRefineUI() {
@@ -52,7 +67,7 @@ function aiUpdateCostUI() {
     aiUpdateRefineUI();
     return;
   }
-  const baseTiles = aiMakeTiles({ x: 0, y: 0, w: iw, h: ih });
+  const baseTiles = aiMakeTiles(detected ? aiRefineArea() : { x: 0, y: 0, w: iw, h: ih });
   const tileCount = detected ? baseTiles.filter(t => aiInkRatio(t) >= AI_MIN_INK).length : baseTiles.length;
   const cost = aiBiayaUntuk(tileCount);
   const perBlok = (typeof tokenBiaya === "object" && tokenBiaya && Number(tokenBiaya.tile_per_blok) >= 1)
@@ -378,16 +393,16 @@ async function runAiRefine() {
     aiSay("Jalankan Deteksi Cepat dulu, lalu tekan Perbaiki dengan AI.");
     return;
   }
-  return runAiDetect(null);
+  return runAiDetect(aiRefineArea());
 }
 
 async function runAiDetect(R) {
   if (!img) return;
   if (!currentUser) { openAuthModal("login"); return; }
   if (aiBusy) return;
-  if (!R || !(R.w > 0) || !(R.h > 0)) R = { x: 0, y: 0, w: iw, h: ih };
+  const area = aiClampArea(R);
 
-  const allTiles = aiMakeTiles(R);
+  const allTiles = aiMakeTiles(area);
   const tiles = allTiles.filter(t => aiInkRatio(t) >= AI_MIN_INK);
   const skipped = allTiles.length - tiles.length;
   if (!tiles.length) {
@@ -396,8 +411,8 @@ async function runAiDetect(R) {
   }
   if (tiles.length > AI_MAX_TILES) {
     aiSay(
-      "Peta terlalu besar: " + tiles.length + " potongan bertinta (maksimal " + AI_MAX_TILES +
-      "). Gunakan peta yang lebih kecil atau bagi peta menjadi beberapa berkas."
+      "Area terlalu besar: " + tiles.length + " potongan bertinta (maksimal " + AI_MAX_TILES +
+      "). Perkecil area Deteksi Cepat, lalu jalankan ulang."
     );
     return;
   }
@@ -418,7 +433,7 @@ async function runAiDetect(R) {
   const ok = confirm(
     "Perbaiki dengan AI memakai " + cost + " token (saldo " + currentTokenBalance +
     "). Kandidat Deteksi Cepat dikirim sebagai petunjuk. Hasil AI menimpa kandidat. Lanjutkan?\n\n" +
-    "Peta dipecah menjadi " + tiles.length + " potongan" +
+    "Area Deteksi Cepat dipecah menjadi " + tiles.length + " potongan" +
     (skipped ? " (" + skipped + " potongan kosong dilewati)" : "") + "."
   );
   if (!ok) return;
@@ -457,7 +472,7 @@ async function runAiDetect(R) {
     runId = started.run_id;
 
     aiSay(
-      "Memperbaiki " + tiles.length + " potongan peta dengan AI... (" + cost + " token)" +
+      "Memperbaiki " + tiles.length + " potongan area dengan AI... (" + cost + " token)" +
       (skipped ? " " + skipped + " potongan kosong dilewati." : "")
     );
 
