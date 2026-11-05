@@ -885,8 +885,8 @@ $('dOk').onclick=()=>{
   const pendingTexts=(typeof aiTexts==='undefined'?[]:aiTexts);
   if(!cand.length&&!pendingTexts.length)return;
   snapshot();
-  cand.forEach(c=>lines.push({k:'P',pts:c.pts,ai:c.ai,weak:c.weak}));
-  pendingTexts.forEach(t=>texts.push({p:t.p,no:t.no,su:t.su,ai:true,fmtWarn:t.fmtWarn}));
+  cand.forEach(c=>lines.push({k:'P',pts:c.pts,ai:c.ai,weak:c.weak,closed:c.closed}));
+  pendingTexts.forEach(t=>texts.push({p:t.p,no:t.no,su:t.su,ai:true,fmtWarn:t.fmtWarn,box:t.box,angle:t.angle}));
   if(pendingTexts.length)aiTexts=[];
   ensureIntersectionPoints(true);
   cand=[];

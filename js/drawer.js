@@ -134,8 +134,16 @@
     ctx.lineWidth = Number(o.strokeWidth) > 0 ? Number(o.strokeWidth) : 3;
     ctx.strokeStyle = o.strokeStyle || '#fff';
     ctx.fillStyle = o.color || '#111';
-    ctx.strokeText(label, Number(x), Number(y));
-    ctx.fillText(label, Number(x), Number(y));
+    let tx = Number(x), ty = Number(y);
+    const angle = Number(o.angle) || 0;
+    if (angle) {
+      ctx.translate(tx, ty);
+      ctx.rotate(angle * Math.PI / 180);
+      tx = 0;
+      ty = 0;
+    }
+    ctx.strokeText(label, tx, ty);
+    ctx.fillText(label, tx, ty);
     ctx.restore();
     return true;
   }

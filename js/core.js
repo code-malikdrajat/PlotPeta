@@ -745,6 +745,25 @@ function draw(){
     ctx.stroke();
     ctx.setLineDash([]);
   });
+  // Teks AI ber-box: ukuran mengikuti tinggi tulisan di layar, diputar sesuai angle.
+  const drawTextBoxed=(t,color,label,twoLine)=>{
+    const s=toS(t.p);
+    const box=t.box;
+    const hs=Math.max(1,(Number(box[3])-Number(box[1]))*V.s);
+    const n=twoLine?2:1;
+    const f=Math.max(9,Math.min(24,hs/(n*1.25)));
+    const fam='"Plus Jakarta Sans", system-ui, sans-serif';
+    const lh=f*1.15;
+    const off=twoLine?lh/2:0;
+    const ang=(Number(t.angle)||0)*Math.PI/180;
+    ctx.save();
+    ctx.translate(s[0],s[1]);
+    ctx.rotate(ang);
+    ocrLabel(label,0,-off,{color,font:'bold '+f.toFixed(1)+'px '+fam});
+    if(twoLine)ocrLabel(t.su,0,off,{color,font:(f*0.92).toFixed(1)+'px '+fam});
+    ocrSymbol(0,0,{kind:'diamond',size:3.5,color});
+    ctx.restore();
+  };
   texts.forEach((t,i)=>{
     const s=toS(t.p);
     const isAI=!!t.ai;
@@ -752,6 +771,7 @@ function draw(){
     const label=isAI?('◆ '+(t.no||t.su||'(teks)')):(t.no||'(no)');
     // Dua baris (no + su) ditumpuk simetris di sekitar titik anchor OCR.
     const twoLine=!!(t.su&&(t.no||!isAI));
+    if(t.box&&t.box.length>=4){drawTextBoxed(t,color,label,twoLine);return;}
     ocrLabel(label,s[0],s[1]+(twoLine?-6:0),{
       color,font:'bold 12px "Plus Jakarta Sans", system-ui, sans-serif',
     });
@@ -767,6 +787,7 @@ function draw(){
     const color=i===aiSel?'#7c3aed':'#a855f7';
     const label=(t.fmtWarn?'⚠ ':'')+'◆ '+(t.no||t.su||'(teks)');
     const twoLine=!!(t.su&&t.no);
+    if(t.box&&t.box.length>=4){drawTextBoxed(t,color,label,twoLine);return;}
     ocrLabel(label,s[0],s[1]+(twoLine?-6:0),{
       color,font:'bold 12px "Plus Jakarta Sans", system-ui, sans-serif',
     });
@@ -864,7 +885,7 @@ function draw(){
     if(c.purple){
       ctx.strokeStyle='#8A2BE2';
       ctx.lineWidth=3;
-      ctx.setLineDash([]);
+      ctx.setLineDash(c.weak?[6,4]:[]);
     }else if(c.aiBlue){
       ctx.strokeStyle='#1E90FF';
       ctx.lineWidth=2.5;
