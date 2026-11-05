@@ -221,6 +221,7 @@ function nearestVertex(sp,preferLi=-1){
 function click(sp,ev){
   if(!img)return;
   const p=toI(sp);
+  if(tool==='F'){if(typeof isiBidangClick==='function')isiBidangClick(p,sp,ev);return}
   if(tool==='M'&&addLinePick){finishAddLineAt(sp);return}
   if(tool==='A' && detectModeEl?.value==='all'){runDet({x:0,y:0,w:iw,h:ih});return}
   if(tool==='A' && detectModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('dMsg').textContent='Batas area deteksi: '+selectionPoly.length+' titik. Tekan Enter untuk menjalankan deteksi.';draw();return}
@@ -837,6 +838,7 @@ function draw(){
     ctx.lineWidth=1.2;
     ctx.stroke();
   });
+  if(typeof isiBidangDraw==='function')isiBidangDraw(ctx);
   gaps.forEach(p=>{
     const s=toS(p);
     ctx.strokeStyle='#ef4444';
