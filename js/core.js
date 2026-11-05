@@ -22,7 +22,7 @@ const num=s=>{s=String(s).trim();s=/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)?s.replac
 const f2=n=>n.toLocaleString('id-ID',{maximumFractionDigits:2,minimumFractionDigits:2});
 const toReal=p=>{if(cal.mode==='local')return [p[0],(ih||0)-p[1]];if(!cal.ok||!cal.M)return null;const m=cal.M;return[m[0]*p[0]+m[1]*p[1]+m[2],m[3]*p[0]+m[4]*p[1]+m[5]]};
 function snapshot(){hist.push(JSON.stringify({lines,texts,cand,aiTexts}));if(hist.length>100)hist.shift();dirty=true}
-function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];aiTexts=o.aiTexts||[];selT=-1;aiSel=-1;closeTextEditPopover();tform();candMsg()}erasePick=null;addLinePick=null;hoverSeg=null;stat();draw();if(typeof syncCandClean==='function')syncCandClean()}
+function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];aiTexts=o.aiTexts||[];if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];selT=-1;aiSel=-1;closeTextEditPopover();tform();candMsg()}erasePick=null;addLinePick=null;hoverSeg=null;stat();draw();if(typeof syncCandClean==='function')syncCandClean()}
 
 function updateDropzone(){
   const dz=$('dropzone');
@@ -700,6 +700,27 @@ $('tdel').onclick=()=>{
 };
 const stat=()=>$('cnt').textContent=lines.length+' rangkaian garis, '+(texts.length+(typeof aiTexts==='undefined'?0:aiTexts.length))+' teks';
 
+// Teks & ikon OCR: anchor tengah dari PlotPetaDrawer agar label pas di atas
+// tulisan tangan peta (fallback lokal bila modul drawer belum termuat).
+function ocrLabel(text,x,y,opts){
+  const dr=window.PlotPetaDrawer;
+  if(dr&&typeof dr.drawOcrLabel==='function')return dr.drawOcrLabel(ctx,text,x,y,opts);
+  const o=opts||{};
+  ctx.save();
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.font=o.font||'bold 12px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.lineWidth=o.strokeWidth>0?o.strokeWidth:3;
+  ctx.strokeStyle=o.strokeStyle||'#fff';ctx.fillStyle=o.color||'#111';
+  ctx.strokeText(text,x,y);ctx.fillText(text,x,y);
+  ctx.restore();
+}
+function ocrSymbol(x,y,opts){
+  const dr=window.PlotPetaDrawer;
+  if(dr&&typeof dr.drawOcrSymbol==='function')return dr.drawOcrSymbol(ctx,x,y,opts);
+  const o=opts||{},r=o.size>0?o.size:4;
+  ctx.save();ctx.beginPath();ctx.moveTo(x,y-r);ctx.lineTo(x+r,y);ctx.lineTo(x,y+r);ctx.lineTo(x-r,y);ctx.closePath();ctx.fillStyle=o.color||'#a855f7';ctx.fill();ctx.restore();
+}
+
 function draw(){
   const d=d1();
   ctx.setTransform(d,0,0,d,0,0);
@@ -727,39 +748,34 @@ function draw(){
   texts.forEach((t,i)=>{
     const s=toS(t.p);
     const isAI=!!t.ai;
-    ctx.textAlign='center';
-    ctx.font='bold 12px "Plus Jakarta Sans", system-ui, sans-serif';
-    ctx.lineWidth=3;
-    ctx.strokeStyle='#fff';
-    ctx.fillStyle=i===selT?(isAI?'#7c3aed':'#0ea5e9'):(isAI?'#a855f7':'#111');
+    const color=i===selT?(isAI?'#7c3aed':'#0ea5e9'):(isAI?'#a855f7':'#111');
     const label=isAI?('◆ '+(t.no||t.su||'(teks)')):(t.no||'(no)');
-    ctx.strokeText(label,s[0],s[1]);
-    ctx.fillText(label,s[0],s[1]);
-    ctx.font='11px "Plus Jakarta Sans", system-ui, sans-serif';
-    if(t.su&&(t.no||!isAI)){
-      ctx.strokeText(t.su,s[0],s[1]+13);
-      ctx.fillText(t.su,s[0],s[1]+13);
+    // Dua baris (no + su) ditumpuk simetris di sekitar titik anchor OCR.
+    const twoLine=!!(t.su&&(t.no||!isAI));
+    ocrLabel(label,s[0],s[1]+(twoLine?-6:0),{
+      color,font:'bold 12px "Plus Jakarta Sans", system-ui, sans-serif',
+    });
+    if(twoLine){
+      ocrLabel(t.su,s[0],s[1]+8,{
+        color,font:'11px "Plus Jakarta Sans", system-ui, sans-serif',
+      });
     }
-    ctx.fillStyle=isAI?'#a855f7':'#0ea5e9';
-    ctx.fillRect(s[0]-2,s[1]-2,4,4);
+    ocrSymbol(s[0],s[1],{kind:'diamond',size:3.5,color:isAI?'#a855f7':'#0ea5e9'});
   });
   (typeof aiTexts==='undefined'?[]:aiTexts).forEach((t,i)=>{
     const s=toS(t.p);
-    ctx.textAlign='center';
-    ctx.font='bold 12px "Plus Jakarta Sans", system-ui, sans-serif';
-    ctx.lineWidth=3;
-    ctx.strokeStyle='#fff';
-    ctx.fillStyle=i===aiSel?'#7c3aed':'#a855f7';
+    const color=i===aiSel?'#7c3aed':'#a855f7';
     const label=(t.fmtWarn?'⚠ ':'')+'◆ '+(t.no||t.su||'(teks)');
-    ctx.strokeText(label,s[0],s[1]);
-    ctx.fillText(label,s[0],s[1]);
-    if(t.su&&t.no){
-      ctx.font='11px "Plus Jakarta Sans", system-ui, sans-serif';
-      ctx.strokeText(t.su,s[0],s[1]+13);
-      ctx.fillText(t.su,s[0],s[1]+13);
+    const twoLine=!!(t.su&&t.no);
+    ocrLabel(label,s[0],s[1]+(twoLine?-6:0),{
+      color,font:'bold 12px "Plus Jakarta Sans", system-ui, sans-serif',
+    });
+    if(twoLine){
+      ocrLabel(t.su,s[0],s[1]+8,{
+        color,font:'11px "Plus Jakarta Sans", system-ui, sans-serif',
+      });
     }
-    ctx.fillStyle='#a855f7';
-    ctx.fillRect(s[0]-2,s[1]-2,4,4);
+    ocrSymbol(s[0],s[1],{kind:'diamond',size:3.5,color:'#a855f7'});
   });
   if(cur.length){
     path(cur);
@@ -1038,6 +1054,7 @@ $('btnClearMap').onclick=async()=>{
   img=null; iw=0; ih=0; mapName='';
   lines=[]; texts=[]; polys=[]; gaps=[]; cand=[]; cur=[]; hist=[]; aiTexts=[]; aiRaw=[];
   candDropped=[]; lastDetR=null;
+  if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];
   selT=-1; aiSel=-1; dirty=false; box=null; mv=null; drag=null; mouse=null; erasePick=null;addLinePick=null;
   cal.pts=[]; cal.ok=false; cal.M=null;
   ['cx0','cy0','cx1','cy1','cx2','cy2','cx3','cy3'].forEach(id=>{ if($(id)) $(id).value=''; });
@@ -1076,6 +1093,7 @@ $('op').onchange=e=>{
       const o=JSON.parse(t);
       lines=o.lines||[];erasePick=null;addLinePick=null;
       texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];aiTexts=[];aiRaw=[];lastDetR=null;
+      if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];
       cal.pts=(o.cal||[]).map(c=>c.p);
       setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
       crs();

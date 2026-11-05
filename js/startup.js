@@ -98,6 +98,7 @@ updateDropzone();
       if(prj){
         const o=JSON.parse(prj);
         lines=o.lines||[];erasePick=null;addLinePick=null;texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];lastDetR=null;
+        if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];
         cal.ok=false;cal.M=null;
         cal.pts=(o.cal||[]).map(c=>c.p);
         setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));

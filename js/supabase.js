@@ -328,7 +328,7 @@ async function openCloudProject(id){
 
   const o = p.data || {};
   lines = o.lines || []; erasePick = null;
-  polys = o.polys || []; gaps = []; cand = []; aiTexts = []; aiRaw = []; lastDetR = null; cal.ok = false; cal.M = null;
+  polys = o.polys || []; gaps = []; cand = []; aiTexts = []; aiRaw = []; lastDetR = null; if (typeof aiHintOverlay !== 'undefined') aiHintOverlay = []; cal.ok = false; cal.M = null;
   texts = o.texts || [];
   cal.pts = (o.cal || []).map(c => c.p);
   setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));

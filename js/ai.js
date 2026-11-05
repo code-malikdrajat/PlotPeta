@@ -5,7 +5,7 @@
 // Biaya token: dipotong SEKALI di awal (aksi "start"); bila tidak ada hasil sama
 // sekali, token otomatis dikembalikan saat aksi "finish" (lihat sql/5).
 
-const AI_TILE = 1024, AI_OVERLAP = 0.12, AI_CONC = 3, AI_SNAP_R = 6, AI_COORD = 1000, AI_MAX_TILES = 60;
+const AI_TILE = 1024, AI_OVERLAP = 0.12, AI_CONC = 3, AI_SNAP_R = 6, AI_COORD = 1000, AI_MAX_TILES = 300;
 const AI_MIN_INK = 0.004, AI_HINT_MAX = 240;
 
 var aiTexts = [];
@@ -464,6 +464,7 @@ async function runAiDetect(R) {
   const results = [];
   const errors = [];
   let rateLimited = null;
+  let limitHit = false;
 
   try {
     // 1. start: potong token sekali untuk seluruh proses, dapatkan run_id.
@@ -595,7 +596,9 @@ async function runAiDetect(R) {
     draw();
   } catch (e) {
     if (!rateLimited) {
-      baseMsg = "Perbaikan AI gagal: " + (e && e.message ? e.message : "coba lagi.");
+      const serverMsg = e && e.message ? e.message : "";
+      baseMsg = serverMsg || "Perbaikan AI gagal: coba lagi.";
+      if (e && e.status === 429) limitHit = true;
       aiSay(baseMsg);
     }
   } finally {
@@ -615,7 +618,7 @@ async function runAiDetect(R) {
       aiTexts = prevTexts;
       aiRaw = prevRaw;
       aiHintOverlay = [];
-      if (prevCand.length) baseMsg = (baseMsg ? baseMsg + " " : "") + "Kandidat Deteksi Cepat dipertahankan.";
+      if (prevCand.length && !limitHit && !rateLimited) baseMsg = (baseMsg ? baseMsg + " " : "") + "Kandidat Deteksi Cepat dipertahankan.";
       if (baseMsg) aiSay(baseMsg);
     }
     if (refundTokens > 0) {
@@ -646,6 +649,7 @@ $("aiClear").onclick = () => {
   snapshot();
   lines.forEach(l => { delete l.ai; delete l.weak; });
   texts.forEach(t => { delete t.ai; delete t.fmtWarn; });
+  aiHintOverlay = [];
   stat();
   draw();
   aiSay("Hasil AI sudah ditandai diperiksa.");
