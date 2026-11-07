@@ -485,12 +485,12 @@ th { white-space:nowrap; }
           <span class="mono" style="font-size:11px;color:var(--text-dim)">0 = ekspor DXF gratis (tanpa token)</span>
         </div>
         <div class="form-group">
-          <label class="form-label">Biaya Perbaiki dengan AI per Blok (Token)</label>
+          <label class="form-label">Biaya Baca Teks (AI) per Blok (Token)</label>
           <input type="number" id="setBiayaAi" min="1" value="1">
           <span class="mono" style="font-size:11px;color:var(--text-dim)">Dikali jumlah blok (tiap N tile)</span>
         </div>
         <div class="form-group">
-          <label class="form-label">Tile per Blok Perbaiki dengan AI</label>
+          <label class="form-label">Tile per Blok Baca Teks (AI)</label>
           <input type="number" id="setTileBlok" min="1" value="20">
           <span class="mono" style="font-size:11px;color:var(--text-dim)">Default: 20 tile per blok</span>
         </div>
@@ -922,7 +922,7 @@ $('btnSaveTokenSettings').onclick = async () => {
     return;
   }
   if(!Number.isInteger(biayaDxf) || biayaDxf < 0 || !Number.isInteger(biayaAi) || biayaAi < 1 || !Number.isInteger(tileBlok) || tileBlok < 1){
-    alert('Periksa kembali biaya fitur. Biaya ekspor DXF tidak boleh negatif; biaya Perbaiki dengan AI dan tile per blok minimal 1.');
+    alert('Periksa kembali biaya fitur. Biaya ekspor DXF tidak boleh negatif; biaya Baca Teks (AI) dan tile per blok minimal 1.');
     return;
   }
   const { error } = await sb.from('settings').upsert([
