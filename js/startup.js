@@ -49,7 +49,7 @@ updateDropzone();
     lastFile=f;savedSnap=null;lastJson='';imgStored=false;
     putK(K_IMG,{blob:f,name:f.name,type:f.type}).then(()=>{imgStored=true}).catch(err=>{
       console.warn('Peta tidak bisa disimpan otomatis:',err);
-      toast('Peta ini tidak bisa disimpan otomatis (mungkin terlalu besar). Setelah reload, buka peta lagi lalu pilih Buka lokal.');
+      toast('Peta ini tidak bisa disimpan otomatis (mungkin terlalu besar). Setelah reload, buka peta lagi lalu pilih Buka JSON.');
     });
   });
 
@@ -73,7 +73,7 @@ updateDropzone();
   setInterval(tick,3000);
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')tick()});
 
-  // Dipanggil setelah proyek berhasil disimpan (lokal atau cloud): data pemulihan dihapus.
+  // Dipanggil setelah proyek berhasil disimpan: data pemulihan dihapus.
   // Jika pengguna lanjut mengubah gambar, pemulihan otomatis aktif lagi.
   window.__ppSaved=async()=>{
     try{savedSnap=JSON.stringify(proj())}catch(_){savedSnap=null}
@@ -98,7 +98,6 @@ updateDropzone();
       if(prj){
         const o=JSON.parse(prj);
         lines=o.lines||[];erasePick=null;addLinePick=null;texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];lastDetR=null;
-        if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];
         cal.ok=false;cal.M=null;
         cal.pts=(o.cal||[]).map(c=>c.p);
         setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));

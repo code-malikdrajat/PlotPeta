@@ -1,4 +1,4 @@
-// PlotPeta: Inti aplikasi: state, kanvas, tampilan, buka peta (JPG/PNG/TIFF), alat gambar dan edit, kalibrasi, draw, simpan/buka lokal
+// PlotPeta: Inti aplikasi: state, kanvas, tampilan, buka peta (JPG/PNG/TIFF), alat gambar dan edit, kalibrasi, draw, simpan/buka JSON
 
 const $=id=>document.getElementById(id);
 const plotCanvas=$('plotCanvas'),ctx=plotCanvas.getContext('2d');
@@ -22,7 +22,7 @@ const num=s=>{s=String(s).trim();s=/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)?s.replac
 const f2=n=>n.toLocaleString('id-ID',{maximumFractionDigits:2,minimumFractionDigits:2});
 const toReal=p=>{if(cal.mode==='local')return [p[0],(ih||0)-p[1]];if(!cal.ok||!cal.M)return null;const m=cal.M;return[m[0]*p[0]+m[1]*p[1]+m[2],m[3]*p[0]+m[4]*p[1]+m[5]]};
 function snapshot(){hist.push(JSON.stringify({lines,texts,cand,aiTexts}));if(hist.length>100)hist.shift();dirty=true}
-function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];aiTexts=o.aiTexts||[];if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];selT=-1;aiSel=-1;closeTextEditPopover();tform();candMsg()}erasePick=null;addLinePick=null;hoverSeg=null;stat();draw();if(typeof syncCandClean==='function')syncCandClean()}
+function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];aiTexts=o.aiTexts||[];selT=-1;aiSel=-1;closeTextEditPopover();tform();candMsg()}erasePick=null;addLinePick=null;hoverSeg=null;stat();draw();if(typeof syncCandClean==='function')syncCandClean()}
 
 function updateDropzone(){
   const dz=$('dropzone');
@@ -36,7 +36,6 @@ function loadImg(src){
     iw=im.naturalWidth;
     ih=im.naturalHeight;
     lastDetR=null;
-    if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];
     erasePick=null;addLinePick=null;
     fitV();
     draw();
@@ -162,11 +161,13 @@ $('file').onchange=async e=>{
 setCoordMode('local');
 function setTool(t){
   if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}
+  
   mv=null;mvStart=null;mvMoved=false;
   if(cur.length&&(t==='P'||t==='D'))finish();
   else cur=[];
   tool=t;
   erasePick=null;addLinePick=null;hoverSeg=null;
+  if(typeof cadResetHover==='function')cadResetHover();
   selectionPoly=[]; box=null;
   if(t==='E'&&eraseModeEl?.value==='click'&&!cand.length){
     const n=ensureIntersectionPoints();
@@ -187,13 +188,18 @@ const detectModeEl=$('detectMode'), eraseModeEl=$('eraseMode'), toolModeHint=$('
 function updateToolModeHint(){
   document.querySelector('.detect-mode-options')?.classList.toggle('mode-visible', tool==='A');
   document.querySelector('.erase-mode-options')?.classList.toggle('mode-visible', tool==='E');
+  document.querySelector('.cad-mode-options')?.classList.toggle('mode-visible', tool==='TRIM'||tool==='EXT');
   if(!toolModeHint)return;
   if(tool==='A') toolModeHint.textContent=detectModeEl.value==='rect'?'Tarik kotak pada peta untuk mendeteksi garis.':detectModeEl.value==='poly'?'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk mendeteksi.':'Klik Deteksi seluruh peta pada panel kanan.';
   else if(tool==='E') toolModeHint.textContent=eraseModeEl.value==='click'?'Klik: hapus satu ruas. Shift+klik: hapus seluruh jalur.':eraseModeEl.value==='rect'?'Tarik kotak untuk menghapus objek/segmen di dalam area.':'Tarik mouse sambil menahan klik kiri mengelilingi area, lalu lepaskan untuk menghapus.';
+  else if(tool==='TRIM'||tool==='EXT'){
+    const active=tool==='TRIM'?(shiftDown?'Extend':'Trim'):(shiftDown?'Trim':'Extend');
+    toolModeHint.textContent='Klik rantai untuk '+active+'. Shift menukar Trim/Extend; Ctrl+Z membatalkan.';
+    if($('cadModeHint'))$('cadModeHint').textContent=toolModeHint.textContent;
+  }
   else toolModeHint.textContent='Pilih alat Deteksi Cepat atau Hapus untuk menampilkan pilihannya di bawah tombol.';
 }
 detectModeEl?.addEventListener('change',updateToolModeHint); eraseModeEl?.addEventListener('change',()=>{erasePick=null;updateToolModeHint();draw()});
-
 
 function snapPt(p){
   if(!$('snap').checked)return p;
@@ -221,11 +227,11 @@ function nearestVertex(sp,preferLi=-1){
 function click(sp,ev){
   if(!img)return;
   const p=toI(sp);
-  if(tool==='F'){if(typeof isiBidangClick==='function')isiBidangClick(p,sp,ev);return}
   if(tool==='M'&&addLinePick){finishAddLineAt(sp);return}
   if(tool==='A' && detectModeEl?.value==='all'){runDet({x:0,y:0,w:iw,h:ih});return}
   if(tool==='A' && detectModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('dMsg').textContent='Batas area deteksi: '+selectionPoly.length+' titik. Tekan Enter untuk menjalankan deteksi.';draw();return}
   if(tool==='E' && eraseModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('st').innerHTML='<span class="status-dot"></span><span>Batas area hapus: '+selectionPoly.length+' titik; tekan Enter untuk menghapus</span>';draw();return}
+  if(tool==='TRIM'||tool==='EXT'){cadApply(sp);return}
   if(tool==='trim'){handleTopoTool(sp);return}
   if(tool==='cal'){if(cal.pts.length<4){cal.pts.push(p);crs()}draw();return}
   if(tool==='P'){const q=snapPt(p);cur.push(q);if(cur.length>=3&&q[0]===cur[0][0]&&q[1]===cur[0][1]&&cur.length-1>0)finish();draw();return}
@@ -366,6 +372,10 @@ plotCanvas.addEventListener('pointermove',e=>{
     if(hoverRAF){cancelAnimationFrame(hoverRAF);hoverRAF=0}
     hoverSeg=null;
   }
+  if(cadTool()){
+    if(!drag&&!mv&&!box&&!freehandDrawing&&!addLinePick)cadScheduleHover();
+    else if(typeof cadResetHover==='function')cadResetHover();
+  }
   if(addLinePick){draw();return}
   if(freehandDrawing){
     const last=selectionPoly[selectionPoly.length-1], next=[e.offsetX,e.offsetY];
@@ -446,9 +456,11 @@ plotCanvas.addEventListener('dblclick',e=>{
     if(h)deleteSegmentAt(h.li,h.si);
   }
 });
-plotCanvas.addEventListener('pointerleave',()=>{if(tool==='trim'){mouse=null;draw()} if(hoverRAF){cancelAnimationFrame(hoverRAF);hoverRAF=0} if(hoverSeg){hoverSeg=null;draw()}});
-plotCanvas.addEventListener('pointerenter',e=>{if(tool==='trim'){mouse=[e.offsetX,e.offsetY];draw()}});
-plotCanvas.addEventListener('contextmenu',e=>e.preventDefault());
+plotCanvas.addEventListener('pointerleave',()=>{if(tool==='trim'||cadTool()){mouse=null;cadResetHover();draw()} if(hoverRAF){cancelAnimationFrame(hoverRAF);hoverRAF=0} if(hoverSeg){hoverSeg=null;draw()}});
+plotCanvas.addEventListener('pointerenter',e=>{if(tool==='trim'){mouse=[e.offsetX,e.offsetY];draw()} if(cadTool()){mouse=[e.offsetX,e.offsetY];cadScheduleHover()}});
+plotCanvas.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+});
 plotCanvas.style.touchAction='none';
 plotCanvas.addEventListener('wheel',e=>{
   e.preventDefault();
@@ -460,13 +472,14 @@ plotCanvas.addEventListener('wheel',e=>{
   draw();
 },{passive:false});
 addEventListener('keydown',e=>{
-  if(e.key==='Shift'&&!shiftDown){shiftDown=true;if(tool==='E'&&hoverSeg)draw()}
+  if(e.key==='Shift'&&!shiftDown){shiftDown=true;if(tool==='E'&&hoverSeg)draw();if(cadTool()){cadResetHover();updateToolModeHint();if(mouse&&img)cadScheduleHover();else draw()}}
   if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  
   if(e.key==='Enter'){if(!finishSelection())finish()}
-  else if(e.key==='Escape'){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}cur=[];selectionPoly=[];box=null;erasePick=null;addLinePick=null;hoverSeg=null;draw()}
+  else if(e.key==='Escape'){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}cur=[];selectionPoly=[];box=null;erasePick=null;addLinePick=null;hoverSeg=null;cadResetHover();draw()}
   else if(e.key==='Backspace'||(e.key==='z'&&(e.ctrlKey||e.metaKey))){e.preventDefault();undo()}
 });
-addEventListener('keyup',e=>{if(e.key==='Shift'&&shiftDown){shiftDown=false;if(tool==='E'&&hoverSeg)draw()}});
+addEventListener('keyup',e=>{if(e.key==='Shift'&&shiftDown){shiftDown=false;if(tool==='E'&&hoverSeg)draw();if(cadTool()){cadResetHover();updateToolModeHint();if(mouse&&img)cadScheduleHover();else draw()}}});
 addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
 
 function crs(){
@@ -712,7 +725,14 @@ function ocrLabel(text,x,y,opts){
   ctx.font=o.font||'bold 12px "Plus Jakarta Sans", system-ui, sans-serif';
   ctx.lineWidth=o.strokeWidth>0?o.strokeWidth:3;
   ctx.strokeStyle=o.strokeStyle||'#fff';ctx.fillStyle=o.color||'#111';
-  ctx.strokeText(text,x,y);ctx.fillText(text,x,y);
+  let tx=x,ty=y;
+  const ang=Number(o.angle)||0;
+  if(ang){
+    ctx.translate(tx,ty);
+    ctx.rotate(ang*Math.PI/180);
+    tx=0;ty=0;
+  }
+  ctx.strokeText(text,tx,ty);ctx.fillText(text,tx,ty);
   ctx.restore();
 }
 function ocrSymbol(x,y,opts){
@@ -734,7 +754,11 @@ function draw(){
   };
   lines.forEach(l=>{
     path(l.pts);
-    if(l.ai){
+    if(l.isi){
+      ctx.strokeStyle='#14b8a6';
+      ctx.lineWidth=3;
+      ctx.setLineDash([]);
+    }else if(l.ai){
       ctx.strokeStyle='#a855f7';
       ctx.lineWidth=2;
       ctx.setLineDash(l.weak?[6,4]:[]);
@@ -838,7 +862,7 @@ function draw(){
     ctx.lineWidth=1.2;
     ctx.stroke();
   });
-  if(typeof isiBidangDraw==='function')isiBidangDraw(ctx);
+  
   gaps.forEach(p=>{
     const s=toS(p);
     ctx.strokeStyle='#ef4444';
@@ -871,20 +895,13 @@ function draw(){
     candDropped.forEach(d=>{if(d&&d.pts&&d.pts.length>1){path(d.pts);ctx.stroke()}});
     ctx.restore();
   }
-  // Referensi hasil Deteksi Cepat setelah dikoreksi AI: oranye samar putus-putus.
-  if(typeof aiHintOverlay!=='undefined'&&aiHintOverlay.length){
-    ctx.save();
-    ctx.strokeStyle='rgba(245,158,11,.5)';
-    ctx.lineWidth=1.4;
-    ctx.setLineDash([4,3]);
-    aiHintOverlay.forEach(c=>{
-      if(c&&c.pts&&c.pts.length>1){path(c.pts);ctx.stroke()}
-    });
-    ctx.restore();
-  }
   cand.forEach(c=>{
     path(c.pts);
-    if(c.purple){
+    if(c.isi){
+      ctx.strokeStyle='#14b8a6';
+      ctx.lineWidth=3;
+      ctx.setLineDash([]);
+    }else if(c.purple){
       ctx.strokeStyle='#8A2BE2';
       ctx.lineWidth=3;
       ctx.setLineDash(c.weak?[6,4]:[]);
@@ -938,6 +955,7 @@ function draw(){
       ctx.restore();
     }
   }
+  if(cadTool())cadDrawHover(ctx,path);
   if(window.__aiDebug===true&&typeof aiRaw!=='undefined'&&aiRaw.length){
     ctx.strokeStyle='#ef4444';
     ctx.lineWidth=.8;
@@ -1025,7 +1043,7 @@ function draw(){
     ctx.moveTo(s[0]-10,s[1]);
     ctx.lineTo(s[0]+10,s[1]);
     ctx.moveTo(s[0],s[1]-10);
-    ctx.lineTo(s[0]+10,s[1]);
+    ctx.lineTo(s[0],s[1]+10);
     ctx.stroke();
     ctx.fillStyle='#ec4899';
     ctx.font='bold 12px "JetBrains Mono", monospace';
@@ -1067,17 +1085,16 @@ function ready(){
 }
 
 // Local save & open (Free, no token required)
-// Hapus peta yang sedang terbuka tanpa menghapus proyek cloud atau file asli pengguna.
+// Hapus peta yang sedang terbuka tanpa menyentuh file JSON atau file peta pengguna.
 $('btnClearMap').onclick=async()=>{
   if(!img && !lines.length && !texts.length && !polys.length){
     alert('Belum ada peta atau pekerjaan yang sedang terbuka.');
     return;
   }
-  if(!confirm('Hapus peta yang sedang terbuka beserta semua garis, poligon, teks, dan kalibrasinya? Proyek yang sudah disimpan di Cloud tidak ikut terhapus.')) return;
+  if(!confirm('Hapus peta yang sedang terbuka beserta semua garis, poligon, teks, dan kalibrasinya? File JSON dan peta di komputer tidak ikut terhapus.')) return;
   img=null; iw=0; ih=0; mapName='';
-  lines=[]; texts=[]; polys=[]; gaps=[]; cand=[]; cur=[]; hist=[]; aiTexts=[]; aiRaw=[];
+  lines=[]; texts=[]; polys=[]; gaps=[]; cand=[]; cur=[]; hist=[];  aiTexts=[]; aiRaw=[];
   candDropped=[]; lastDetR=null;
-  if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];
   selT=-1; aiSel=-1; dirty=false; box=null; mv=null; drag=null; mouse=null; erasePick=null;addLinePick=null;
   cal.pts=[]; cal.ok=false; cal.M=null;
   ['cx0','cy0','cx1','cy1','cx2','cy2','cx3','cy3'].forEach(id=>{ if($(id)) $(id).value=''; });
@@ -1115,8 +1132,7 @@ $('op').onchange=e=>{
     try{
       const o=JSON.parse(t);
       lines=o.lines||[];erasePick=null;addLinePick=null;
-      texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];aiTexts=[];aiRaw=[];lastDetR=null;
-      if(typeof aiHintOverlay!=='undefined')aiHintOverlay=[];
+      texts=o.texts||[];polys=o.polys||[];gaps=[];cand=[];  aiTexts=[];aiRaw=[];lastDetR=null;
       cal.pts=(o.cal||[]).map(c=>c.p);
       setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
       crs();

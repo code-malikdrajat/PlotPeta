@@ -1,33 +1,25 @@
-// PlotPeta: Perbaiki dengan AI (validasi)
-// Kandidat Deteksi Cepat (oranye) dipecah per ruas dan dikirim sebagai "orange"
-// ke Edge Function detect-ai mode "validate". VLM menilai tiap potong (keep/remove),
-// menambah garis hanya bila ada jejak tinta, dan membaca teks hak/su ber-bbox.
-// Ruas yang tetap = biru, yang salah = dihapus, tambahan AI = ungu. Ruas yang tidak
-// sempat dinilai tetap oranye. Snap ke tinta dan pembentukan poligon tetap di client.
-// Biaya token: dipotong SEKALI di awal (aksi "start"); bila tidak ada hasil sama
-// sekali, token otomatis dikembalikan saat aksi "finish" (lihat sql/5).
-
-const AI_TILE = 1024, AI_OVERLAP = 0.12, AI_CONC = 3, AI_SNAP_R = 6, AI_COORD = 1000, AI_MAX_TILES = 300;
-const AI_MIN_INK = 0.004, AI_ORANGE_MAX = 150, AI_BRIDGE_END = 25;
+// PlotPeta: Baca Teks (AI) — hanya membaca teks hak/su pada area peta.
+// Tidak ada modifikasi geometri: `lines` dan `cand` tidak pernah diubah.
+// Pipeline tile/token/run/refund tetap dipakai (Supabase Edge Function detect-ai).
+//
+// Biaya token dihitung dari jumlah tile area (deteksi_ai x tile_per_blok) dan
+// dipotong di server saat aksi `start`, dikembalikan saat `finish` bila kosong.
+const AI_TILE = 1024, AI_OVERLAP = 0.12, AI_CONC = 3, AI_COORD = 1000, AI_MAX_TILES = 300;
+const AI_MIN_INK = 0.004, AI_TILE_EDGE = 0.015, AI_DEDUP_PX = 40;
 
 var aiTexts = [];
-var aiRaw = [];
-// Tidak dipakai lagi di alur validasi (oranye berubah warna), tetapi tetap
-// disediakan agar pembersihan overlay dari modul lain tidak error.
-var aiHintOverlay = [];
 let aiBusy = false, aiCancel = false;
-
 const AI_RE_NO = /^(M|HM|HGB|HGU|HP|HPL|C)\.?\s?\d+[A-Z0-9\/\-]*$/i;
-const AI_RE_SU = /^(SU|GS)\.?\s?\d+\/\d{2,4}$/i;
+const AI_RE_SU = /^(SU|S\.?U)\.?\s?\d+([\/\-]\d+)*$/i;
 
 function aiSay(msg) {
   const a = $("dMsg");
   if (a) a.textContent = msg;
-  const b = $("aiMsg");
+  const b = $("aiTextMsg");
   if (b) b.textContent = msg;
 }
 
-// Biaya satu proses Perbaiki dengan AI (settings admin: deteksi_ai x tile_per_blok).
+// Biaya untuk membaca teks AI (settings admin: deteksi_ai x tile_per_blok).
 // tokenBiaya dimuat supabase.js lewat get_biaya_token.
 function aiBiayaUntuk(tileCount) {
   const tb = (typeof tokenBiaya === "object" && tokenBiaya) ? tokenBiaya : null;
@@ -47,43 +39,54 @@ function aiClampArea(r) {
   return { x, y, w: x1 - x, h: y1 - y };
 }
 
-// Area refine = area Deteksi Cepat terakhir, bukan seluruh peta.
+// Area baca = kotak Deteksi Cepat terakhir bila ada, bila tidak seluruh gambar.
 function aiRefineArea() {
-  return aiClampArea(typeof lastDetR !== "undefined" ? lastDetR : null);
+  return aiClampArea(typeof lastDetR !== "undefined" && lastDetR ? lastDetR : null);
 }
 
-// Tampilkan bagian "Perbaiki dengan AI" hanya setelah Deteksi Cepat dijalankan.
-// Saat proses berjalan, tombol utama diganti tombol Batal.
-function aiUpdateRefineUI() {
-  const box = $("aiRefineBox"), btn = $("aiRefine"), cancel = $("aiCancel");
-  const detected = !!img && typeof lastDetR !== "undefined" && !!lastDetR;
-  if (box) box.classList.toggle("hide", !detected && !aiBusy);
-  if (btn) btn.classList.toggle("hide", !detected || aiBusy);
-  if (cancel) cancel.classList.toggle("hide", !aiBusy);
+function aiSetBalance(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return;
+  try { currentTokenBalance = v; } catch (_) { /* abaikan di luar aplikasi */ }
+  const el = typeof $ === "function" ? $("tokenCount") : null;
+  if (el) el.textContent = String(v);
+  if (typeof aiUpdateCostUI === "function") aiUpdateCostUI();
 }
 
-// Perbarui label biaya + saldo di panel Deteksi Cepat.
+// Perbarui kotak Baca Teks (AI) di panel Teks Bidang: area, tile, biaya, saldo.
 function aiUpdateCostUI() {
-  const box = $("aiCost");
-  const btn = $("aiRefine");
-  const detected = !!img && typeof lastDetR !== "undefined" && !!lastDetR;
+  const box = $("aiTextBox"), btn = $("aiTextRun"), cost = $("aiTextCost");
+  if (box) box.classList.toggle("hide", !img);
   if (!img) {
-    if (box) box.textContent = "";
-    aiUpdateRefineUI();
+    if (cost) cost.textContent = "";
+    if (btn) { btn.disabled = true; btn.textContent = "Baca Teks (AI)"; }
+    aiUpdateTextUI();
     return;
   }
-  const baseTiles = aiMakeTiles(detected ? aiRefineArea() : { x: 0, y: 0, w: iw, h: ih });
-  const tileCount = detected ? baseTiles.filter(t => aiInkRatio(t) >= AI_MIN_INK).length : baseTiles.length;
-  const cost = aiBiayaUntuk(tileCount);
+  const area = aiRefineArea();
+  let tiles = [];
+  try { tiles = aiMakeTiles(area).filter(t => aiInkRatio(t) >= AI_MIN_INK); } catch (_) { tiles = []; }
+  const costN = aiBiayaUntuk(tiles.length);
   const perBlok = (typeof tokenBiaya === "object" && tokenBiaya && Number(tokenBiaya.tile_per_blok) >= 1)
     ? Number(tokenBiaya.tile_per_blok) : 20;
-  if (box) {
-    box.textContent = detected
-      ? "Biaya: " + cost + " token per " + perBlok + " tile. Saldo: " + currentTokenBalance + " token."
-      : "Jalankan Deteksi Cepat dulu, lalu tekan Perbaiki dengan AI.";
+  const where = (typeof lastDetR !== "undefined" && lastDetR) ? "kotak Deteksi Cepat terakhir" : "seluruh gambar";
+  const saldo = typeof currentTokenBalance === "number" ? currentTokenBalance : "?";
+  if (cost) {
+    cost.textContent = "Area: " + where + ". " + tiles.length + " tile berisi tinta. Biaya: " +
+      costN + " token per " + perBlok + " tile. Saldo: " + saldo + " token.";
   }
-  if (btn) btn.textContent = "Perbaiki dengan AI (" + cost + " token)";
-  aiUpdateRefineUI();
+  if (btn) {
+    btn.disabled = aiBusy || !tiles.length;
+    btn.textContent = "Baca Teks (AI) (" + costN + " token)";
+  }
+  aiUpdateTextUI();
+}
+
+function aiUpdateTextUI() {
+  const box = $("aiTextBox"), btn = $("aiTextRun"), cancel = $("aiTextCancel");
+  if (box) box.classList.toggle("hide", !img);
+  if (btn) btn.classList.toggle("hide", aiBusy);
+  if (cancel) cancel.classList.toggle("hide", !aiBusy);
 }
 
 async function aiErrorFromInvoke(error, fallback) {
@@ -105,7 +108,8 @@ async function aiErrorFromInvoke(error, fallback) {
 }
 
 async function aiInvoke(action, body, fallbackMsg) {
-  const { data, error } = await sb.functions.invoke("detect-ai", { body });
+  const payload = Object.assign({ action }, body || {});
+  const { data, error } = await sb.functions.invoke("detect-ai", { body: payload });
   if (error) throw await aiErrorFromInvoke(error, fallbackMsg);
   if (!data || data.ok !== true) {
     const e = new Error((data && data.message) || fallbackMsg);
@@ -178,144 +182,17 @@ function aiInkRatio(tile) {
   return ratio;
 }
 
-// Potong satu ruas ke kotak tile (Liang-Barsky). Null bila tidak beririsan.
-function aiClipSeg(ax, ay, bx, by, r) {
-  const dx = bx - ax, dy = by - ay;
-  let t0 = 0, t1 = 1;
-  const p = [-dx, dx, -dy, dy];
-  const q = [ax - r.x0, r.x1 - ax, ay - r.y0, r.y1 - ay];
-  for (let i = 0; i < 4; i++) {
-    if (Math.abs(p[i]) < 1e-9) {
-      if (q[i] < 0) return null;
-      continue;
-    }
-    const t = q[i] / p[i];
-    if (p[i] < 0) {
-      if (t > t1) return null;
-      if (t > t0) t0 = t;
-    } else {
-      if (t < t0) return null;
-      if (t < t1) t1 = t;
-    }
-  }
-  return [[ax + dx * t0, ay + dy * t0], [ax + dx * t1, ay + dy * t1]];
-}
-
-// Jumlah ruas satu rantai (termasuk ruas penutup bila closed).
-function aiSegCount(c) {
-  const pts = c && c.pts;
-  if (!Array.isArray(pts) || pts.length < 2) return 0;
-  return pts.length - 1 + (c.closed && pts.length > 2 ? 1 : 0);
-}
-
-function aiSegEnd(c, i) {
-  const pts = c && c.pts;
-  if (!Array.isArray(pts) || pts.length < 2) return null;
-  if (i >= 0 && i < pts.length - 1) return [pts[i], pts[i + 1]];
-  if (i === pts.length - 1 && c.closed && pts.length > 2) {
-    return [pts[pts.length - 1], pts[0]];
-  }
-  return null;
-}
-
-// Titik-titik ruas from..to (inklusif) sebagai satu polyline.
-function aiSegSlice(c, from, to) {
-  const out = [];
-  for (let s = from; s <= to; s++) {
-    const e = aiSegEnd(c, s);
-    if (!e) continue;
-    if (!out.length) out.push([e[0][0], e[0][1]]);
-    const last = out[out.length - 1];
-    if (Math.hypot(last[0] - e[1][0], last[1] - e[1][1]) > 1e-6) {
-      out.push([e[1][0], e[1][1]]);
-    }
-  }
-  return out;
-}
-
-function aiPolyLen(pts) {
-  let total = 0;
-  for (let i = 0; i < pts.length - 1; i++) {
-    total += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
-  }
-  return total;
-}
-
-// Kurangi jumlah titik ke maksimal max tanpa membuang ujung.
-function aiLimitPoints(pts, max) {
-  if (pts.length <= max) return pts;
-  const out = [pts[0]];
-  const inner = max - 2;
-  for (let i = 1; i <= inner; i++) {
-    const idx = Math.round((i * (pts.length - 1)) / (inner + 1));
-    out.push(pts[idx]);
-  }
-  out.push(pts[pts.length - 1]);
-  return out;
-}
-
-// Potongan oranye per tile: klip tiap ruas kandidat, gabung ruas berurutan yang
-// benar-benar bersambung, sederhanakan dengan ppDP (eps 1 px), normalisasi 0-1000.
-function aiOrangePiecesForTile(tile, source) {
-  const out = [];
-  if (!Array.isArray(source)) return out;
-  const r = { x0: tile.x, y0: tile.y, x1: tile.x + tile.w, y1: tile.y + tile.h };
-  const counters = [];
-
-  const flush = (run) => {
-    if (!run || run.pts.length < 2) return;
-    const keep = ppDP(run.pts, 1);
-    let pts = keep.map(i => run.pts[i]);
-    pts = aiLimitPoints(pts, 40);
-    const len = aiPolyLen(pts);
-    if (len < 1.5) return;
-    const n = counters[run.ci] || 0;
-    counters[run.ci] = n + 1;
-    const norm = pts.map(p => [
-      Math.round(Math.max(0, Math.min(AI_COORD, ((p[0] - r.x0) / tile.w) * AI_COORD)) * 10) / 10,
-      Math.round(Math.max(0, Math.min(AI_COORD, ((p[1] - r.y0) / tile.h) * AI_COORD)) * 10) / 10,
-    ]);
-    out.push({
-      id: "c" + run.ci + "." + n,
-      ci: run.ci,
-      segFrom: run.segFrom,
-      segTo: run.segTo,
-      pts,
-      len,
-      norm,
-    });
-  };
-
-  for (let ci = 0; ci < source.length; ci++) {
-    const c = source[ci];
-    const segCount = aiSegCount(c);
-    if (!segCount) continue;
-    let run = null;
-    const closeRun = () => { flush(run); run = null; };
-    for (let seg = 0; seg < segCount; seg++) {
-      const ends = aiSegEnd(c, seg);
-      if (!ends) { closeRun(); continue; }
-      const clip = aiClipSeg(ends[0][0], ends[0][1], ends[1][0], ends[1][1], r);
-      if (!clip) { closeRun(); continue; }
-      const p = clip[0], q = clip[1];
-      if (Math.hypot(q[0] - p[0], q[1] - p[1]) < 1.5) { closeRun(); continue; }
-      if (run && run.segTo === seg - 1) {
-        const last = run.pts[run.pts.length - 1];
-        if (Math.hypot(last[0] - p[0], last[1] - p[1]) <= 1.5) {
-          run.pts.push([q[0], q[1]]);
-          run.segTo = seg;
-          continue;
-        }
-      }
-      closeRun();
-      run = { ci, segFrom: seg, segTo: seg, pts: [[p[0], p[1]], [q[0], q[1]]] };
-    }
-    closeRun();
-  }
-
-  // Maksimal 150 potong per tile: ambil yang terpanjang; sisanya tidak dinilai.
-  out.sort((a, b) => b.len - a.len);
-  return out.slice(0, AI_ORANGE_MAX);
+// Potong tile menjadi data URL PNG untuk dikirim ke server.
+function aiTileImage(tile) {
+  const w = Math.max(1, Math.round(tile.w)), h = Math.max(1, Math.round(tile.h));
+  const cv = document.createElement("canvas");
+  cv.width = w;
+  cv.height = h;
+  const cx = cv.getContext("2d");
+  cx.fillStyle = "#fff";
+  cx.fillRect(0, 0, w, h);
+  cx.drawImage(img, tile.x, tile.y, w, h, 0, 0, w, h);
+  return { image: cv.toDataURL("image/png"), w, h };
 }
 
 function aiConcurrent(items, n, worker) {
@@ -333,96 +210,6 @@ function aiConcurrent(items, n, worker) {
     })());
   }
   return Promise.all(runners);
-}
-
-function aiDensify(pts, step) {
-  if (pts.length < 2) return pts.slice();
-  const out = [pts[0]];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const a = pts[i], b = pts[i + 1];
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const n = Math.max(1, Math.ceil(len / step));
-    for (let k = 1; k <= n; k++) {
-      out.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]);
-    }
-  }
-  return out;
-}
-
-// Kerangka tinta tile (memakai ppBinarize/ppDropSmall/ppThin dari mesin-jejak.js).
-function aiSkeleton(tile) {
-  const b = ppBinarize(tile, 1);
-  const bin = b.bin, w = b.w, h = b.h;
-  ppDropSmall(bin, w, h, 10);
-  ppThin(bin, w, h);
-  const buckets = new Map();
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (!bin[y * w + x]) continue;
-      const key = ((x / AI_SNAP_R) | 0) + "," + ((y / AI_SNAP_R) | 0);
-      let arr = buckets.get(key);
-      if (!arr) { arr = []; buckets.set(key, arr); }
-      arr.push([x, y]);
-    }
-  }
-  return { buckets, w, h, sx: tile.w / w, sy: tile.h / h };
-}
-
-function aiNearest(buckets, x, y, r) {
-  const gx = (x / AI_SNAP_R) | 0, gy = (y / AI_SNAP_R) | 0;
-  let best = null, bd = r * r;
-  for (let oy = -1; oy <= 1; oy++) {
-    for (let ox = -1; ox <= 1; ox++) {
-      const arr = buckets.get((gx + ox) + "," + (gy + oy));
-      if (!arr) continue;
-      for (const p of arr) {
-        const dx = p[0] - x, dy = p[1] - y;
-        const d = dx * dx + dy * dy;
-        if (d <= bd) { bd = d; best = p; }
-      }
-    }
-  }
-  return best;
-}
-
-// Kembalikan kelompok berurutan: {sup:boolean, pts:[[x,y],...]} dalam koordinat gambar.
-function aiSnapPolyline(pts, tile, sk) {
-  const dense = aiDensify(pts, 3);
-  const out = [], flags = [];
-  for (const p of dense) {
-    const bx = (p[0] - tile.x) / sk.sx;
-    const by = (p[1] - tile.y) / sk.sy;
-    const hit = aiNearest(sk.buckets, bx, by, AI_SNAP_R);
-    if (hit) {
-      out.push([tile.x + hit[0] * sk.sx, tile.y + hit[1] * sk.sy]);
-      flags.push(true);
-    } else {
-      out.push(p);
-      flags.push(false);
-    }
-  }
-  if (!out.length) return [];
-  // Kelompokkan dulu berdasarkan dukungan tinta, baru sederhanakan tiap kelompok.
-  // Bila DP dilakukan lebih dulu, bagian tengah yang tidak bertinta bisa hilang
-  // pada garis lurus dan seluruh garis keliru dianggap didukung tinta.
-  const groups = [];
-  let start = 0;
-  for (let i = 1; i <= out.length; i++) {
-    if (i === out.length || flags[i] !== flags[start]) {
-      if (i - start >= 2) {
-        const part = out.slice(start, i);
-        const keep = ppDP(part, 1.2);
-        const pts = keep.map(k => part[k]);
-        if (pts.length >= 2) groups.push({ sup: flags[start], pts });
-      }
-      start = i;
-    }
-  }
-  return groups;
-}
-
-function aiNormText(value) {
-  return String(value == null ? "" : value).trim().toUpperCase().replace(/\s+/g, " ");
 }
 
 function aiUnionBox(a, b) {
@@ -518,526 +305,474 @@ function aiFitTextBox(box) {
   ];
 }
 
+// ===================== pasangan hak/su per bidang (murni) =====================
+
+function aiPointInRing(x, y, ring) {
+  let inside = false;
+  const n = ring.length;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const a = ring[i], b = ring[j];
+    if (!Array.isArray(a) || !Array.isArray(b)) continue;
+    const xi = Number(a[0]), yi = Number(a[1]), xj = Number(b[0]), yj = Number(b[1]);
+    if (![xi, yi, xj, yj].every(Number.isFinite)) continue;
+    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+
+function aiPointSegDist(p, a, b) {
+  const ax = Number(a[0]), ay = Number(a[1]), bx = Number(b[0]), by = Number(b[1]);
+  if (![ax, ay, bx, by].every(Number.isFinite)) return Infinity;
+  const dx = bx - ax, dy = by - ay;
+  const L2 = dx * dx + dy * dy;
+  if (L2 < 1e-9) return Math.hypot(p[0] - ax, p[1] - ay);
+  let t = ((p[0] - ax) * dx + (p[1] - ay) * dy) / L2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p[0] - (ax + dx * t), p[1] - (ay + dy * t));
+}
+
+function aiBoxOf(e) {
+  if (!e) return null;
+  const b = e.box;
+  if (Array.isArray(b) && b.length >= 4) {
+    const n = b.slice(0, 4).map(Number);
+    if (n.every(Number.isFinite)) {
+      return [Math.min(n[0], n[2]), Math.min(n[1], n[3]), Math.max(n[0], n[2]), Math.max(n[1], n[3])];
+    }
+  }
+  const p = aiCenterOf(e);
+  return p ? [p[0], p[1], p[0], p[1]] : null;
+}
+
+function aiCenterOf(e) {
+  if (!e) return null;
+  if (Array.isArray(e.p) && e.p.length >= 2) {
+    const x = Number(e.p[0]), y = Number(e.p[1]);
+    if (Number.isFinite(x) && Number.isFinite(y)) return [x, y];
+  }
+  const b = e.box;
+  if (Array.isArray(b) && b.length >= 4) {
+    const n = b.slice(0, 4).map(Number);
+    if (n.every(Number.isFinite)) {
+      return [(Math.min(n[0], n[2]) + Math.max(n[0], n[2])) / 2, (Math.min(n[1], n[3]) + Math.max(n[1], n[3])) / 2];
+    }
+  }
+  return null;
+}
+
+function aiBoxW(e) {
+  const b = aiBoxOf(e);
+  return b ? Math.max(1, b[2] - b[0]) : 1;
+}
+function aiBoxH(e) {
+  const b = aiBoxOf(e);
+  return b ? Math.max(1, b[3] - b[1]) : 1;
+}
+
+function aiSamplePoints(box) {
+  const [x0, y0, x1, y1] = box;
+  const w = x1 - x0, h = y1 - y0;
+  return [
+    [(x0 + x1) / 2, (y0 + y1) / 2],
+    [x0 + w * 0.25, y0 + h * 0.25],
+    [x1 - w * 0.25, y0 + h * 0.25],
+    [x0 + w * 0.25, y1 - h * 0.25],
+    [x1 - w * 0.25, y1 - h * 0.25],
+  ];
+}
+
+// Pemilik = cincin yang memuat titik uji terbanyak; bila nol, cincin terdekat
+// (jarak ke sisi) diterima bila <= 2x tinggi box (luarBidang).
+function aiOwnerOf(e, rings) {
+  const box = aiBoxOf(e);
+  if (!box) return null;
+  const samples = aiSamplePoints(box);
+  let best = -1, bestN = 0;
+  rings.forEach((ring, ri) => {
+    if (!Array.isArray(ring) || ring.length < 3) return;
+    let n = 0;
+    for (const s of samples) if (aiPointInRing(s[0], s[1], ring)) n++;
+    if (n > bestN) { bestN = n; best = ri; }
+  });
+  if (best >= 0 && bestN > 0) return { ring: best, luar: false };
+  const c = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
+  let nr = -1, nd = Infinity;
+  rings.forEach((ring, ri) => {
+    if (!Array.isArray(ring) || ring.length < 2) return;
+    let d = Infinity;
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length];
+      d = Math.min(d, aiPointSegDist(c, a, b));
+    }
+    if (d < nd) { nd = d; nr = ri; }
+  });
+  if (nr >= 0) {
+    const h = Math.max(1, box[3] - box[1]);
+    if (nd <= 2 * h) return { ring: nr, luar: true };
+  }
+  return null;
+}
+
+function aiAngleOf(e) {
+  const a = Number(e && e.angle);
+  if (!Number.isFinite(a)) return 0;
+  return Math.abs(a) < 4 ? 0 : a;
+}
+
+function aiSingleItem(e, luar) {
+  const box = aiBoxOf(e), p = aiCenterOf(e);
+  const item = { p: p ? p.slice() : [0, 0], ai: true };
+  if (e.kind === "hak") item.no = e.text; else item.su = e.text;
+  if (box) item.box = box.slice();
+  item.angle = aiAngleOf(e);
+  if (luar) item.luarBidang = true;
+  if (e.kind === "hak") {
+    if (!AI_RE_NO.test(e.text)) item.fmtWarn = true;
+  } else if (!AI_RE_SU.test(e.text)) {
+    item.fmtWarn = true;
+  }
+  return item;
+}
+
+function aiPairItem(hak, su, luar, banyakHak) {
+  const hb = aiBoxOf(hak), sb = su ? aiBoxOf(su) : null;
+  const box = hb && sb ? aiUnionBox(hb, sb) : (hb || sb || null);
+  const p = box ? [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2] : aiCenterOf(hak);
+  const item = { p: p ? p.slice() : [0, 0], no: hak.text, ai: true };
+  if (su) item.su = su.text;
+  if (box) item.box = box.slice();
+  item.angle = aiAngleOf(hak);
+  if (luar) item.luarBidang = true;
+  if (banyakHak) item.banyakHak = true;
+  if (!AI_RE_NO.test(item.no)) item.fmtWarn = true;
+  if (item.su && !AI_RE_SU.test(item.su)) item.fmtWarn = true;
+  return item;
+}
+
+// Pasangan berbasis jarak (dipakai bila tidak ada cincin bidang sama sekali).
 function aiBuildTexts(entries) {
-  // Dedup antar tile: teks sama dan berdekatan (< 40 px gambar) dianggap satu.
   const uniq = [];
   for (const e of entries) {
-    const dup = uniq.some(o => o.text === e.text && Math.hypot(o.p[0] - e.p[0], o.p[1] - e.p[1]) < 40);
+    const c = aiCenterOf(e);
+    if (!c) continue;
+    const dup = uniq.some(o => {
+      const oc = aiCenterOf(o);
+      return oc && o.text === e.text && Math.hypot(oc[0] - c[0], oc[1] - c[1]) < AI_DEDUP_PX;
+    });
     if (!dup) uniq.push(e);
   }
-
-  const used = new Set();
-  const out = [];
+  const used = new Set(), out = [];
   uniq.forEach((e, i) => {
     if (e.kind !== "hak" || used.has(i)) return;
-    const limit = 0.06 * Math.max(e.tw, e.th);
-    let best = -1, bd = limit;
+    const ec = aiCenterOf(e);
+    let best = -1, bd = Infinity;
     uniq.forEach((o, j) => {
       if (o.kind !== "su" || used.has(j)) return;
-      const d = Math.hypot(o.p[0] - e.p[0], o.p[1] - e.p[1]);
-      if (d < bd) { bd = d; best = j; }
+      const oc = aiCenterOf(o);
+      if (!oc || !ec) return;
+      const d = Math.hypot(oc[0] - ec[0], oc[1] - ec[1]);
+      const limit = Math.max(AI_DEDUP_PX, 1.5 * Math.max(aiBoxW(e), aiBoxH(e), aiBoxW(o), aiBoxH(o)));
+      if (d <= limit && d < bd) { bd = d; best = j; }
     });
-    const item = { p: e.p.slice(), no: e.text, ai: true };
-    if (e.box) item.box = e.box.slice();
-    if (Number.isFinite(e.angle)) item.angle = e.angle;
-    if (best >= 0) {
-      const su = uniq[best];
-      used.add(best);
-      item.su = su.text;
-      if (e.box && su.box) {
-        const box = aiUnionBox(e.box, su.box);
-        item.box = box;
-        item.p = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
-      } else {
-        item.p = [(e.p[0] + su.p[0]) / 2, (e.p[1] + su.p[1]) / 2];
-      }
-    }
-    if (!AI_RE_NO.test(item.no)) item.fmtWarn = true;
-    if (item.su && !AI_RE_SU.test(item.su)) item.fmtWarn = true;
-    out.push(item);
+    if (best >= 0) { used.add(best); out.push(aiPairItem(e, uniq[best], false, false)); }
+    else out.push(aiSingleItem(e, false));
     used.add(i);
   });
   uniq.forEach((e, i) => {
-    if (e.kind !== "su" || used.has(i)) return;
-    const item = { p: e.p.slice(), su: e.text, ai: true };
-    if (e.box) item.box = e.box.slice();
-    if (Number.isFinite(e.angle)) item.angle = e.angle;
-    if (!AI_RE_SU.test(item.su)) item.fmtWarn = true;
-    out.push(item);
+    if (e.kind === "su" && !used.has(i)) out.push(aiSingleItem(e, false));
   });
   return out;
 }
 
-function aiPointSegDist(p, a, b) {
-  const dx = b[0] - a[0], dy = b[1] - a[1];
-  const L2 = dx * dx + dy * dy;
-  if (L2 < 1e-9) return Math.hypot(p[0] - a[0], p[1] - a[1]);
-  let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2;
-  t = Math.max(0, Math.min(1, t));
-  return Math.hypot(p[0] - (a[0] + dx * t), p[1] - (a[1] + dy * t));
-}
+// Fungsi murni: kelompokkan teks per bidang lalu bentuk pasangan hak/su.
+// Mengembalikan { items, stats } dengan stats:
+// {texts, pairs, fields, noNumber, multiHak, outside}.
+function aiAssignTexts(textEntries, rings) {
+  const entries = (Array.isArray(textEntries) ? textEntries : [])
+    .filter(e => e && typeof e.text === "string" && e.text.trim() && (e.kind === "hak" || e.kind === "su"));
+  const rs = (Array.isArray(rings) ? rings : []).filter(r => Array.isArray(r) && r.length >= 3);
 
-// True bila >= ratio sampel polyline berada <= tol dari garis mana pun di chains.
-function aiMostlyDuplicate(pts, chains, tol, ratio) {
-  if (!chains.length) return false;
-  const samples = aiDensify(pts, 4).slice(0, 300);
-  if (!samples.length) return false;
-  let hit = 0;
-  for (const p of samples) {
-    let near = false;
-    for (const c of chains) {
-      const P = c && c.pts;
-      if (!Array.isArray(P) || P.length < 2) continue;
-      for (let i = 0; i < P.length - 1; i++) {
-        if (aiPointSegDist(p, P[i], P[i + 1]) <= tol) { near = true; break; }
-      }
-      if (near) break;
-    }
-    if (near) hit++;
-  }
-  return hit / samples.length >= ratio;
-}
-
-function aiEndpointNear(p, chains, maxD) {
-  for (const c of chains) {
-    const P = c && c.pts;
-    if (!Array.isArray(P) || P.length < 2 || c.closed) continue;
-    if (Math.hypot(p[0] - P[0][0], p[1] - P[0][1]) <= maxD) return true;
-    const e = P[P.length - 1];
-    if (Math.hypot(p[0] - e[0], p[1] - e[1]) <= maxD) return true;
-  }
-  return false;
-}
-
-// Garis tambahan AI: snap ke tinta, lalu hanya pertahankan yang didukung tinta
-// (solid) atau menjembatani dua ujung rantai yang bertahan (putus-putus).
-function aiBuildPurple(rebuilt, results) {
-  const bridgeChains = rebuilt.slice();
-  const dupChains = rebuilt.filter(c => c.aiBlue);
-  const purple = [];
-
-  for (const r of results) {
-    if (!r.add || !r.add.length) continue;
-    let sk;
-    try { sk = aiSkeleton(r.tile); } catch (_) { continue; }
-    for (const add of r.add) {
-      const pts = [];
-      for (const q of (add && add.points) || []) {
-        if (!Array.isArray(q) || q.length < 2) continue;
-        const x = Number(q[0]), y = Number(q[1]);
-        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-        pts.push([
-          r.tile.x + x / AI_COORD * r.tile.w,
-          r.tile.y + y / AI_COORD * r.tile.h,
-        ]);
-      }
-      if (pts.length < 2) continue;
-      const groups = aiSnapPolyline(pts, r.tile, sk);
-      for (const g of groups) {
-        if (!g.pts || g.pts.length < 2) continue;
-        if (aiPolyLen(g.pts) < 12) continue;
-        if (!g.sup) {
-          const a = g.pts[0], b = g.pts[g.pts.length - 1];
-          if (!aiEndpointNear(a, bridgeChains, AI_BRIDGE_END)) continue;
-          if (!aiEndpointNear(b, bridgeChains, AI_BRIDGE_END)) continue;
-        }
-        if (aiMostlyDuplicate(g.pts, dupChains, 3, 0.7)) continue;
-        const chain = { k: "P", pts: g.pts, ai: true, purple: true, weak: !g.sup };
-        purple.push(chain);
-        bridgeChains.push(chain);
-        dupChains.push(chain);
-      }
-    }
+  if (!rs.length) {
+    const items = aiBuildTexts(entries);
+    const stats = {
+      texts: entries.length,
+      pairs: items.filter(it => it.no && it.su).length,
+      fields: 0,
+      noNumber: items.filter(it => !it.no && it.su).length,
+      multiHak: 0,
+      outside: 0,
+    };
+    return { items, stats };
   }
 
-  if (purple.length) {
-    purple.forEach(c => { c.free = [true, true]; });
-    try {
-      if (typeof plotPetaNumberEnds === "function") plotPetaNumberEnds(purple);
-    } catch (_) { /* penomoran ujung tidak wajib */ }
-  }
-  return purple;
-}
-
-async function aiCallTile(tile, runId, pieces) {
-  const cv = document.createElement("canvas");
-  cv.width = tile.w;
-  cv.height = tile.h;
-  const cx = cv.getContext("2d");
-  cx.fillStyle = "#fff";
-  cx.fillRect(0, 0, tile.w, tile.h);
-  cx.drawImage(img, tile.x, tile.y, tile.w, tile.h, 0, 0, tile.w, tile.h);
-  const image = cv.toDataURL("image/png");
-  return await aiInvoke("tile", {
-    action: "tile",
-    run_id: runId,
-    image,
-    width: tile.w,
-    height: tile.h,
-    mode: "validate",
-    orange: (pieces || []).map(p => ({ id: p.id, points: p.norm })),
-  }, "Layanan AI gagal memproses potongan peta.");
-}
-
-async function runAiRefine() {
-  if (!img) { aiSay("Buka peta dulu."); return; }
-  if (typeof lastDetR === "undefined" || !lastDetR) {
-    aiSay("Jalankan Deteksi Cepat dulu, lalu tekan Perbaiki dengan AI.");
-    return;
-  }
-  return runAiDetect(aiRefineArea());
-}
-
-async function runAiDetect(R) {
-  if (!img) return;
-  if (!currentUser) { openAuthModal("login"); return; }
-  if (aiBusy) return;
-  if (!Array.isArray(cand) || !cand.length) {
-    aiSay("Tidak ada garis oranye untuk dinilai.");
-    return;
-  }
-  const area = aiClampArea(R);
-
-  const allTiles = aiMakeTiles(area);
-  const tiles = allTiles.filter(t => aiInkRatio(t) >= AI_MIN_INK);
-  const skipped = allTiles.length - tiles.length;
-  if (!tiles.length) {
-    aiSay("Tidak ada area bertinta yang bisa diperbaiki.");
-    return;
-  }
-  if (tiles.length > AI_MAX_TILES) {
-    aiSay(
-      "Area terlalu besar: " + tiles.length + " potongan bertinta (maksimal " + AI_MAX_TILES +
-      "). Perkecil area Deteksi Cepat, lalu jalankan ulang."
-    );
-    return;
-  }
-
-  // Biaya fitur + saldo; konfirmasi sebelum mengirim apa pun.
-  if (typeof loadTokenBiaya === "function") {
-    try { await loadTokenBiaya(); } catch (_) { /* pakai nilai yang ada */ }
-  }
-  const cost = aiBiayaUntuk(tiles.length);
-  if (cost > currentTokenBalance) {
-    aiSay(
-      "Saldo token tidak cukup (perlu " + cost + " token, saldo " + currentTokenBalance +
-      "). Silakan lakukan isi ulang token terlebih dahulu."
-    );
-    if (typeof openTopupModal === "function") openTopupModal();
-    return;
-  }
-  const ok = confirm(
-    "Perbaiki dengan AI memakai " + cost + " token (saldo " + currentTokenBalance +
-    ").\n\n" +
-    "Garis oranye hasil Deteksi Cepat akan DINILAI: yang benar menjadi biru, " +
-    "yang jelas bukan batas bidang dihapus, dan garis yang kurang ditambahkan ungu. " +
-    "Ruas yang tidak sempat dinilai tetap oranye. Lanjutkan?\n\n" +
-    "Area Deteksi Cepat dipecah menjadi " + tiles.length + " potongan" +
-    (skipped ? " (" + skipped + " potongan kosong dilewati)" : "") + "."
-  );
-  if (!ok) return;
-
-  // Simpan kandidat Cepat agar tidak hilang bila proses gagal total.
-  const prevCand = cand.slice();
-  const prevTexts = aiTexts.map(t => Object.assign({}, t));
-  const prevRaw = aiRaw.slice();
-
-  // Pecah kandidat per tile menjadi potongan ruas (id, ci, segFrom, segTo).
-  const plans = tiles.map(tile => ({
-    tile,
-    pieces: aiOrangePiecesForTile(tile, prevCand),
-  }));
-
-  // votes[ci][seg] = {keep, remove}. Tidak ada suara = belum dinilai.
-  const votes = prevCand.map(c => {
-    const n = aiSegCount(c);
-    return n ? new Array(n).fill(null) : [];
+  const owners = entries.map(e => aiOwnerOf(e, rs));
+  const groups = new Map();
+  entries.forEach((e, i) => {
+    const o = owners[i];
+    if (!o) return;
+    if (!groups.has(o.ring)) groups.set(o.ring, { hak: [], su: [] });
+    groups.get(o.ring)[e.kind].push({ e, luar: o.luar });
   });
 
-  aiHintOverlay = [];
-  aiBusy = true;
-  aiCancel = false;
-  aiSel = -1;
-  aiUpdateCostUI();
-
-  const btnCancel = $("aiCancel");
-  if (btnCancel) btnCancel.classList.remove("hide");
-
-  let runId = null;
-  let baseMsg = null;
-  let refundTokens = 0;
-
-  const results = [];
-  const errors = [];
-  let rateLimited = null;
-  let limitHit = false;
-  let ragu = 0;
-
-  try {
-    // 1. start: potong token sekali untuk seluruh proses, dapatkan run_id.
-    const started = await aiInvoke("start", { action: "start", tiles: tiles.length },
-      "Gagal memulai proses Perbaiki dengan AI.");
-    runId = started.run_id;
-
-    aiSay(
-      "Menilai " + tiles.length + " potongan area dengan AI... (" + cost + " token)" +
-      (skipped ? " " + skipped + " potongan kosong dilewati." : "")
-    );
-
-    await aiConcurrent(plans, AI_CONC, async (plan) => {
-      if (aiCancel) return;
-      try {
-        const data = await aiCallTile(plan.tile, runId, plan.pieces);
-        results.push({
-          tile: plan.tile,
-          pieces: plan.pieces,
-          keep: Array.isArray(data.keep) ? data.keep : [],
-          remove: Array.isArray(data.remove) ? data.remove : [],
-          add: Array.isArray(data.add) ? data.add : [],
-          texts: Array.isArray(data.texts) ? data.texts : [],
-        });
-      } catch (e) {
-        if (e && e.status === 429) {
-          rateLimited = e.message || "Batas harian Perbaiki dengan AI tercapai. Coba lagi nanti.";
-          aiCancel = true;
-          return;
-        }
-        errors.push({ tile: plan.tile, message: e && e.message ? e.message : "Gagal" });
-      }
-    });
-
-    if (rateLimited) {
-      baseMsg = rateLimited;
-      aiSay(rateLimited);
+  const items = [];
+  let pairs = 0, multiHak = 0, noNumber = 0, fields = 0;
+  groups.forEach(g => {
+    fields++;
+    const haks = g.hak.slice();
+    const sus = g.su.slice();
+    if (!haks.length) {
+      for (const s of sus) { items.push(aiSingleItem(s.e, s.luar)); noNumber++; }
       return;
     }
+    if (haks.length > 1) multiHak++;
+    const hakItems = haks.map(h => ({ h, su: null }));
+    for (const s of sus) {
+      let bi = -1, bd = Infinity;
+      const sc = aiCenterOf(s.e);
+      hakItems.forEach((h, idx) => {
+        if (h.su || !sc) return;
+        const hc = aiCenterOf(h.h.e);
+        if (!hc) return;
+        const d = Math.hypot(hc[0] - sc[0], hc[1] - sc[1]);
+        if (d < bd) { bd = d; bi = idx; }
+      });
+      if (bi >= 0) hakItems[bi].su = s;
+      else { items.push(aiSingleItem(s.e, s.luar)); noNumber++; }
+    }
+    for (const h of hakItems) {
+      items.push(aiPairItem(h.h.e, h.su ? h.su.e : null, h.h.luar || !!(h.su && h.su.luar), haks.length > 1));
+      if (h.su) pairs++;
+    }
+  });
 
-    // 2. Pemungutan suara per ruas. Satu tile yang memuat ruas = satu suara.
-    for (const r of results) {
-      const keepSet = new Set(r.keep);
-      const removeSet = new Set(r.remove);
-      const removedPieces = r.pieces.filter(p => removeSet.has(p.id) && !keepSet.has(p.id)).length;
-      const ignoreRemove = r.pieces.length >= 5 && removedPieces > r.pieces.length * 0.7;
-      if (ignoreRemove) ragu++;
-      const voted = new Set();
-      for (const p of r.pieces) {
-        let status;
-        if (ignoreRemove) status = "keep";
-        else if (removeSet.has(p.id) && !keepSet.has(p.id)) status = "remove";
-        else status = "keep";
-        for (let seg = p.segFrom; seg <= p.segTo; seg++) {
-          const key = p.ci + "." + seg;
-          if (voted.has(key)) continue;
-          voted.add(key);
-          const arr = votes[p.ci];
-          if (!arr || seg < 0 || seg >= arr.length) continue;
-          if (!arr[seg]) arr[seg] = { keep: 0, remove: 0 };
-          if (status === "remove") arr[seg].remove++;
-          else arr[seg].keep++;
-        }
-      }
-    }
+  entries.forEach((e, i) => {
+    if (owners[i]) return;
+    items.push(aiSingleItem(e, false));
+    if (e.kind === "su") noNumber++;
+  });
 
-    // 3. Bangun ulang kandidat: biru = dipertahankan, tanpa flag = belum dinilai.
-    const rebuilt = [];
-    let blueSegs = 0, removedSegs = 0, unvaluedSegs = 0;
-    prevCand.forEach((c, ci) => {
-      const n = aiSegCount(c);
-      if (!n) { rebuilt.push(c); return; }
-      const status = [];
-      for (let i = 0; i < n; i++) {
-        const v = votes[ci] && votes[ci][i];
-        if (!v) status.push("none");
-        else if (v.remove > 0 && v.keep === 0) status.push("remove");
-        else status.push("keep");
-      }
-      const allSame = status.every(s => s === status[0]);
-      if (allSame && status[0] === "none") {
-        // Seluruh rantai belum dinilai: salinan asli tanpa flag warna.
-        const copy = Object.assign({}, c, { pts: c.pts.map(p => p.slice()) });
-        delete copy.ai;
-        delete copy.aiBlue;
-        delete copy.purple;
-        delete copy.weak;
-        rebuilt.push(copy);
-        unvaluedSegs += n;
-        return;
-      }
-      if (allSame && status[0] === "keep" && c.closed) {
-        rebuilt.push({
-          k: "P",
-          pts: c.pts.map(p => p.slice()),
-          ai: true,
-          aiBlue: true,
-          closed: true,
-        });
-        blueSegs += n;
-        return;
-      }
-      let i = 0;
-      while (i < n) {
-        const st = status[i];
-        let j = i;
-        while (j + 1 < n && status[j + 1] === st) j++;
-        if (st === "remove") {
-          removedSegs += j - i + 1;
-        } else if (st === "none") {
-          const pts = aiSegSlice(c, i, j);
-          if (pts.length >= 2) {
-            rebuilt.push({ k: "P", pts, closed: false });
-            unvaluedSegs += j - i + 1;
-          }
-        } else {
-          const pts = aiSegSlice(c, i, j);
-          if (pts.length >= 2) {
-            rebuilt.push({
-              k: "P",
-              pts,
-              ai: true,
-              aiBlue: true,
-              closed: allSame && !!c.closed,
-            });
-            blueSegs += j - i + 1;
-          }
-        }
-        i = j + 1;
-      }
-    });
-
-    // 4. Garis tambahan AI (ungu solid / putus-putus).
-    const purple = aiBuildPurple(rebuilt, results);
-
-    // 5. Teks hak/su dengan bbox rapat + angle.
-    const textEntries = [];
-    for (const r of results) {
-      for (const t of r.texts) {
-        if (!t || t.text == null) continue;
-        if (t.kind !== "hak" && t.kind !== "su") continue;
-        const text = aiNormText(t.text);
-        if (!text) continue;
-        let p = null, box = null;
-        if (Array.isArray(t.bbox) && t.bbox.length >= 4 && t.bbox.every(v => Number.isFinite(Number(v)))) {
-          const b = t.bbox.map(Number);
-          box = [
-            r.tile.x + Math.min(b[0], b[2]) / AI_COORD * r.tile.w,
-            r.tile.y + Math.min(b[1], b[3]) / AI_COORD * r.tile.h,
-            r.tile.x + Math.max(b[0], b[2]) / AI_COORD * r.tile.w,
-            r.tile.y + Math.max(b[1], b[3]) / AI_COORD * r.tile.h,
-          ];
-          box = aiFitTextBox(box);
-          p = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
-        } else if (Array.isArray(t.position) && t.position.length >= 2) {
-          const px = Number(t.position[0]), py = Number(t.position[1]);
-          if (Number.isFinite(px) && Number.isFinite(py)) {
-            p = [
-              r.tile.x + px / AI_COORD * r.tile.w,
-              r.tile.y + py / AI_COORD * r.tile.h,
-            ];
-          }
-        }
-        if (!p) continue;
-        let angle = Number(t.angle);
-        if (!Number.isFinite(angle)) angle = 0;
-        angle = Math.max(-90, Math.min(90, angle));
-        if (Math.abs(angle) < 4) angle = 0;
-        textEntries.push({
-          text,
-          kind: t.kind,
-          p,
-          box,
-          angle,
-          tw: r.tile.w,
-          th: r.tile.h,
-        });
-      }
-    }
-
-    // 6. Timpa kandidat setelah semua hasil siap; Undo satu langkah.
-    if (results.length) snapshot();
-    cand = rebuilt.concat(purple);
-    aiTexts = aiBuildTexts(textEntries);
-    aiHintOverlay = [];
-
-    const warn = aiTexts.filter(t => t.fmtWarn).length;
-    const okTiles = results.length;
-    const failTiles = errors.length;
-    if (!okTiles) {
-      baseMsg = failTiles
-        ? "Perbaikan AI gagal: " + (errors[0].message || "coba lagi.")
-        : "Perbaikan AI tidak menghasilkan potongan yang berhasil.";
-      aiSay(baseMsg);
-    } else {
-      let msg =
-        "Perbaikan AI: " + blueSegs + " biru, " + removedSegs + " dihapus, " +
-        purple.length + " ungu (" + purple.filter(c => c.weak).length + " perlu dicek), " +
-        unvaluedSegs + " belum dinilai, " + aiTexts.length + " teks (" + warn +
-        " perlu dicek). Tile berhasil " + okTiles + "/" + tiles.length + ".";
-      if (ragu) msg += " " + ragu + " potongan ragu dipertahankan.";
-      if (aiCancel) msg += " Dibatalkan.";
-      baseMsg = msg;
-      aiSay(msg);
-    }
-    stat();
-    draw();
-  } catch (e) {
-    if (!rateLimited) {
-      const serverMsg = e && e.message ? e.message : "";
-      baseMsg = serverMsg || "Perbaikan AI gagal: coba lagi.";
-      if (e && e.status === 429) limitHit = true;
-      aiSay(baseMsg);
-    }
-  } finally {
-    // 4. finish: tutup proses di server (token dikembalikan bila tanpa hasil),
-    //    termasuk saat dibatalkan atau gagal di tengah jalan.
-    if (runId && sb) {
-      try {
-        const f = await aiInvoke("finish", { action: "finish", run_id: runId }, "Proses ditutup.");
-        if (f && f.refunded) refundTokens = Number(f.tokens_charged) || 0;
-      } catch (_) { /* finish gagal: saldo tetap disegarkan di bawah */ }
-      if (typeof fetchUserTokens === "function") {
-        try { await fetchUserTokens(); } catch (_) { /* abaikan */ }
-      }
-    }
-    if (!results.length) {
-      cand = prevCand;
-      aiTexts = prevTexts;
-      aiRaw = prevRaw;
-      aiHintOverlay = [];
-      if (prevCand.length && !limitHit && !rateLimited) {
-        baseMsg = (baseMsg ? baseMsg + " " : "") + "Kandidat Deteksi Cepat dipertahankan.";
-      }
-      if (baseMsg) aiSay(baseMsg);
-    }
-    if (refundTokens > 0) {
-      aiSay((baseMsg ? baseMsg + " " : "") + refundTokens + " token dikembalikan.");
-    }
-    aiBusy = false;
-    aiUpdateCostUI();
-    if (typeof syncCandClean === "function") syncCandClean();
-    if (btnCancel) btnCancel.classList.add("hide");
-    stat();
-    draw();
-  }
+  const outside = owners.filter(o => o && o.luar).length;
+  return { items, stats: { texts: entries.length, pairs, fields, noNumber, multiHak, outside } };
 }
 
-$("aiRefine").onclick = () => {
-  runAiRefine();
-};
+// ============================ pipeline tile ============================
 
-$("aiCancel").onclick = () => {
-  if (!aiBusy) return;
-  aiCancel = true;
-  aiSay("Membatalkan Perbaiki dengan AI...");
-};
+// Ubah satu entri teks tile (koordinat 0-1000 relatif tile) menjadi koordinat
+// gambar; buang bbox yang menyentuh tepi tile kecuali tepi area baca/gambar.
+function aiTextFromTile(tile, rec, area) {
+  if (!rec || typeof rec !== "object") return null;
+  const text = typeof rec.text === "string" ? rec.text.trim() : "";
+  if (!text) return null;
+  const kind = rec.kind === "hak" ? "hak" : rec.kind === "su" ? "su" : "other";
+  let box = null;
+  if (Array.isArray(rec.bbox) && rec.bbox.length >= 4) {
+    const b = rec.bbox.slice(0, 4).map(Number);
+    if (b.every(Number.isFinite)) {
+      const x0 = tile.x + Math.min(b[0], b[2]) / AI_COORD * tile.w;
+      const x1 = tile.x + Math.max(b[0], b[2]) / AI_COORD * tile.w;
+      const y0 = tile.y + Math.min(b[1], b[3]) / AI_COORD * tile.h;
+      const y1 = tile.y + Math.max(b[1], b[3]) / AI_COORD * tile.h;
+      const near = (a, c) => Math.abs(a - c) <= 0.5;
+      const mx = tile.w * AI_TILE_EDGE, my = tile.h * AI_TILE_EDGE;
+      const okL = near(tile.x, area.x) || tile.x <= 0.5;
+      const okRt = near(tile.x + tile.w, area.x + area.w) || tile.x + tile.w >= iw - 0.5;
+      const okT = near(tile.y, area.y) || tile.y <= 0.5;
+      const okB = near(tile.y + tile.h, area.y + area.h) || tile.y + tile.h >= ih - 0.5;
+      if ((x0 - tile.x < mx && !okL) || (tile.x + tile.w - x1 < mx && !okRt) ||
+          (y0 - tile.y < my && !okT) || (tile.y + tile.h - y1 < my && !okB)) {
+        return null;
+      }
+      if (x1 - x0 >= 1 && y1 - y0 >= 1) box = [x0, y0, x1, y1];
+    }
+  }
+  let p = null;
+  if (Array.isArray(rec.position) && rec.position.length >= 2) {
+    const px = Number(rec.position[0]), py = Number(rec.position[1]);
+    if (Number.isFinite(px) && Number.isFinite(py)) {
+      p = [tile.x + px / AI_COORD * tile.w, tile.y + py / AI_COORD * tile.h];
+    }
+  }
+  if (box) {
+    box = aiFitTextBox(box);
+    p = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
+  }
+  if (!p) return null;
+  let angle = 0;
+  const rawAngle = Number(rec.angle);
+  if (Number.isFinite(rawAngle)) angle = Math.abs(rawAngle) < 4 ? 0 : rawAngle;
+  const confidence = Number(rec.confidence);
+  return {
+    text, kind, p, box, angle, confidence: Number.isFinite(confidence) ? confidence : undefined,
+  };
+}
 
-$("aiClear").onclick = () => {
-  const has = lines.some(l => l.ai) || texts.some(t => t.ai);
-  if (!has) { aiSay("Tidak ada hasil AI yang perlu ditandai."); return; }
-  snapshot();
-  lines.forEach(l => { delete l.ai; delete l.weak; });
-  texts.forEach(t => { delete t.ai; delete t.fmtWarn; });
-  aiHintOverlay = [];
-  stat();
-  draw();
-  aiSay("Hasil AI sudah ditandai diperiksa.");
-};
+function aiDedupTexts(list) {
+  const out = [];
+  for (const e of list) {
+    const dup = out.some(o => o.text === e.text && Math.hypot(o.p[0] - e.p[0], o.p[1] - e.p[1]) < AI_DEDUP_PX);
+    if (!dup) out.push(e);
+  }
+  return out;
+}
+
+function aiRingsForAssign() {
+  try {
+    if (typeof polys !== "undefined" && Array.isArray(polys) && polys.length) return polys;
+    if (typeof polygonize === "function" && typeof lines !== "undefined") {
+      const src = lines.concat(typeof cand !== "undefined" && Array.isArray(cand) ? cand : []);
+      const r = polygonize(src);
+      return (r && Array.isArray(r.polys)) ? r.polys : [];
+    }
+  } catch (_) { /* abaikan */ }
+  return [];
+}
+
+// Baca teks pada area (kotak Deteksi Cepat terakhir atau seluruh gambar).
+// Hasil masuk `aiTexts` sebagai review ungu; `lines`/`cand` tidak diubah.
+async function runAiText() {
+  if (!img) { aiSay("Buka peta dulu."); return; }
+  if (aiBusy) return;
+  if (typeof sb === "undefined" || !sb || typeof currentUser === "undefined" || !currentUser) {
+    aiSay("Masuk dulu untuk memakai Baca Teks (AI).");
+    return;
+  }
+  const area = aiRefineArea();
+  const allTiles = aiMakeTiles(area);
+  const tiles = allTiles.filter(t => aiInkRatio(t) >= AI_MIN_INK);
+  if (!tiles.length) { aiSay("Tidak ada tulisan atau tinta pada area baca."); return; }
+  if (tiles.length > AI_MAX_TILES) {
+    aiSay("Area terlalu luas: " + tiles.length + " tile (maks " + AI_MAX_TILES + "). Perkecil area Deteksi Cepat.");
+    return;
+  }
+  const cost = aiBiayaUntuk(tiles.length);
+  const where = (typeof lastDetR !== "undefined" && lastDetR) ? "kotak Deteksi Cepat terakhir" : "seluruh gambar";
+  const ok = confirm(
+    "Baca Teks (AI)\nArea: " + where + " (" + Math.round(area.w) + " × " + Math.round(area.h) + " px)\n" +
+    "Tile: " + tiles.length + " dari " + allTiles.length + "\nBiaya: " + cost + " token\n\nLanjutkan?"
+  );
+  if (!ok) return;
+  if (typeof currentTokenBalance === "number" && currentTokenBalance < cost) {
+    aiSay("Saldo token tidak cukup (" + currentTokenBalance + " < " + cost + ").");
+    return;
+  }
+
+  const prev = aiTexts.map(t => JSON.parse(JSON.stringify(t)));
+  aiBusy = true;
+  aiCancel = false;
+  aiUpdateTextUI();
+
+  let runId = null, finished = false, okTiles = 0, refunded = false;
+  let gotTexts = [];
+  try {
+    const st = await aiInvoke("start", { tiles: tiles.length }, "Gagal memulai Baca Teks (AI).");
+    runId = st.run_id;
+    if (typeof st.remaining === "number") aiSetBalance(st.remaining);
+    aiSay("Baca Teks (AI): memproses 0/" + tiles.length + " tile…");
+
+    let done = 0;
+    await aiConcurrent(tiles, AI_CONC, async tile => {
+      if (aiCancel) return;
+      const pic = aiTileImage(tile);
+      try {
+        const data = await aiInvoke("tile", {
+          run_id: runId,
+          image: pic.image,
+          width: pic.w,
+          height: pic.h,
+          mode: "validate",
+        }, "Tile gagal diproses.");
+        okTiles++;
+        if (Array.isArray(data.texts)) {
+          for (const rec of data.texts) {
+            const ent = aiTextFromTile(tile, rec, area);
+            if (ent) gotTexts.push(ent);
+          }
+        }
+      } catch (_) {
+        // tile gagal: biarkan tile lain selesai
+      }
+      done++;
+      if (!aiCancel) aiSay("Baca Teks (AI): memproses " + done + "/" + tiles.length + " tile…");
+    });
+
+    gotTexts = aiDedupTexts(gotTexts);
+    const fin = await aiInvoke("finish", { run_id: runId }, "Gagal menutup proses Baca Teks (AI).");
+    finished = true;
+    refunded = !!fin.refunded;
+    if (typeof fin.remaining === "number") aiSetBalance(fin.remaining);
+  } catch (e) {
+    if (runId && !finished) {
+      try {
+        const fin = await aiInvoke("finish", { run_id: runId }, "Gagal menutup proses Baca Teks (AI).");
+        refunded = !!fin.refunded;
+        if (typeof fin.remaining === "number") aiSetBalance(fin.remaining);
+      } catch (_) { /* tetap laporkan kegagalan utama */ }
+    }
+    if (!okTiles) aiTexts = prev;
+    aiSay("Baca Teks (AI) gagal: " + (e && e.message ? e.message : "coba lagi"));
+    aiBusy = false;
+    aiUpdateTextUI();
+    if (typeof stat === "function") stat();
+    if (typeof draw === "function") draw();
+    return;
+  }
+
+  const res = aiAssignTexts(gotTexts, aiRingsForAssign());
+  if (!okTiles) {
+    aiTexts = prev;
+    aiSay("Baca Teks (AI) gagal: tidak ada tile yang berhasil. Token dikembalikan.");
+  } else if (refunded || !res.items.length) {
+    aiTexts = [];
+    aiSay("Baca Teks (AI): tidak ada teks ditemukan. Token dikembalikan.");
+  } else {
+    if (typeof snapshot === "function") snapshot();
+    aiTexts = res.items;
+    try { aiSel = -1; selT = -1; } catch (_) { /* abaikan */ }
+    if (typeof stat === "function") stat();
+    if (typeof draw === "function") draw();
+    const s = res.stats;
+    aiSay(
+      "Baca Teks (AI): " + s.texts + " teks (" + s.pairs + " pasangan), " + s.fields + " bidang, " +
+      s.noNumber + " tanpa nomor, " + s.multiHak + " hak ganda, " + s.outside +
+      " teks di luar bidang. Tile berhasil " + okTiles + "/" + tiles.length + "."
+    );
+  }
+  aiBusy = false;
+  aiUpdateTextUI();
+  if (typeof draw === "function") draw();
+  if (refunded && typeof fetchUserTokens === "function") fetchUserTokens();
+}
+
+// ============================ pemasangan tombol ============================
+if (typeof document !== "undefined" && typeof $ === "function") {
+  const runBtn = $("aiTextRun");
+  if (runBtn) runBtn.onclick = () => runAiText();
+  const cancelBtn = $("aiTextCancel");
+  if (cancelBtn) cancelBtn.onclick = () => {
+    if (!aiBusy) return;
+    aiCancel = true;
+    aiSay("Membatalkan Baca Teks (AI)…");
+  };
+  const clearBtn = $("aiTextClear");
+  if (clearBtn) clearBtn.onclick = () => {
+    if (!aiTexts.length) { aiSay("Tidak ada teks AI yang perlu ditandai."); return; }
+    if (typeof snapshot === "function") snapshot();
+    for (const t of aiTexts) {
+      delete t.ai;
+      delete t.fmtWarn;
+      delete t.luarBidang;
+      delete t.banyakHak;
+      texts.push(t);
+    }
+    aiTexts = [];
+    try { aiSel = -1; selT = -1; } catch (_) { /* abaikan */ }
+    if (typeof stat === "function") stat();
+    if (typeof draw === "function") draw();
+    aiSay("Hasil Baca Teks (AI) sudah ditandai diperiksa.");
+  };
+}
+
+// Ekspor untuk tes Node murni (aiAssignTexts tidak memakai DOM).
+if (typeof module === "object" && module.exports) {
+  module.exports = { aiAssignTexts, aiBuildTexts, aiFitTextBox, aiTextFromTile };
+}

@@ -62,9 +62,9 @@ updateMapLockUI();
   if (!bar || document.getElementById('headerRightTools')) return;
   const tools = document.createElement('div');
   tools.id = 'headerRightTools';
-  tools.setAttribute('aria-label', 'Kontrol akun dan proyek');
+  tools.setAttribute('aria-label', 'Kontrol akun');
   bar.appendChild(tools);
-  ['tokenPill','btnCloudProjects','exp','themeToggle'].forEach(id => {
+  ['tokenPill','exp','themeToggle'].forEach(id => {
     const el = document.getElementById(id);
     if (el) tools.appendChild(el);
   });

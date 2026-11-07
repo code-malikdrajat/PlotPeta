@@ -1,4 +1,4 @@
-// PlotPeta: Akun, token, cloud, top-up, riwayat token, ekspor DXF (Supabase)
+// PlotPeta: Akun, token, top-up, riwayat token, ekspor DXF (Supabase)
 
 // ====================================================================
 // ==================== SUPABASE SAAS INTEGRATION =====================
@@ -167,7 +167,6 @@ async function updateAuthState(session){
     currentUser = session.user;
     $('btnOpenAuth').style.display = 'none';
     $('tokenPill').style.display = 'inline-flex';
-    $('btnCloudProjects').style.display = 'inline-flex';
     $('userMenuWrap').style.display = 'inline-block';
 
     // Ambil profil (galat di sini tidak boleh menghentikan pengambilan saldo token)
@@ -190,7 +189,6 @@ async function updateAuthState(session){
     currentProfile = null;
     $('btnOpenAuth').style.display = 'inline-flex';
     $('tokenPill').style.display = 'none';
-    $('btnCloudProjects').style.display = 'none';
     $('userMenuWrap').style.display = 'none';
   }
 }
@@ -222,139 +220,6 @@ async function fetchUserTokens(tries){
   } else {
     $('tokenPill').title = `${currentTokenBalance} token aktif`;
   }
-}
-
-// ==================== CLOUD PROJECTS MODAL ====================
-$('btnCloudProjects').onclick = () => {
-  $('modalCloud').classList.add('open');
-  switchCloudTab('list');
-  loadCloudProjects();
-};
-
-function switchCloudTab(tab){
-  $('tabBtnCloudList').classList.toggle('active', tab === 'list');
-  $('tabBtnCloudSave').classList.toggle('active', tab === 'save');
-  $('tabCloudList').style.display = tab === 'list' ? 'block' : 'none';
-  $('tabCloudSave').style.display = tab === 'save' ? 'block' : 'none';
-}
-
-async function loadCloudProjects(){
-  if(!currentUser) return;
-  const listEl = $('cloudProjectsList');
-  listEl.innerHTML = '<div class="mu" style="text-align:center;padding:20px">Memuat data proyek cloud...</div>';
-
-  const { data: projects, error } = await sb.from('projects')
-    .select('id, nama, ukuran, updated_at')
-    .eq('user_id', currentUser.id)
-    .order('updated_at', { ascending: false });
-
-  if(error || !projects || projects.length === 0){
-    listEl.innerHTML = '<div class="mu" style="text-align:center;padding:24px">Belum ada proyek yang disimpan di cloud.</div>';
-    $('cloudProjectCount').textContent = '0 / 20 proyek digunakan';
-    return;
-  }
-
-  $('cloudProjectCount').textContent = `${projects.length} / 20 proyek digunakan`;
-  listEl.innerHTML = projects.map(p => {
-    const fDate = new Date(p.updated_at).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-    const szKb = Math.round((p.ukuran || 0) / 1024);
-    return `
-      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <div style="min-width:0;flex:1">
-          <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.nama)}</div>
-          <div class="mu" style="font-size:11px;margin-top:2px">${fDate} &bull; ${szKb} KB</div>
-        </div>
-        <div style="display:flex;gap:6px">
-          <button class="btn pri" style="padding:4px 8px;font-size:11px" data-cact="open" data-id="${esc(p.id)}">Buka</button>
-          <button class="btn danger" style="padding:4px 8px;font-size:11px" data-cact="del" data-id="${esc(p.id)}" data-nama="${esc(p.nama)}">Hapus</button>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-async function saveCurrentToCloud(){
-  if(!currentUser) return;
-  const name = $('cloudSaveName').value.trim();
-  if(!name){ alert('Masukkan nama proyek terlebih dahulu.'); return; }
-
-  const o = {
-    v: 1,
-    size: [iw, ih],
-    coordinateMode: cal.mode,
-    cal: cal.pts.map((p,i)=>({ p, x: $('cx'+i).value, y: $('cy'+i).value })),
-    lines,
-    texts,
-    polys,
-    th: $('th').value,
-    ly: ['lP','lD','lSu','lM','lPoly'].map(i => $(i).value)
-  };
-  const jsonStr = JSON.stringify(o);
-  const szBytes = new TextEncoder().encode(jsonStr).length;
-
-  if(szBytes > 5 * 1024 * 1024){
-    alert('Ukuran data proyek melebihi batas 5 MB.');
-    return;
-  }
-
-  $('btnSaveToCloud').disabled = true;
-  $('btnSaveToCloud').textContent = 'Menyimpan...';
-
-  const { error } = await sb.from('projects').insert({
-    user_id: currentUser.id,
-    nama: name,
-    data: o,
-    ukuran: szBytes
-  });
-
-  $('btnSaveToCloud').disabled = false;
-  $('btnSaveToCloud').textContent = 'Simpan ke Cloud';
-
-  if(error){
-    alert('Gagal menyimpan: ' + error.message);
-  } else {
-    alert('Proyek berhasil disimpan ke cloud!');
-    dirty = false;
-    if(window.__ppSaved) await window.__ppSaved();
-    $('cloudSaveName').value = '';
-    switchCloudTab('list');
-    loadCloudProjects();
-  }
-}
-
-async function openCloudProject(id){
-  const { data: p, error } = await sb.from('projects').select('*').eq('id', id).single();
-  if(error || !p){ alert('Gagal memuat proyek dari cloud'); return; }
-
-  const o = p.data || {};
-  lines = o.lines || []; erasePick = null;
-  polys = o.polys || []; gaps = []; cand = []; aiTexts = []; aiRaw = []; lastDetR = null; if (typeof aiHintOverlay !== 'undefined') aiHintOverlay = []; cal.ok = false; cal.M = null;
-  texts = o.texts || [];
-  cal.pts = (o.cal || []).map(c => c.p);
-  setCoordMode(o.coordinateMode || (cal.pts.length===4?'map':'local'));
-  crs();
-  (o.cal || []).forEach((c, i) => {
-    $('cx' + i).value = c.x;
-    $('cy' + i).value = c.y;
-  });
-  $('th').value = o.th || 5;
-  if(o.ly) ['lP','lD','lSu','lM','lPoly'].forEach((i, k) => { $(i).value = o.ly[k]; });
-
-  hist = []; cur = []; selT = -1; aiSel = -1;
-  tform(); stat();
-  if(cal.pts.length === 4) fitCal();
-  dirty = false;
-  draw();
-  if(window.polyAutoSync)window.polyAutoSync();
-  if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
-  $('modalCloud').classList.remove('open');
-  alert(`Proyek "${p.nama}" berhasil dimuat. Pastikan membuka file peta yang sesuai jika belum dibuka.`);
-}
-
-async function deleteCloudProject(id, name){
-  if(!confirm(`Hapus proyek "${name}" dari cloud?`)) return;
-  await sb.from('projects').delete().eq('id', id);
-  loadCloudProjects();
 }
 
 // ==================== TOP-UP TOKEN MODAL ====================
@@ -580,8 +445,8 @@ async function loadPaketHarga(){
   updateNominalDisplay();
 }
 
-// Biaya fitur berbayar (ekspor DXF, Perbaiki dengan AI) dari pengaturan admin (get_biaya_token).
-// Dipanggil sekali saat halaman dimuat dan sebelum tiap proses Perbaiki dengan AI.
+// Biaya fitur berbayar (ekspor DXF, Baca Teks (AI)) dari pengaturan admin (get_biaya_token).
+// Dipanggil sekali saat halaman dimuat dan sebelum tiap proses Baca Teks (AI).
 async function loadTokenBiaya(){
   if(!sb) return tokenBiaya;
   try{
@@ -704,7 +569,7 @@ async function handleTopupSubmit(e){
 async function loadUserTopupHistory(){
   if(!currentUser) return;
   const { data: topups } = await sb.from('topups')
-    .select('id, nominal, metode, status, catatan, created_at, expires_at, sumber, gateway_ref, qr_image_url, qris_payload, pay_url')
+    .select('id, nominal, jumlah_token, metode, status, catatan, created_at, expires_at, sumber, gateway_ref, qr_image_url, qris_payload, pay_url')
     .eq('user_id', currentUser.id)
     .neq('status', 'gagal')
     .order('created_at', { ascending: false })
@@ -728,6 +593,7 @@ async function loadUserTopupHistory(){
     if(st === 'pending_gateway' && new Date(t.expires_at).getTime() <= now) st = 'kedaluwarsa';
     let badge = '<span style="color:var(--warning);font-weight:600">&bull; Menunggu Verifikasi</span>';
     let actions = '';
+    const nTok = Number.isFinite(t.jumlah_token) ? t.jumlah_token : null;
     if(st === 'pending_gateway') badge = '<span style="color:var(--warning);font-weight:600">&bull; Menunggu pembayaran</span>';
     if(st === 'kedaluwarsa'){
       badge = '<span style="color:var(--text-muted);font-weight:600">Kedaluwarsa</span>';
@@ -737,14 +603,14 @@ async function loadUserTopupHistory(){
           <button type="button" class="btn" style="padding:3px 8px;font-size:11px" data-hact="proof" data-id="${esc(t.id)}">Kirim bukti</button></div>`;
       }
     }
-    if(st === 'disetujui') badge = '<span style="color:var(--success);font-weight:600">&#10003; Disetujui (+50 Token)</span>';
+    if(st === 'disetujui') badge = `<span style="color:var(--success);font-weight:600">&#10003; Disetujui (+${nTok ?? '?'} Token)</span>`;
     if(st === 'ditolak') badge = `<span style="color:var(--danger);font-weight:600">&times; Ditolak (${esc(t.catatan || 'Bukti tidak valid')})</span>`;
     const fDate = new Date(t.created_at).toLocaleDateString('id-ID', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
     return `
       <div style="background:var(--bg-input);padding:6px 10px;border-radius:7px">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
-            <b>Rp ${t.nominal.toLocaleString('id-ID')}</b> <span class="mu">(${esc(t.metode || t.sumber)})</span>
+            <b>Rp ${t.nominal.toLocaleString('id-ID')}</b> &middot; <b style="color:var(--text-main)">${nTok != null ? nTok : '?'} Token</b> <span class="mu">(${esc(t.metode || t.sumber)})</span>
             <div class="mu" style="font-size:10.5px">${fDate}</div>
           </div>
           <div style="font-size:11px;text-align:right">${badge}</div>
@@ -900,11 +766,3 @@ if(sb){
     }, 400);
   }
 }
-
-// Tombol daftar proyek memakai atribut data-*, tanpa kode di dalam HTML
-document.addEventListener('click', e => {
-  const b = e.target.closest('[data-cact]');
-  if(!b) return;
-  if(b.dataset.cact === 'open') openCloudProject(b.dataset.id);
-  else if(b.dataset.cact === 'del') deleteCloudProject(b.dataset.id, b.dataset.nama);
-});
