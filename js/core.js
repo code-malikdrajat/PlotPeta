@@ -391,7 +391,8 @@ plotCanvas.addEventListener('pointermove',e=>{
   if(drag){
     const dx=e.offsetX-drag.x,dy=e.offsetY-drag.y;
     if(Math.hypot(dx,dy)>4||drag.btn!==0||tool==='pan')drag.moved=true;
-    if(drag.moved&&!mapLocked){V.x=drag.ox+dx;V.y=drag.oy+dy}
+    // Alat Trim/Extend adalah alat klik: geser mouse tidak memindahkan peta.
+    if(drag.moved&&!mapLocked&&!cadTool()){V.x=drag.ox+dx;V.y=drag.oy+dy}
   }
   if(img){
     const p=toI(mouse),r=toReal(p);
@@ -428,7 +429,8 @@ plotCanvas.addEventListener('pointerup',e=>{
     if(act==='erase') eraseRegion(R,null); else runDet(R);
     draw();return;
   }
-  if(drag&&!drag.moved&&drag.btn===0)click([e.offsetX,e.offsetY],e);
+  // Alat Trim/Extend: klik dihitung dari titik lepas mouse (geser tidak menjadi pan).
+  if(drag&&drag.btn===0&&(!drag.moved||cadTool()))click([e.offsetX,e.offsetY],e);
   drag=null;
 });
 plotCanvas.addEventListener('dblclick',e=>{
