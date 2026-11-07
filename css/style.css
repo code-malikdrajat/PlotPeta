@@ -152,7 +152,7 @@ body {
   letter-spacing: 0.5px;
 }
 
-/* Deteksi AI (beta) */
+/* Baca Teks (AI) (beta) */
 .ai-beta {
   background: rgba(168, 85, 247, 0.14);
   color: #a855f7;
@@ -1453,7 +1453,7 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 #bar-right #settingsAuthSlot #btnOpenAuth { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; white-space:nowrap; }
 #bar-right #settingsAuthSlot .user-menu-btn { white-space:nowrap; }
 #bar-right #settingsAuthSlot .dropdown-menu { right:0; left:auto; z-index:1000; }
-@media (max-width:900px) { #headerInfoLinks { display:none; } #bar { padding-right:112px; } .header-tagline { display:none; } }
+@media (max-width:900px) { #bar { padding-right:112px; } .header-tagline { display:none; } }
 @media (max-width:680px) { #settingsTopbar { margin-bottom:8px; } #bar-right #settingsAuthSlot { margin-left:auto; order:999; } #bar-right #settingsAuthSlot #btnOpenAuth { padding:6px 8px; } }
 
 
@@ -1471,21 +1471,18 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 .header-tagline { color:var(--text-muted); font-size:11px; white-space:nowrap; margin-right:8px; }
 #bar { position:relative; padding-right:560px; }
 #headerRightTools { position:absolute; top:7px; right:132px; z-index:36; display:flex; align-items:center; justify-content:flex-end; gap:7px; min-width:0; }
-#headerRightTools > #tokenPill, #headerRightTools > #btnCloudProjects, #headerRightTools > #exp, #headerRightTools > #themeToggle { flex:0 0 auto; }
+#headerRightTools > #tokenPill, #headerRightTools > #exp, #headerRightTools > #themeToggle { flex:0 0 auto; }
 #headerRightTools #exp { display:inline-flex; align-items:center; gap:6px; padding:7px 9px; white-space:nowrap; }
-#headerRightTools #btnCloudProjects { white-space:nowrap; }
+#headerRightTools #tokenPill { white-space:nowrap; }
 #headerRightTools #themeToggle { display:inline-flex; align-items:center; justify-content:center; min-width:32px; }
-#headerInfoLinks { position:absolute; top:15px; right:440px; display:flex; align-items:center; gap:10px; z-index:34; white-space:nowrap; font-size:11px; }
-#headerInfoLinks a { color:var(--accent); text-decoration:none; }
-#headerInfoLinks a:hover { text-decoration:underline; }
 /* Login/account is the final control at the far-right edge */
 #settingsAuthSlot { position:absolute !important; top:8px; right:12px; margin:0 !important; z-index:50; flex:0 0 auto; }
 #settingsAuthSlot .dropdown-menu { right:0; left:auto; }
 #settingsAuthSlot #btnOpenAuth { display:inline-flex; align-items:center; justify-content:center; white-space:nowrap; }
-@media (max-width:1250px) { #bar { padding-right:500px; } #headerInfoLinks { display:none; } }
+@media (max-width:1250px) { #bar { padding-right:500px; } }
 @media (max-width:900px) { #bar { padding-right:0; padding-bottom:46px; } #headerRightTools { left:8px; right:8px; top:auto; bottom:6px; justify-content:flex-end; } #settingsAuthSlot { top:8px; right:8px; } .header-tagline { display:none; } }
-@media (max-width:520px) { #headerRightTools { gap:4px; } #headerRightTools #btnCloudProjects span, #headerRightTools #exp span { font-size:10px; } #headerRightTools #exp { padding:6px; } #headerRightTools #tokenPill { padding:4px 6px; } }
-@media (max-width:900px) { #bar { padding-right:112px; } #settingsAuthSlot { top:8px; right:8px; } #headerInfoLinks { display:none; } }
+@media (max-width:520px) { #headerRightTools { gap:4px; } #headerRightTools #exp span { font-size:10px; } #headerRightTools #exp { padding:6px; } #headerRightTools #tokenPill { padding:4px 6px; } }
+@media (max-width:900px) { #bar { padding-right:112px; } #settingsAuthSlot { top:8px; right:8px; } }
 @media (max-width:680px) { #settingsAuthSlot { top:6px; right:6px; } #settingsAuthSlot #btnOpenAuth { padding:6px 8px; } }
 
 
@@ -1505,28 +1502,8 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 
 /* ===== Bagian CSS 3 (urutan sama dengan index.html asli) ===== */
 #infoModal:not(.hide){display:flex!important} #infoModal.hide{display:none!important} #infoModal a{color:var(--accent)}
-/* Perubahan minimal: tautan informasi diletakkan dekat garis bawah header. */
-#headerInfoLinks {
-  position:absolute !important;
-  top:auto !important;
-  bottom:2px !important;
-  right:14px !important;
-  display:flex !important;
-  flex-direction:row !important;
-  flex-wrap:nowrap !important;
-  align-items:center;
-  justify-content:flex-end;
-  gap:18px;
-  width:max-content;
-  max-width:calc(100vw - 28px);
-  white-space:nowrap;
-  font-size:11px;
-  z-index:52;
-}
-#headerInfoLinks a { display:inline-block; white-space:nowrap; line-height:1.5; }
 #settingsAuthSlot { top:7px !important; right:12px !important; }
 @media (max-width:900px) {
-  #headerInfoLinks { display:none !important; }
   #settingsAuthSlot { top:6px !important; right:8px !important; }
 }
 
