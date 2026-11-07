@@ -27,11 +27,14 @@ function cadChainNear(c,p,radius){
 }
 function cadPick(sp,maxD=16){
   let best=null,bd=maxD;
-  const groups=[['lines',lines],['cand',cand]];
-  for(const [arrName,arr] of groups){
+  // Kotak batas rantai dulu (satu perbandingan murah), baru uji ruas — hover
+  // tidak lagi menguji seluruh ruas pada setiap frame. 16 px layar -> px gambar.
+  const ip=toI(sp),radBox=maxD/(V.s||1);
+  for(const [arrName,arr] of [['lines',lines],['cand',cand]]){
     for(let li=0;li<arr.length;li++){
       const c=arr[li],pts=c&&c.pts;
       if(!pts||pts.length<2)continue;
+      if(!cadChainNear(c,ip,radBox))continue;
       const n=c.closed?pts.length:pts.length-1;
       for(let si=0;si<n;si++){
         const a=toS(pts[si]),b=toS(pts[(si+1)%pts.length]);

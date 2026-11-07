@@ -627,6 +627,13 @@ function aiRingsForAssign() {
   return [];
 }
 
+// Gabungkan hasil sebelumnya (prev) dan hasil proses terbaru; duplikat (teks
+// sama, jarak < AI_DEDUP_PX) dibuang dengan prioritas prev. Fungsi murni tanpa
+// DOM supaya bisa diuji dari Node.
+function aiMergeTexts(prev, got) {
+  return aiDedupTexts((Array.isArray(prev) ? prev : []).concat(Array.isArray(got) ? got : []));
+}
+
 // Baca teks pada area (kotak Deteksi Cepat terakhir atau seluruh gambar).
 // Hasil masuk `aiTexts` sebagai review ungu; `lines`/`cand` tidak diubah.
 async function runAiText() {
@@ -648,7 +655,8 @@ async function runAiText() {
   const where = (typeof lastDetR !== "undefined" && lastDetR) ? "kotak Deteksi Cepat terakhir" : "seluruh gambar";
   const ok = confirm(
     "Baca Teks (AI)\nArea: " + where + " (" + Math.round(area.w) + " × " + Math.round(area.h) + " px)\n" +
-    "Tile: " + tiles.length + " dari " + allTiles.length + "\nBiaya: " + cost + " token\n\nLanjutkan?"
+    "Tile: " + tiles.length + " dari " + allTiles.length + "\nBiaya: " + cost + " token\n\n" +
+    "Bila dibatalkan di tengah proses, token untuk potongan yang belum diproses tidak dikembalikan.\n\nLanjutkan?"
   );
   if (!ok) return;
   if (typeof currentTokenBalance === "number" && currentTokenBalance < cost) {
@@ -663,6 +671,7 @@ async function runAiText() {
 
   let runId = null, finished = false, okTiles = 0, refunded = false;
   let gotTexts = [];
+  let finErr = null;   // kegagalan finish tercatat terpisah; tidak membuang hasil tile
   try {
     const st = await aiInvoke("start", { tiles: tiles.length }, "Gagal memulai Baca Teks (AI).");
     runId = st.run_id;
@@ -679,7 +688,7 @@ async function runAiText() {
           image: pic.image,
           width: pic.w,
           height: pic.h,
-          mode: "validate",
+          mode: "text",
         }, "Tile gagal diproses.");
         okTiles++;
         if (Array.isArray(data.texts)) {
@@ -696,10 +705,18 @@ async function runAiText() {
     });
 
     gotTexts = aiDedupTexts(gotTexts);
-    const fin = await aiInvoke("finish", { run_id: runId }, "Gagal menutup proses Baca Teks (AI).");
-    finished = true;
-    refunded = !!fin.refunded;
-    if (typeof fin.remaining === "number") aiSetBalance(fin.remaining);
+    // Penutupan proses dibungkus try/catch sendiri: kegagalan finish (mis. jaringan
+    // terputus) hanya dilaporkan; teks dari tile yang sudah berhasil TIDAK
+    // dibuang karena token terpotong sejak proses dimulai.
+    finErr = null;
+    try {
+      const fin = await aiInvoke("finish", { run_id: runId }, "Gagal menutup proses Baca Teks (AI).");
+      finished = true;
+      refunded = !!fin.refunded;
+      if (typeof fin.remaining === "number") aiSetBalance(fin.remaining);
+    } catch (e2) {
+      finErr = e2;
+    }
   } catch (e) {
     if (runId && !finished) {
       try {
@@ -717,13 +734,18 @@ async function runAiText() {
     return;
   }
 
-  const res = aiAssignTexts(gotTexts, aiRingsForAssign());
+  // Gabungkan hasil proses sebelumnya dengan hasil proses ini (proses kedua
+  // tidak menimpa yang pertama), lalu pasangkan ulang agar hak/su tetap benar.
+  const merged = aiMergeTexts(prev, gotTexts);
+  const res = aiAssignTexts(merged, aiRingsForAssign());
+  const finNote = finErr ? " (Penutupan proses di server gagal; cek riwayat token untuk kepastian refund.)" : "";
   if (!okTiles) {
     aiTexts = prev;
-    aiSay("Baca Teks (AI) gagal: tidak ada tile yang berhasil. Token dikembalikan.");
+    aiSay("Baca Teks (AI) gagal: tidak ada tile yang berhasil. Token dikembalikan." + finNote);
   } else if (refunded || !res.items.length) {
-    aiTexts = [];
-    aiSay("Baca Teks (AI): tidak ada teks ditemukan. Token dikembalikan.");
+    // Proses tanpa teks: pulihkan teks AI yang sudah ada, jangan dikosongkan.
+    aiTexts = prev;
+    aiSay("Baca Teks (AI): tidak ada teks baru ditemukan. Token dikembalikan." + finNote);
   } else {
     if (typeof snapshot === "function") snapshot();
     aiTexts = res.items;
@@ -774,5 +796,5 @@ if (typeof document !== "undefined" && typeof $ === "function") {
 
 // Ekspor untuk tes Node murni (aiAssignTexts tidak memakai DOM).
 if (typeof module === "object" && module.exports) {
-  module.exports = { aiAssignTexts, aiBuildTexts, aiFitTextBox, aiTextFromTile };
+  module.exports = { aiAssignTexts, aiBuildTexts, aiFitTextBox, aiMergeTexts, aiTextFromTile };
 }

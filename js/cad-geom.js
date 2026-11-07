@@ -4,7 +4,6 @@
  *
  * Geometri Trim/Extend untuk rantai polyline PlotPeta (tanpa DOM).
  * Posisi parameter polyline = indeks segmen + pecahan (0..jumlah segmen).
- * Modul ini juga dipakai ulang oleh Isi Bidang pada tahap berikutnya.
  */
 (function (root, factory) {
   var api = factory();

@@ -22,7 +22,7 @@ const num=s=>{s=String(s).trim();s=/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)?s.replac
 const f2=n=>n.toLocaleString('id-ID',{maximumFractionDigits:2,minimumFractionDigits:2});
 const toReal=p=>{if(cal.mode==='local')return [p[0],(ih||0)-p[1]];if(!cal.ok||!cal.M)return null;const m=cal.M;return[m[0]*p[0]+m[1]*p[1]+m[2],m[3]*p[0]+m[4]*p[1]+m[5]]};
 function snapshot(){hist.push(JSON.stringify({lines,texts,cand,aiTexts}));if(hist.length>100)hist.shift();dirty=true}
-function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];aiTexts=o.aiTexts||[];selT=-1;aiSel=-1;closeTextEditPopover();tform();candMsg()}erasePick=null;addLinePick=null;hoverSeg=null;stat();draw();if(typeof syncCandClean==='function')syncCandClean()}
+function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];aiTexts=o.aiTexts||[];selT=-1;aiSel=-1;closeTextEditPopover();tform();candMsg()}erasePick=null;addLinePick=null;hoverSeg=null;if(typeof cadResetHover==='function')cadResetHover();stat();draw();if(typeof syncCandClean==='function')syncCandClean()}
 
 function updateDropzone(){
   const dz=$('dropzone');
@@ -482,6 +482,9 @@ addEventListener('keydown',e=>{
   else if(e.key==='Backspace'||(e.key==='z'&&(e.ctrlKey||e.metaKey))){e.preventDefault();undo()}
 });
 addEventListener('keyup',e=>{if(e.key==='Shift'&&shiftDown){shiftDown=false;if(tool==='E'&&hoverSeg)draw();if(cadTool()){cadResetHover();updateToolModeHint();if(mouse&&img)cadScheduleHover();else draw()}}});
+// Shift bisa terlepas saat fokus keluar jendela (mis. pengguna tekan Shift klik
+// jendela lain); reset mode Trim/Extend agar tidak tertukar pas kembali.
+addEventListener('blur',()=>{if(shiftDown){shiftDown=false;if(cadTool()){cadResetHover();updateToolModeHint();if(mouse&&img)cadScheduleHover();else draw()}}});
 addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
 
 function crs(){
