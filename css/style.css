@@ -648,6 +648,49 @@ canvas {
   background: var(--accent);
   color: #fff;
 }
+.canvas-sep {
+  height: 1px;
+  margin: 3px 2px;
+  background: var(--border);
+}
+
+/* Menu bantuan terpusat (tombol ? di zoom controls) */
+.help-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 240px;
+  max-width: 280px;
+  padding: 6px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+}
+.help-menu[hidden] { display: none !important; }
+.help-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 12.5px var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.help-item:hover,
+.help-item:focus-visible {
+  background: var(--bg-card);
+  color: var(--text-main);
+}
+.help-item svg { flex: none; color: var(--accent-text); }
+.help-separator { height: 1px; margin: 4px 0; background: var(--border); }
+@media (max-width: 768px) {
+  .help-menu { min-width: 220px; max-width: calc(100vw - 32px); }
+}
 
 /* ==================== SIDEBAR ==================== */
 #side {
