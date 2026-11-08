@@ -290,6 +290,13 @@ th { white-space:nowrap; }
 .detail-row { display:flex; justify-content:space-between; gap:12px; font-size:12.5px; padding:3px 0; }
 .detail-row span:last-child { text-align:right; }
 .detail-list { display:flex; flex-direction:column; gap:4px; font-size:12px; }
+.user-detail-sticky { position:sticky; top:0; z-index:2; background:var(--bg-panel); padding-bottom:10px; border-bottom:1px solid var(--border-subtle); }
+.saldo-card { margin-top:10px; padding:14px 16px; border-radius:12px; background:var(--accent-subtle); border:1px solid var(--accent-border); }
+.saldo-label { font-size:10px; font-weight:700; letter-spacing:.06em; color:var(--text-muted); text-transform:uppercase; }
+.saldo-value { font-family:var(--font-mono); font-size:26px; font-weight:700; line-height:1.2; color:var(--accent-text); }
+.saldo-value.zero { color:var(--text-muted); }
+.saldo-sub { font-size:11px; color:var(--text-muted); margin-top:2px; }
+.saldo-warn { display:inline-block; margin-left:8px; padding:1px 7px; border-radius:999px; font-size:10px; font-weight:700; color:var(--warning); background:var(--warning-subtle); border:1px solid rgba(245,158,11,.35); vertical-align:middle; }
 </style>
 </head>
 <body>
@@ -1579,23 +1586,40 @@ async function openUserDetail(userId, name) {
     const topups = topupRes.data || [];
     const pending = pendingRes.count || 0;
     const chatCount = chatRes.count || 0;
-    const activeBal = batches.filter(b => Number(b.sisa) > 0).reduce((s, b) => s + (Number(b.sisa) || 0), 0);
+    const activeBatches = batches.filter(b => Number(b.sisa) > 0 && (!b.kedaluwarsa_pada || new Date(b.kedaluwarsa_pada).getTime() > Date.now()));
+    const activeBal = activeBatches.reduce((s, b) => s + (Number(b.sisa) || 0), 0);
+    const earliest = activeBatches.reduce((min, b) => {
+      const t = b.kedaluwarsa_pada ? new Date(b.kedaluwarsa_pada).getTime() : Infinity;
+      return t < min ? t : min;
+    }, Infinity);
+    const daysLeft = Number.isFinite(earliest) ? Math.ceil((earliest - Date.now()) / 86400000) : null;
+    const warnBadge = daysLeft !== null && daysLeft < 7
+      ? `<span class="saldo-warn">expire ${daysLeft} hari lagi</span>` : '';
+    const saldoSub = activeBatches.length
+      ? `Dari ${activeBatches.length} batch aktif${Number.isFinite(earliest) ? ' · expire terdekat ' + fDate(earliest) : ''}`
+      : 'Tidak ada token aktif';
     const badge = pending ? ` <span class="badge rej">${pending} topup pending</span>` : '';
     $('userDetailTitle').innerHTML = 'Detail: ' + esc(base.nama) + badge;
-    const batchHtml = batches.length ? batches.map(b => `<div class="detail-row"><span>${esc(b.asal || b.sumber || 'batch')}</span><span>${Number(b.sisa) || 0} token · exp ${fDate(b.kedaluwarsa_pada)}</span></div>`).join('') : '<div class="mu">Tidak ada batch token.</div>';
+    const batchHtml = activeBatches.length ? activeBatches.map(b => `<div class="detail-row"><span>${esc(b.asal || b.sumber || 'batch')}</span><span>${Number(b.sisa) || 0} token · exp ${fDate(b.kedaluwarsa_pada)}</span></div>`).join('') : '<div class="mu">Tidak ada token aktif.</div>';
     const ledgerHtml = ledger.length ? ledger.map(l => `<div class="detail-row"><span>${esc(l.jenis || '-')} · ${fDate(l.waktu)}</span><span style="color:${Number(l.jumlah) >= 0 ? 'var(--success)' : 'var(--danger)'}">${Number(l.jumlah) >= 0 ? '+' : ''}${Number(l.jumlah) || 0}</span></div><div class="mu" style="font-size:11px">${esc(l.catatan || '-')}</div>`).join('') : '<div class="mu">Belum ada riwayat token.</div>';
     const topupHtml = topups.length ? topups.map(t => `<div class="detail-row"><span>${fDate(t.created_at)} · ${esc(String(t.metode || '').toUpperCase())}</span><span>${fRp(t.nominal)} · ${esc(historyStatusLabel(t.status))}</span></div>`).join('') : '<div class="mu">Belum ada riwayat top-up.</div>';
     body.innerHTML = `
-      <div class="detail-section">
-        <h4>Akun</h4>
-        <div class="detail-row"><span>Nama</span><span>${esc(p.nama || base.nama)}</span></div>
-        <div class="detail-row"><span>Email</span><span class="mono">${esc(p.email || base.email)}</span></div>
-        <div class="detail-row"><span>Role</span><span>${p.is_admin ? 'Admin' : 'User'}</span></div>
-        <div class="detail-row"><span>Terdaftar</span><span>${fDate(p.created_at) || base.created}</span></div>
+      <div class="user-detail-sticky">
+        <div class="detail-section">
+          <h4>Akun</h4>
+          <div class="detail-row"><span>Nama</span><span>${esc(p.nama || base.nama)}</span></div>
+          <div class="detail-row"><span>Email</span><span class="mono">${esc(p.email || base.email)}</span></div>
+          <div class="detail-row"><span>Role</span><span>${p.is_admin ? 'Admin' : 'User'}</span></div>
+          <div class="detail-row"><span>Terdaftar</span><span>${fDate(p.created_at) || base.created}</span></div>
+        </div>
+        <div class="saldo-card">
+          <div class="saldo-label">Total Saldo Aktif ${warnBadge}</div>
+          <div class="saldo-value${activeBal === 0 ? ' zero' : ''}">${activeBal} Token</div>
+          <div class="saldo-sub">${saldoSub}</div>
+        </div>
       </div>
       <div class="detail-section">
-        <h4>Saldo & Token</h4>
-        <div class="detail-row"><span>Total saldo aktif</span><span><b>${activeBal} token</b></span></div>
+        <h4>Batch Token Aktif</h4>
         <div class="detail-list" style="margin-top:6px">${batchHtml}</div>
       </div>
       <div class="detail-section">
