@@ -1809,9 +1809,6 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
   border-radius: 4px;
   padding: 0 4px;
 }
-@media (min-width: 681px) {
-  .pan-only-mobile { display: none !important; }
-}
 /* ===== UI/UX Fase 2B: toast + modal confirm/prompt ===== */
 .toast-stack {
   position: fixed;
