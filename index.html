@@ -743,6 +743,13 @@
       </h3>
       <button class="modal-close" onclick="$('modalLedger').classList.remove('open')">&times;</button>
     </div>
+    <div id="ledgerCurrentBalance" style="background:var(--accent-subtle);border:1px solid var(--accent-border, rgba(14,165,233,0.28));border-radius:8px;padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div>
+        <div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:2px">Saldo Aktif</div>
+        <div id="ledgerBalanceVal" style="font-size:22px;font-weight:700;color:var(--accent-text, var(--accent));font-family:'JetBrains Mono',monospace;line-height:1.2">—</div>
+      </div>
+      <div id="ledgerBalanceMeta" style="text-align:right;font-size:11px;color:var(--text-muted);max-width:180px;line-height:1.4">Memuat...</div>
+    </div>
     <div id="ledgerList" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;font-size:12px">
       <div class="mu" style="text-align:center;padding:20px">Memuat riwayat token...</div>
     </div>
@@ -792,7 +799,7 @@
 <script src="js/detect.js?v=16"></script>
 <script src="js/mesin-jejak.js?v=7"></script>
 <script src="js/ui.js?v=7"></script>
-<script src="js/supabase.js?v=15"></script>
+<script src="js/supabase.js?v=16"></script>
 <script src="js/ai.js?v=12"></script>
 <script src="js/startup.js?v=9"></script>
 
