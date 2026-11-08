@@ -530,6 +530,7 @@ th { white-space:nowrap; }
           </tbody>
         </table>
       </div>
+      <div class="mu" id="userLimitNotice" style="font-size:11px;margin-top:8px" hidden>Menampilkan 500 pengguna terbaru saja. Pengguna lama tidak dimuat.</div>
     </div>
 
     <!-- Section 5: Riwayat Top-up -->
@@ -580,6 +581,7 @@ th { white-space:nowrap; }
           </tbody>
         </table>
       </div>
+      <div class="mu" id="histLimitNotice" style="font-size:11px;margin-top:8px" hidden>Menampilkan 500 transaksi terbaru saja. Transaksi lama tidak dimuat.</div>
     </div>
     <div class="card admin-section" id="panel-announcements" data-panel="panel-announcements" style="display:none">
       <div class="card-head"><h2 class="card-title">Pengumuman untuk Pengguna</h2><button class="btn" type="button" id="btnReloadAnnouncements">Refresh</button></div>
@@ -642,7 +644,8 @@ th { white-space:nowrap; }
     <button class="modal-close" onclick="$('userDetailModal').classList.remove('open')">&times;</button>
     <h3 style="margin-top:0" id="userDetailTitle">Detail Pengguna</h3>
     <div id="userDetailBody" style="max-height:calc(90vh - 150px);overflow:auto;padding-right:8px"></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap">
+      <button class="btn dan" type="button" id="userDetailDelete" hidden>Hapus Akun</button>
       <button class="btn pri" type="button" id="userDetailKoreksi">Koreksi Token</button>
       <button class="btn" type="button" onclick="$('userDetailModal').classList.remove('open')">Tutup</button>
     </div>
@@ -1223,7 +1226,7 @@ async function rejectTopup(id, nama, nominal) {
 async function loadUsers() {
   const tb = $('tblUsers');
   tableSkeleton(tb, 7);
-  const { data: users, error } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
+  const { data: users, error } = await sb.from('profiles').select('*').order('created_at', { ascending: false }).limit(500);
   if(error || !users){
     tableError(tb, 7, 'Gagal memuat pengguna', 'loadUsers');
     return;
@@ -1347,7 +1350,11 @@ document.addEventListener('click', e => {
   const list = filteredUsers();
   const active = !!($('userSearch')?.value || $('userRole')?.value || ($('userSort')?.value && $('userSort').value !== 'newest'));
   if ($('userReset')) $('userReset').hidden = !active;
-  if ($('userCount')) $('userCount').textContent = `Menampilkan ${list.length} dari ${usersRaw.length} pengguna`;
+  const atLimit = usersRaw.length >= 500;
+  if ($('userLimitNotice')) $('userLimitNotice').hidden = !atLimit;
+  if ($('userCount')) $('userCount').textContent = atLimit
+    ? `Menampilkan ${list.length} dari 500 terbaru`
+    : `Menampilkan ${list.length} dari ${usersRaw.length} pengguna`;
   tb.innerHTML = list.map(u => `
     <tr>
       <td><b>${esc(u.nama)}</b></td>
@@ -1383,6 +1390,8 @@ async function openUserDetail(userId, name) {
   $('userDetailTitle').textContent = 'Detail: ' + base.nama;
   body.innerHTML = '<div class="mu" style="padding:16px;text-align:center">Memuat detail pengguna...</div>';
   modal.classList.add('open');
+  const delBtnInit = $('userDetailDelete');
+  if (delBtnInit) { delBtnInit.hidden = true; delBtnInit.disabled = false; delBtnInit.textContent = 'Hapus Akun'; }
   const koreksiBtn = $('userDetailKoreksi');
   if (koreksiBtn) koreksiBtn.onclick = () => { modal.classList.remove('open'); openKoreksiModal(userId, base.nama); };
   try {
@@ -1414,6 +1423,13 @@ async function openUserDetail(userId, name) {
       : 'Tidak ada token aktif';
     const badge = pending ? ` <span class="badge rej">${pending} topup pending</span>` : '';
     $('userDetailTitle').innerHTML = 'Detail: ' + esc(base.nama) + badge;
+    const delBtn = $('userDetailDelete');
+    if (delBtn) {
+      delBtn.hidden = !!base.isAdmin || !!p.is_admin || (currentAdminUser && currentAdminUser.id === userId);
+      delBtn.disabled = false;
+      delBtn.textContent = 'Hapus Akun';
+      delBtn.onclick = () => deleteUserAccount(userId, p.nama || base.nama, p.email || base.email, activeBal);
+    }
     const batchHtml = activeBatches.length ? activeBatches.map(b => `<div class="detail-row"><span>${esc(b.asal || b.sumber || 'batch')}</span><span>${Number(b.sisa) || 0} token · exp ${fDate(b.kedaluwarsa_pada)}</span></div>`).join('') : '<div class="mu">Tidak ada token aktif.</div>';
     const ledgerHtml = ledger.length ? ledger.map(l => `<div class="detail-row"><span>${esc(l.jenis || '-')} · ${fDate(l.waktu)}</span><span style="color:${Number(l.jumlah) >= 0 ? 'var(--success)' : 'var(--danger)'}">${Number(l.jumlah) >= 0 ? '+' : ''}${Number(l.jumlah) || 0}</span></div><div class="mu" style="font-size:11px">${esc(l.catatan || '-')}</div>`).join('') : '<div class="mu">Belum ada riwayat token.</div>';
     const topupHtml = topups.length ? topups.map(t => `<div class="detail-row"><span>${fDate(t.created_at)} · ${esc(String(t.metode || '').toUpperCase())}</span><span>${fRp(t.nominal)} · ${esc(historyStatusLabel(t.status))}</span></div>`).join('') : '<div class="mu">Belum ada riwayat top-up.</div>';
@@ -1457,6 +1473,49 @@ async function openUserDetail(userId, name) {
     };
   } catch (e) {
     body.innerHTML = '<div class="support-empty" style="color:var(--danger)">Gagal memuat detail: ' + esc(e.message || e) + '</div>';
+  }
+}
+
+async function deleteUserAccount(targetId, nama, email, bal) {
+  const ok = await uiConfirm({
+    title: 'Hapus Akun?',
+    body: `Akun ${nama || '-'} (${email || '-'}) akan dihapus permanen. Saldo token ${bal || 0} akan hangus tanpa pengembalian. Riwayat token, topup, dan chat ikut terhapus. Tindakan tidak bisa di-undo.`,
+    confirmText: 'Hapus Akun', cancelText: 'Batal', danger: true
+  });
+  if (!ok) return;
+  const typed = await uiPrompt({
+    title: 'Konfirmasi Hapus',
+    label: 'Ketik "HAPUS" untuk konfirmasi',
+    placeholder: 'HAPUS',
+    confirmText: 'Hapus permanen'
+  });
+  if (typed === null) return;
+  if (typed.trim().toUpperCase() !== 'HAPUS') { uiToast('Konfirmasi tidak cocok', 'error'); return; }
+  const btn = $('userDetailDelete');
+  if (btn) { btn.disabled = true; btn.textContent = 'Menghapus...'; }
+  try {
+    const { data, error } = await sb.functions.invoke('admin-delete-user', { body: { target_user_id: targetId } });
+    if (error) {
+      let msg = error.message || 'Gagal menghapus akun';
+      const status = error?.context?.status;
+      try { const b = await error.context.json(); if (b?.message) msg = b.message; } catch (_) {}
+      if (status === 401) msg = 'Sesi habis, login ulang';
+      uiToast(msg, 'error', 10000);
+      return;
+    }
+    if (!data || data.ok !== true) {
+      uiToast(data?.message || 'Gagal menghapus akun', 'error', 10000);
+      return;
+    }
+    uiToast('Akun ' + (nama || 'pengguna') + ' dihapus', 'success');
+    $('userDetailModal').classList.remove('open');
+    loadUsers();
+    loadPendingTopups();
+    loadAllTopups();
+  } catch (e) {
+    uiToast('Gagal menghapus akun: ' + (e?.message || e), 'error', 10000);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Hapus Akun'; }
   }
 }
 
@@ -1558,7 +1617,8 @@ async function loadAllTopups() {
 
   const { data, error } = await sb.from('topups')
     .select('*, profiles:profiles!topups_user_id_fkey(nama, email), decider:profiles!topups_diputuskan_oleh_fkey(nama)')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(500);
 
   if (error) {
     console.error('Gagal memuat riwayat top-up:', error);
@@ -1592,7 +1652,11 @@ function renderHistoryRows() {
   const rows = historyFiltered();
   const hasFilter = !!($('histSearch')?.value || $('histStatus')?.value || $('histRange')?.value);
   if ($('histReset')) $('histReset').hidden = !hasFilter;
-  if ($('histCount')) $('histCount').textContent = `Menampilkan ${rows.length} dari ${histRaw.length} transaksi`;
+  const atLimit = histRaw.length >= 500;
+  if ($('histLimitNotice')) $('histLimitNotice').hidden = !atLimit;
+  if ($('histCount')) $('histCount').textContent = atLimit
+    ? `Menampilkan ${rows.length} dari 500 terbaru`
+    : `Menampilkan ${rows.length} dari ${histRaw.length} transaksi`;
   if (!rows.length) {
     tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:18px">Tidak ada transaksi yang cocok dengan filter.</td></tr>';
     return;
