@@ -14,7 +14,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<link rel="stylesheet" href="css/style.css?v=15">
+<link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
 
@@ -210,19 +210,6 @@
         <button class="btn-fav-mode" id="btnFavMode" title="Atur favorit">☆</button>
       </div>
       <div class="tool-drawer-list">
-      <div class="tool-row pan-only-mobile">
-        <button data-tool="pan" title="Geser tampilan peta (atau drag layar)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
-          <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
-          <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
-          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
-        </svg>
-        <span>Geser</span>
-        </button>
-        <span role="button" tabindex="0" class="tool-fav-star" aria-label="Tambah ke favorit" title="Tambah ke favorit (tampil di atas peta)">☆</span>
-      </div>
-
       <div class="tool-group-label">SETUP</div>
       <div class="tool-row">
         <button data-tool="cal" title="Kalibrasi 4 titik grid peta (opsional)">
@@ -454,6 +441,14 @@
 
     <!-- Floating Zoom Controls -->
     <div class="canvas-controls">
+      <button class="canvas-btn" id="btnPanNav" type="button" aria-pressed="false" aria-label="Geser peta (Space+drag juga bisa)" title="Geser peta (Space+drag juga bisa)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
+          <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
+          <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+        </svg>
+      </button>
       <button class="canvas-btn" id="btnMapLock" type="button" aria-pressed="false" aria-label="Kunci geser peta" title="Kunci geser peta (zoom tetap aktif)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 7.5-2"></path></svg>
       </button>
@@ -644,7 +639,7 @@
 
     <!-- Shortcut hint -->
     <div class="shortcut-hint">
-      <kbd>Enter</kbd> Selesai · <kbd>Esc</kbd> Batal · <kbd>Ctrl+Z</kbd> Undo · <kbd>Space+drag</kbd> Geser sementara
+      <kbd>Enter</kbd> Selesai · <kbd>Esc</kbd> Batal · <kbd>Ctrl+Z</kbd> Undo · <kbd>Pan</kbd> / <kbd>Space+drag</kbd> geser sementara
     </div>
   
     <!-- Brand, bantuan, syarat dan privasi PlotPeta -->
@@ -919,7 +914,7 @@
 <script src="js/core.js?v=28"></script>
 <script src="js/detect.js?v=18"></script>
 <script src="js/mesin-jejak.js?v=7"></script>
-<script src="js/ui.js?v=10"></script>
+<script src="js/ui.js?v=13"></script>
 <script src="js/supabase.js?v=19"></script>
 <script src="js/ai.js?v=13"></script>
 <script src="js/startup.js?v=9"></script>
