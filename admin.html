@@ -304,6 +304,112 @@ th { white-space:nowrap; }
 #adminSupportThread::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
 #userDetailModal .modal-box { max-width: min(700px, 95vw); max-height: 90vh; }
 #editAnnouncementModal .modal-box, #modalKoreksi .modal-box, #adminConfirm .modal-box, #adminPrompt .modal-box { max-height: 90vh; overflow: auto; }
+
+/* ===== A7: Progressive mobile ===== */
+.avatar-wrap { position:relative; display:none; }
+.admin-avatar { width:34px; height:34px; border-radius:50%; border:1px solid var(--border); background:var(--accent-subtle); color:var(--accent-text); font-weight:800; font-size:13px; cursor:pointer; }
+.avatar-dropdown { position:absolute; right:0; top:calc(100% + 8px); width:230px; padding:10px; border:1px solid var(--border); border-radius:10px; background:var(--bg-panel); box-shadow:0 18px 36px rgba(0,0,0,.45); z-index:120; display:none; }
+.avatar-dropdown.open { display:block; }
+.avatar-email { font-size:11px; color:var(--text-muted); overflow-wrap:anywhere; margin-bottom:8px; }
+.avatar-dropdown .btn { width:100%; justify-content:center; }
+.mobile-bottom-nav { display:none; }
+.mobile-more-list { display:flex; flex-direction:column; gap:8px; }
+.mobile-more-list .btn { justify-content:flex-start; min-height:44px; }
+.mobile-desktop-notice { display:none; align-items:flex-start; gap:8px; padding:8px 10px; margin-bottom:10px; background:var(--warning-subtle); border:1px solid rgba(245,158,11,.35); color:var(--text-main); border-radius:8px; font-size:11.5px; line-height:1.4; }
+.mobile-desktop-notice button { margin-left:auto; flex:none; background:transparent; border:0; color:var(--text-muted); font-size:16px; min-width:32px; min-height:32px; cursor:pointer; }
+.proof-thumb { display:none; width:100%; height:120px; object-fit:cover; border-radius:8px; margin-bottom:6px; background:var(--bg-card); }
+
+@media (max-width:768px) {
+  html { font-size:14px; }
+  body { overflow-x:hidden; }
+  .header { padding:6px 12px; padding-top:calc(6px + env(safe-area-inset-top)); min-height:56px; gap:8px; }
+  .header .brand span { font-size:14px; }
+  .brand-badge { display:none !important; }
+  #adminSessionLabel { display:none !important; }
+  #btnAdminLogout { display:none !important; }
+  .avatar-wrap { display:block; }
+  .notif-bell { width:44px; height:44px; min-width:44px; }
+  .admin-avatar { width:44px; height:44px; }
+  .container.admin-layout { display:flex; flex-direction:column; padding:12px; gap:12px; padding-bottom:calc(76px + env(safe-area-inset-bottom)); }
+  .admin-sidebar { display:none !important; }
+  .mobile-bottom-nav { display:flex; position:fixed; left:0; right:0; bottom:0; z-index:90; height:calc(56px + env(safe-area-inset-bottom)); padding-bottom:env(safe-area-inset-bottom); background:var(--bg-panel); border-top:1px solid var(--border); box-shadow:0 -6px 18px rgba(0,0,0,.22); }
+  .bottom-nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; min-width:44px; min-height:44px; padding:4px 2px; border:0; border-radius:0; position:relative; font-size:10px; }
+  .bottom-nav-item span { width:auto; font-size:19px; line-height:1; }
+  .bottom-nav-item small { font-size:9.5px; font-weight:600; }
+  .bottom-nav-item.active { background:var(--accent-subtle); color:var(--accent-text); }
+  .bottom-nav-badge { margin:0; position:absolute; top:3px; right:calc(50% - 20px); padding:1px 5px; border-radius:20px; background:var(--danger); color:#fff; font-size:9px; line-height:1.4; }
+
+  .welcome-row { align-items:flex-start; margin:0 0 14px; }
+  .welcome-row h1 { font-size:18px; }
+  .welcome-row p { font-size:11.5px; max-width:100%; }
+  .card { padding:13px; }
+  .card-head { gap:8px; }
+
+  .summary-grid, .preview-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:9px; margin-bottom:14px; }
+  .analytics-grid { grid-template-columns:1fr !important; gap:9px; }
+  .preview-summary-grid .summary-card { min-height:0; padding:11px 10px; gap:9px; }
+  .summary-card strong, .preview-summary-grid .summary-card strong { font-size:19px; }
+  .analytics-card { padding:12px; }
+  .analytics-card strong { font-size:22px; }
+  .quick-link { width:calc(100% - 24px); margin:0 12px 9px; min-height:56px; padding:12px; }
+
+  .overview-recent .table-wrap { border:0; overflow:visible; }
+  .overview-recent thead { display:none; }
+  .overview-recent table, .overview-recent tbody { display:block; width:100%; }
+  #summaryRecentRows tr { display:block; border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin:0 12px 8px; background:var(--bg-panel); }
+  #summaryRecentRows td { display:block; border:0; padding:2px 0; font-size:13px; }
+  #summaryRecentRows td:nth-child(2) { font-size:17px; font-weight:700; color:var(--accent-text); font-family:var(--font-mono); }
+
+  #panel-topups .table-wrap { border:0; overflow:visible; }
+  #panel-topups thead, #panel-topups th:first-child { display:none; }
+  #panel-topups table, #panel-topups tbody { display:block; width:100%; }
+  #tblPending tr { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 10px; border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px; background:var(--bg-panel); }
+  #tblPending td { display:block; border:0; padding:0; font-size:13px; }
+  #tblPending td:first-child { display:none; }
+  #tblPending td:nth-child(3) { grid-column:1 / -1; order:1; }
+  #tblPending td:nth-child(5) { order:2; font-family:var(--font-mono); font-size:20px; font-weight:700; color:var(--accent-text); }
+  #tblPending td:nth-child(4) { order:3; text-align:right; align-self:center; }
+  #tblPending td:nth-child(6) { order:4; color:var(--text-muted); font-size:12px; }
+  #tblPending td:nth-child(2) { order:5; text-align:right; color:var(--text-muted); font-size:11px; align-self:center; }
+  #tblPending td:nth-child(7) { grid-column:1 / -1; order:6; margin-top:4px; }
+  #tblPending td:nth-child(8) { grid-column:1 / -1; order:7; margin-top:4px; }
+  #tblPending td:nth-child(8) > div { display:flex; gap:8px; }
+  #tblPending td:nth-child(8) .btn { flex:1; min-height:44px; padding:8px !important; font-size:13px !important; justify-content:center; }
+  #tblPending td:nth-child(7) .btn { width:100%; min-height:44px; font-size:12px !important; justify-content:center; }
+  #tblPending .proof-thumb.ready { display:block; }
+  .bulk-bar { display:none !important; }
+
+  #panel-support .support-inbox { grid-template-columns:1fr; min-height:0; height:calc(100vh - 152px); height:calc(100dvh - 152px); }
+  #panel-support .support-list-pane { min-height:0; height:100%; }
+  #panel-support .support-chat-pane { min-height:0; height:100%; }
+  #panel-support .support-inbox.chat-selected .support-chat-pane { display:flex; flex-direction:column; }
+  #adminSupportList { max-height:none; height:100%; }
+  #adminSupportReplyBox.support-chat-open { height:100%; min-height:0; }
+  #adminSupportThread { min-height:0; flex:1; }
+  #btnSupportBack { min-height:40px; padding:8px 12px; font-size:12px; }
+  .support-compose { position:sticky; bottom:0; z-index:2; padding:10px; padding-bottom:calc(10px + env(safe-area-inset-bottom)); flex-direction:column; align-items:stretch; }
+  .support-compose .btn { align-self:stretch; min-height:44px; }
+  .support-user-item { min-height:56px; }
+
+  .history-toolbar input, .history-toolbar select { width:100%; max-width:none; min-width:0; }
+  .mobile-desktop-notice { display:flex; }
+  .history-toolbar .btn { flex:1; min-height:44px; }
+  .form-grid { grid-template-columns:1fr !important; }
+  .admin-section input, .admin-section select, .admin-section textarea { min-height:44px; }
+  .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .admin-main { min-width:0; }
+  .admin-section { margin-bottom:12px; }
+  .admin-section .card-head { flex-wrap:wrap; }
+  .admin-section .card-head .btn { min-height:44px; }
+
+  button, .btn, .nav-item, .quick-link { min-height:44px; }
+  .notif-head .btn, .notif-foot .btn, .toast button { min-height:32px; }
+  .modal-overlay { padding:0; }
+  .modal-box, .modal-card { width:100vw; max-width:100vw !important; height:100vh; max-height:100vh !important; border-radius:0; padding:18px 14px; overflow:auto; }
+  #adminConfirm .modal-box, #adminPrompt .modal-box, #mobileMoreModal .modal-box { max-width:100vw !important; }
+  .modal-close { top:6px; right:8px; width:44px; height:44px; font-size:24px; }
+  #userDetailBody, #topupDetailBody, #activityDetailBody, #analyticsModalBody { max-height:calc(100vh - 170px) !important; }
+}
 </style>
 </head>
 <body>
@@ -359,6 +465,13 @@ th { white-space:nowrap; }
         </div>
       </div>
       <button id="btnAdminLogout" class="btn dan" style="padding:6px 12px">Keluar</button>
+      <div class="avatar-wrap">
+        <button class="admin-avatar" id="adminAvatarBtn" type="button" aria-label="Akun admin" aria-expanded="false">A</button>
+        <div class="avatar-dropdown" id="adminAvatarDropdown">
+          <div class="avatar-email mono" id="adminAvatarEmail"></div>
+          <button class="btn dan" type="button" id="btnAvatarLogout">Keluar</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -711,6 +824,28 @@ th { white-space:nowrap; }
     </div>
     </main>
   </div>
+  <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="Navigasi mobile">
+    <button class="nav-item bottom-nav-item active" data-nav="panel-overview" type="button"><span>▦</span><small>Dashboard</small></button>
+    <button class="nav-item bottom-nav-item" data-nav="panel-topups" type="button"><span>◷</span><small>Topup</small><b id="bnPendingCount" class="bottom-nav-badge" hidden>—</b></button>
+    <button class="nav-item bottom-nav-item" data-nav="panel-support" type="button"><span>✉</span><small>Chat</small><b id="bnSupportCount" class="bottom-nav-badge" hidden>—</b></button>
+    <button class="nav-item bottom-nav-item" data-nav="panel-users" type="button"><span>♙</span><small>Pengguna</small></button>
+    <button class="nav-item bottom-nav-item" type="button" id="btnMobileMore"><span>⋯</span><small>More</small></button>
+  </nav>
+</div>
+
+<!-- Drawer menu mobile -->
+<div class="modal-overlay" id="mobileMoreModal">
+  <div class="modal-box" style="max-width:420px">
+    <button class="modal-close" onclick="$('mobileMoreModal').classList.remove('open')">&times;</button>
+    <h3 style="margin-top:0">Menu Admin</h3>
+    <div class="mobile-more-list">
+      <button class="btn mobile-more-link" type="button" data-nav="panel-payment">▣ Pembayaran</button>
+      <button class="btn mobile-more-link" type="button" data-nav="panel-token">⚙ Pengaturan Token</button>
+      <button class="btn mobile-more-link" type="button" data-nav="panel-history">▤ Riwayat Transaksi</button>
+      <button class="btn mobile-more-link" type="button" data-nav="panel-announcements">📢 Pengumuman</button>
+      <button class="btn mobile-more-link" type="button" data-nav="panel-activity">◷ Log Aktivitas</button>
+    </div>
+  </div>
 </div>
 
 <!-- Modal Preview Bukti Bayar -->
@@ -969,6 +1104,15 @@ const usersRaw = [];
 const fRp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fDate = d => d ? new Date(d).toLocaleString('id-ID', { dateStyle:'short', timeStyle:'short' }) : '-';
+function syncBottomBadges() {
+  [['navPendingCount', 'bnPendingCount'], ['navSupportCount', 'bnSupportCount']].forEach(([src, dst]) => {
+    const s = $(src), d = $(dst);
+    if (!s || !d) return;
+    const v = (s.textContent || '').trim();
+    d.textContent = v || '—';
+    d.hidden = !v || v === '—' || v === '-' || v === '0';
+  });
+}
 function tableLoading(tb, cols, text) {
   if (!tb) return;
   tb.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;padding:18px;color:var(--text-muted)">${esc(text || 'Memuat...')}</td></tr>`;
@@ -1061,6 +1205,9 @@ function showDashboard(profile){
   $('adminLoginScreen').style.display = 'none';
   $('adminDashboard').style.display = 'flex';
   $('adminSessionLabel').textContent = (profile.nama || 'Admin') + ' (' + currentAdminUser.email + ')';
+  const avatarBtn = $('adminAvatarBtn');
+  if (avatarBtn) avatarBtn.textContent = ((profile.nama || currentAdminUser.email || 'A').trim()[0] || 'A').toUpperCase();
+  if ($('adminAvatarEmail')) $('adminAvatarEmail').textContent = currentAdminUser.email || '';
 
   // Load all dashboard sections
   loadPendingTopups();
@@ -1102,6 +1249,18 @@ $('btnAdminLogout').onclick = async () => {
   await sb.auth.signOut();
   window.location.reload();
 };
+
+// Avatar mobile + drawer More (A7)
+$('adminAvatarBtn')?.addEventListener('click', e => {
+  e.stopPropagation();
+  $('adminAvatarDropdown')?.classList.toggle('open');
+});
+$('btnAvatarLogout')?.addEventListener('click', () => $('btnAdminLogout').click());
+document.addEventListener('click', e => {
+  if (!e.target.closest('.avatar-wrap')) $('adminAvatarDropdown')?.classList.remove('open');
+});
+$('btnMobileMore')?.addEventListener('click', () => $('mobileMoreModal')?.classList.add('open'));
+document.querySelectorAll('#mobileMoreModal [data-nav]').forEach(b => b.addEventListener('click', () => $('mobileMoreModal').classList.remove('open')));
 
 // 2. KELOLA INFORMASI PEMBAYARAN (BANK & E-WALLET)
 async function loadAllSettings() {
@@ -1239,7 +1398,7 @@ async function loadPendingTopups() {
       <td class="mono" style="font-weight:700;color:var(--accent-text)">${fRp(t.nominal)}</td>
       <td>${esc(String(t.metode || '').toUpperCase())}</td>
       <td>
-        ${t.bukti_url ? `<button class="btn" style="padding:4px 8px;font-size:11px" data-act="bukti" data-path="${esc(t.bukti_url)}">Lihat Bukti Foto</button>` : '<span style="color:var(--danger)">Tidak ada</span>'}
+        ${t.bukti_url ? `<button class="btn" style="padding:4px 8px;font-size:11px" data-act="bukti" data-path="${esc(t.bukti_url)}"><img class="proof-thumb" data-proof-thumb="${esc(t.bukti_url)}" alt="Bukti transfer"><span>Lihat Bukti Foto</span></button>` : '<span style="color:var(--danger)">Tidak ada</span>'}
       </td>
       <td>
         <div style="display:flex;gap:6px">
@@ -1251,6 +1410,21 @@ async function loadPendingTopups() {
   `).join('');
   if ($('chkAllPending')) $('chkAllPending').checked = false;
   updateBulkTopupBar();
+  loadPendingProofThumbs();
+}
+
+// Mobile: thumbnail bukti via signed URL (bucket privat), hanya dimuat di layar kecil.
+async function loadPendingProofThumbs() {
+  if (!window.matchMedia('(max-width:768px)').matches) return;
+  const imgs = [...document.querySelectorAll('#tblPending img[data-proof-thumb]')];
+  for (const img of imgs) {
+    if (img.dataset.loaded) continue;
+    img.dataset.loaded = '1';
+    try {
+      const { data } = await sb.storage.from('bukti-transfer').createSignedUrl(img.dataset.proofThumb, 600);
+      if (data?.signedUrl) { img.src = data.signedUrl; img.classList.add('ready'); }
+    } catch (_) {}
+  }
 }
 
 $('chkAllPending')?.addEventListener('change', e => {
@@ -2397,6 +2571,7 @@ checkAdminSession();
 // Navigasi UI tambahan: hanya menggulir ke bagian yang sudah ada; tidak mengganti auth atau query Supabase.
 (function(){
   const navItems=[...document.querySelectorAll('[data-nav]')];
+  const morePanels=['panel-payment','panel-token','panel-history','panel-announcements','panel-activity'];
   document.querySelectorAll('[data-nav]').forEach(btn=>btn.addEventListener('click',()=>{
     const id=btn.dataset.nav;
     const target=document.getElementById(id);
@@ -2409,6 +2584,8 @@ checkAdminSession();
     if(id==='panel-activity' && typeof loadActivity==='function') loadActivity();
     if(id==='panel-overview' && typeof loadAnalytics==='function') loadAnalytics();
     navItems.forEach(x=>x.classList.toggle('active',x===btn || (x.classList.contains('nav-item') && x.dataset.nav===id)));
+    const moreBtn=document.getElementById('btnMobileMore');
+    if(moreBtn) moreBtn.classList.toggle('active', morePanels.includes(id));
     const overview=document.getElementById('panel-overview');
     if(overview) overview.style.display=id==='panel-overview'?'':'none';
     document.querySelectorAll('.admin-section[data-panel]').forEach(panel=>{
@@ -2416,6 +2593,28 @@ checkAdminSession();
     });
     target.scrollIntoView({behavior:'smooth',block:'start'});
   }));
+
+  // A7: banner fallback untuk panel desktop-only + badge bottom nav.
+  const mobileFallbackPanels=['panel-users','panel-history','panel-activity','panel-payment','panel-token','panel-announcements'];
+  function ensureMobileNotices(){
+    if(!window.matchMedia('(max-width:768px)').matches) return;
+    mobileFallbackPanels.forEach(id=>{
+      const panel=document.getElementById(id);
+      if(!panel || panel.querySelector('.mobile-desktop-notice')) return;
+      const note=document.createElement('div');
+      note.className='mobile-desktop-notice';
+      note.innerHTML='<span>Panel ini lebih optimal di desktop. Buka admin di laptop/PC untuk experience terbaik.</span><button type="button" aria-label="Tutup">&times;</button>';
+      note.querySelector('button').onclick=()=>note.remove();
+      panel.insertBefore(note,panel.firstChild);
+    });
+  }
+  ensureMobileNotices();
+  try{ window.matchMedia('(max-width:768px)').addEventListener('change', ensureMobileNotices); }catch(_){}
+  ['navPendingCount','navSupportCount'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) new MutationObserver(syncBottomBadges).observe(el,{childList:true,subtree:true,characterData:true});
+  });
+  syncBottomBadges();
   const themeBtn=document.getElementById('btnThemeToggle');
   try{const saved=localStorage.getItem('pp_admin_theme');if(saved==='light'||saved==='dark')document.documentElement.setAttribute('data-theme',saved);}catch(_){}
   if(themeBtn){
