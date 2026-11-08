@@ -45,6 +45,7 @@ function updateFileChip(){
   if(img&&mapName){
     chip.hidden=false;
     nameEl.textContent=mapName;
+    chip.title=mapName;
     if(window.__ppAutosaved){
       dirtyEl.style.display='block';
       dirtyEl.classList.add('autosaved');
