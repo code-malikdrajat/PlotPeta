@@ -73,6 +73,19 @@
         <p><strong>10. Keamanan dan kegagalan pelindungan data.</strong> Kami menerapkan langkah teknis dan organisasi yang wajar, seperti koneksi terenkripsi dan pembatasan akses data. Bila terjadi kegagalan pelindungan data pribadi, Kami akan memberi tahu Anda secara tertulis dan menyampaikannya kepada lembaga yang berwenang paling lambat 3 x 24 jam sesuai UU PDP.</p>
         <p><strong>11. Anak.</strong> Layanan ditujukan bagi pengguna berusia 18 tahun ke atas dan tidak sengaja mengumpulkan data anak.</p>
         <p><strong>12. Perubahan.</strong> Kebijakan ini dapat diperbarui; perubahan yang berarti akan diumumkan di aplikasi.</p>`
+    },
+    shortcuts: {
+      title: 'Pintasan Keyboard',
+      body: `<p style="color:var(--text-muted);font-size:11.5px">Pintasan aktif saat fokus berada di kanvas, bukan di kolom teks.</p>
+        <ul ${ul}>
+          <li><kbd>Space</kbd> + drag — geser peta sementara.</li>
+          <li><kbd>Scroll</kbd> mouse — zoom in / zoom out di kanvas.</li>
+          <li><kbd>Enter</kbd> — selesaikan bidang/garis atau terima pilihan.</li>
+          <li><kbd>Esc</kbd> — batalkan gambar, tutup modal, atau batalkan pilihan.</li>
+          <li><kbd>Ctrl</kbd> / <kbd>Cmd</kbd> + <kbd>Z</kbd> — undo langkah terakhir.</li>
+          <li><kbd>Shift</kbd> — menahan Shift mengubah alat CAD menjadi mode Trim/Extend.</li>
+        </ul>
+        <p>Tombol pan, kunci peta, zoom, dan fit juga tersedia di kontrol kanan bawah kanvas.</p>`
     }
   };
   function show(key) {
