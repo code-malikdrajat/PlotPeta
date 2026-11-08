@@ -254,6 +254,19 @@
   const favCount = document.getElementById('favoriteCount');
   if (!main || !drawer) return;
 
+  // Mode "Atur favorit": bintang selalu tampil di layar sentuh / mobile.
+  const favModeBtn = document.getElementById('btnFavMode');
+  let favMode = false;
+  if (favModeBtn) {
+    favModeBtn.addEventListener('click', () => {
+      favMode = !favMode;
+      drawer.classList.toggle('favorit-mode', favMode);
+      favModeBtn.classList.toggle('active', favMode);
+      favModeBtn.textContent = favMode ? '✓' : '☆';
+      favModeBtn.title = favMode ? 'Selesai atur favorit' : 'Atur favorit';
+    });
+  }
+
   toggle?.addEventListener('click', () => {
     const collapsed = main.classList.toggle('drawer-collapsed');
     toggle.setAttribute('aria-expanded', String(!collapsed));
@@ -322,7 +335,7 @@
     syncMode();
     if (favCount) favCount.textContent = String(selected.length);
     tools.forEach(btn => {
-      const star = btn.querySelector('.tool-fav-star');
+      const star = btn.parentElement?.querySelector('.tool-fav-star');
       if (!star) return;
       const active = favorites.includes(btn.dataset.tool);
       star.classList.toggle('is-favorite', active);
@@ -336,13 +349,12 @@
     const star = event.target.closest('.tool-fav-star');
     if (!star) return;
     event.preventDefault();
-    event.stopPropagation();
-    const tool = star.closest('button[data-tool]')?.dataset?.tool;
+    const tool = star.parentElement.querySelector('button[data-tool]')?.dataset?.tool;
     if (!tool) return;
     favorites = favorites.includes(tool) ? favorites.filter(item => item !== tool) : [...favorites, tool];
     try { localStorage.setItem(key, JSON.stringify(favorites)); } catch (_) {}
     renderFavorites();
-  }, true);
+  });
   drawer.addEventListener('keydown', event => {
     const star = event.target.closest('.tool-fav-star');
     if (!star || (event.key !== 'Enter' && event.key !== ' ')) return;

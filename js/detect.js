@@ -703,6 +703,7 @@ function runDet(R,poly=null){
   candDropped=[];
   lastDetR=R;
   $('dMsg').textContent='Mendeteksi...';
+  if(typeof setStatus==='function')setStatus('busy','Mendeteksi...');
   setTimeout(async()=>{
     try{
       const engine=$('detectEngineDrawer')?.value==='hough'?'hough':'trace';
@@ -754,9 +755,12 @@ function runDet(R,poly=null){
         cand.length+' jalur kandidat'
         +(nEnd?(', '+nEnd+' ujung bebas.'):'.')
         +' Persilangan & duplikat sudah dibersihkan.'+(helperUsed?' Gambar bantu dipakai.':'')+topoNote+engineNote+(candDropped.length?' '+candDropped.length+' coretan dibuang otomatis.':'')+' Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.';
-    }catch(x){cand=[];candDropped=[];$('dMsg').textContent='Deteksi gagal: '+x.message}
+      if(typeof setStatus==='function')setStatus('ready','Deteksi selesai: '+cand.length+' jalur');
+    }catch(x){cand=[];candDropped=[];$('dMsg').textContent='Deteksi gagal: '+x.message;if(typeof setStatus==='function')setStatus('error','Deteksi gagal: '+x.message)}
     draw();
     syncCandClean();
+    if(typeof updateSidebarForTool==='function')updateSidebarForTool();
+    if(typeof updateOverview==='function')updateOverview();
     if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
   },40);
 }
@@ -1539,7 +1543,10 @@ function runAutoPoly(){
   polyAutoBusy=true;
   if(!lines.length){
     polys=[];gaps=[];$('pMsg').textContent='';
-    polyAutoBusy=false;draw();return;
+    polyAutoBusy=false;draw();
+    if(typeof updateSidebarForTool==='function')updateSidebarForTool();
+    if(typeof updateOverview==='function')updateOverview();
+    return;
   }
   const n=segCount(lines);
   if(n>POLY_AUTO_MAX_SEG){
@@ -1553,7 +1560,7 @@ function runAutoPoly(){
       gaps=r.gaps;
       $('pMsg').textContent=polys.length+' poligon dibuat otomatis (ikut diekspor ke DXF). '+gaps.length+' ujung garis menggantung (cincin merah).';
     }catch(x){$('pMsg').textContent='Gagal: '+x.message}
-    finally{polyAutoBusy=false;draw()}
+    finally{polyAutoBusy=false;draw();if(typeof updateSidebarForTool==='function')updateSidebarForTool();if(typeof updateOverview==='function')updateOverview()}
   },30);
 }
 function runPolyPreview(){
@@ -1623,10 +1630,14 @@ $('pMk').onclick=()=>{
       $('pMsg').textContent=polys.length+' poligon dibuat. '+gaps.length+' ujung garis menggantung (cincin merah), kemungkinan celah di pojok atau garis yang menjulur.';
     }catch(x){$('pMsg').textContent='Gagal: '+x.message}
     draw();
+    if(typeof updateSidebarForTool==='function')updateSidebarForTool();
+    if(typeof updateOverview==='function')updateOverview();
   },30);
 };
 $('pDel').onclick=()=>{
   polys=[];gaps=[];
   $('pMsg').textContent=$('polyAuto')?.checked?'Poligon dihapus. Poligon otomatis akan dibuat lagi saat garis berubah.':'';
   draw();
+  if(typeof updateSidebarForTool==='function')updateSidebarForTool();
+  if(typeof updateOverview==='function')updateOverview();
 };

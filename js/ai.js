@@ -17,6 +17,12 @@ function aiSay(msg) {
   if (a) a.textContent = msg;
   const b = $("aiTextMsg");
   if (b) b.textContent = msg;
+  if (typeof setStatus === "function") {
+    const m = String(msg == null ? "" : msg);
+    const kind = /gagal|error|tidak|bocor|ditolak/i.test(m) ? "error"
+      : /memproses|membaca|mengunggah|menunggu/i.test(m) ? "busy" : "info";
+    setStatus(kind, m);
+  }
 }
 
 // Biaya untuk membaca teks AI (settings admin: deteksi_ai x tile_per_blok).
@@ -653,11 +659,21 @@ async function runAiText() {
   }
   const cost = aiBiayaUntuk(tiles.length);
   const where = (typeof lastDetR !== "undefined" && lastDetR) ? "kotak Deteksi Cepat terakhir" : "seluruh gambar";
-  const ok = confirm(
+  const confirmMsg =
     "Baca Teks (AI)\nArea: " + where + " (" + Math.round(area.w) + " × " + Math.round(area.h) + " px)\n" +
     "Tile: " + tiles.length + " dari " + allTiles.length + "\nBiaya: " + cost + " token\n\n" +
-    "Bila dibatalkan di tengah proses, token untuk potongan yang belum diproses tidak dikembalikan.\n\nLanjutkan?"
-  );
+    "Bila dibatalkan di tengah proses, token untuk potongan yang belum diproses tidak dikembalikan.\n\nLanjutkan?";
+  const ok = await new Promise(res => {
+    if (typeof showConfirm === "function") showConfirm({
+      title: "Baca Teks (AI)",
+      body: confirmMsg,
+      confirmText: "Lanjutkan",
+      cancelText: "Batal",
+      onConfirm: () => res(true),
+      onCancel: () => res(false),
+    });
+    else res(confirm(confirmMsg));
+  });
   if (!ok) return;
   if (typeof currentTokenBalance === "number" && currentTokenBalance < cost) {
     aiSay("Saldo token tidak cukup (" + currentTokenBalance + " < " + cost + ").");
@@ -762,6 +778,8 @@ async function runAiText() {
   aiBusy = false;
   aiUpdateTextUI();
   if (typeof draw === "function") draw();
+  if (typeof updateSidebarForTool === "function") updateSidebarForTool();
+  if (typeof updateOverview === "function") updateOverview();
   if (refunded && typeof fetchUserTokens === "function") fetchUserTokens();
 }
 

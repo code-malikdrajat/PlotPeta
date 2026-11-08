@@ -18,11 +18,39 @@ addEventListener('resize',resize);
 const toS=p=>[p[0]*V.s+V.x,p[1]*V.s+V.y],toI=p=>[(p[0]-V.x)/V.s,(p[1]-V.y)/V.s];
 const fitV=()=>{V.s=Math.min(W()/iw,H()/ih);V.x=(W()-iw*V.s)/2;V.y=(H()-ih*V.s)/2};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function uiToast(msg,type,dur){if(typeof showToast==='function')showToast(msg,type,dur)}
+function uiConfirm(opts,nativeMsg){
+  return new Promise(res=>{
+    if(typeof showConfirm==='function')showConfirm(Object.assign({},opts,{onConfirm:()=>res(true),onCancel:()=>res(false)}));
+    else res(confirm(nativeMsg));
+  });
+}
+function uiPrompt(opts,nativeMsg,def){
+  return new Promise(res=>{
+    if(typeof showPrompt==='function')showPrompt(Object.assign({},opts,{defaultValue:def,onConfirm:v=>res(v),onCancel:()=>res(null)}));
+    else res(prompt(nativeMsg,def));
+  });
+}
 const num=s=>{s=String(s).trim();s=/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)?s.replace(/\./g,'').replace(',','.'):s.replace(',','.');return parseFloat(s)};
 const f2=n=>n.toLocaleString('id-ID',{maximumFractionDigits:2,minimumFractionDigits:2});
 const toReal=p=>{if(cal.mode==='local')return [p[0],(ih||0)-p[1]];if(!cal.ok||!cal.M)return null;const m=cal.M;return[m[0]*p[0]+m[1]*p[1]+m[2],m[3]*p[0]+m[4]*p[1]+m[5]]};
-function snapshot(){hist.push(JSON.stringify({lines,texts,cand,aiTexts}));if(hist.length>100)hist.shift();dirty=true}
-function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];aiTexts=o.aiTexts||[];selT=-1;aiSel=-1;closeTextEditPopover();tform();candMsg()}erasePick=null;addLinePick=null;hoverSeg=null;if(typeof cadResetHover==='function')cadResetHover();stat();draw();if(typeof syncCandClean==='function')syncCandClean()}
+function snapshot(){hist.push(JSON.stringify({lines,texts,cand,aiTexts}));if(hist.length>100)hist.shift();dirty=true;if(typeof updateFileChip==='function')updateFileChip()}
+function toolName(){
+  const names={'P':'Garis penuh','T':'Teks bidang','M':'Edit garis','A':'Deteksi cepat','E':'Hapus','pan':'Pan','TRIM':'Trim','EXT':'Extend','cal':'Kalibrasi','trim':'Potong segmen'};
+  return names[tool]||(tool?tool:'Siap');
+}
+function updateFileChip(){
+  const chip=$('chipFile'),nameEl=$('chipFileName'),dirtyEl=$('chipDirty');
+  if(!chip||!nameEl||!dirtyEl)return;
+  if(img&&mapName){
+    chip.hidden=false;
+    nameEl.textContent=mapName;
+    dirtyEl.style.display=(typeof dirty!=='undefined'&&dirty)?'block':'none';
+  }else{
+    chip.hidden=true;
+  }
+}
+function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}if(cur.length){cur.pop()}else if(hist.length){const o=JSON.parse(hist.pop());lines=o.lines;texts=o.texts;cand=o.cand||[];aiTexts=o.aiTexts||[];selT=-1;aiSel=-1;closeTextEditPopover();tform();candMsg()}erasePick=null;addLinePick=null;hoverSeg=null;if(typeof cadResetHover==='function')cadResetHover();stat();draw();if(typeof syncCandClean==='function')syncCandClean();if(typeof updateSidebarForTool==='function')updateSidebarForTool();if(typeof updateOverview==='function')updateOverview()}
 
 function updateDropzone(){
   const dz=$('dropzone');
@@ -41,7 +69,10 @@ function loadImg(src){
     draw();
     updateDropzone();
     if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
-    $('st').innerHTML='<span class="status-dot"></span><span>'+iw+' &times; '+ih+' px</span>';
+    setStatus('ready', iw+' × '+ih+' px');
+    updateFileChip();
+    if(typeof updateSidebarForTool==='function')updateSidebarForTool();
+    if(typeof updateOverview==='function')updateOverview();
   };
   im.src=src;
 }
@@ -114,7 +145,7 @@ function makePacked1BitPreview(page, maxSide=5000){
 }
 
 async function loadTiffFile(file){
-  $('st').innerHTML='<span class="status-dot" style="background:#f59e0b"></span><span>Membaca TIFF...</span>';
+  setStatus('busy', 'Membaca TIFF...');
   try{
     const U=await ensureUTIF(),buffer=await file.arrayBuffer(),pages=U.decode(buffer);
     if(!pages||!pages.length) throw new Error('TIFF tidak memiliki halaman gambar');
@@ -142,17 +173,21 @@ async function loadTiffFile(file){
       loadedImage=canvas;shownW=w;shownH=h;
     }
     img=loadedImage;iw=shownW;ih=shownH;erasePick=null;addLinePick=null;fitV();draw();updateDropzone();
-    $('st').innerHTML='<span class="status-dot"></span><span>'+w.toLocaleString('id-ID')+' × '+h.toLocaleString('id-ID')+' px · TIFF'+(notice?' · pratinjau diperkecil':'')+'</span>';
-    if(notice) alert(notice+' Kamu bisa mulai digitasi dari pratinjau. Untuk digitasi otomatis yang menelusuri semua piksel asli, diperlukan pemrosesan TIFF bertile beresolusi penuh; pratinjau ini tidak mempertahankan detail piksel terkecil.');
+    setStatus('ready', w.toLocaleString('id-ID')+' × '+h.toLocaleString('id-ID')+' px · TIFF'+(notice?' · pratinjau diperkecil':''));
+    updateFileChip();
+    if(typeof updateSidebarForTool==='function')updateSidebarForTool();
+    if(typeof updateOverview==='function')updateOverview();
+    if(notice) uiToast(notice+' Kamu bisa mulai digitasi dari pratinjau. Untuk digitasi otomatis yang menelusuri semua piksel asli, diperlukan pemrosesan TIFF bertile beresolusi penuh; pratinjau ini tidak mempertahankan detail piksel terkecil.','info',8000);
   }catch(err){
     console.error('PlotPeta gagal membaca TIFF:',err);
-    $('st').innerHTML='<span class="status-dot" style="background:#ef4444"></span><span>TIFF gagal dibaca</span>';
-    alert('PlotPeta belum dapat membaca TIFF ini: '+(err&&err.message?err.message:'format tidak didukung')+'. Tidak ada perubahan pada file asli.');
+    setStatus('error', 'TIFF gagal dibaca');
+    uiToast('PlotPeta belum dapat membaca TIFF ini: '+(err&&err.message?err.message:'format tidak didukung')+'. Tidak ada perubahan pada file asli.','error',8000);
   }
 }
 
 $('file').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
+  mapName=f.name;
   const isTiff=/\.tiff?$/i.test(f.name)||/image\/tiff/i.test(f.type);
   if(isTiff){await loadTiffFile(f);e.target.value='';return;}
   const r=new FileReader();r.onload=()=>loadImg(r.result);r.readAsDataURL(f);e.target.value='';
@@ -171,17 +206,19 @@ function setTool(t){
   selectionPoly=[]; box=null;
   if(t==='E'&&eraseModeEl?.value==='click'&&!cand.length){
     const n=ensureIntersectionPoints();
-    if(n)$('st').innerHTML='<span class="status-dot"></span><span>Titik persilangan dibuat: '+n+'.</span>';
+    if(n)setStatus('info','Titik persilangan dibuat: '+n+'.');
   }
   if(t==='M'){
     const n=cand.length?0:ensureIntersectionPoints();
-    $('st').innerHTML='<span class="status-dot"></span><span>Edit Titik: drag titik, klik garis=potong, 2x segmen=hapus, klik titik lalu klik tujuan=tambah garis.'+(cand.length?' Kandidat deteksi bisa diedit sebelum diterima.':'')+(n?' Titik persilangan dibuat: '+n+'.':'')+'</span>';
+    setStatus('info','Edit Titik: drag titik, klik garis=potong, 2x segmen=hapus, klik titik lalu klik tujuan=tambah garis.'+(cand.length?' Kandidat deteksi bisa diedit sebelum diterima.':'')+(n?' Titik persilangan dibuat: '+n+'.':''));
   }
   updateToolModeHint();
   document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
   plotCanvas.style.cursor=mapLocked&&t==='pan'?'not-allowed':t==='pan'?'grab':'crosshair';
   draw();
   if(typeof syncCandClean==='function')syncCandClean();
+  if(typeof updateSidebarForTool==='function')updateSidebarForTool();
+  if(typeof updateOverview==='function')updateOverview();
 }
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
 const detectModeEl=$('detectMode'), eraseModeEl=$('eraseMode'), toolModeHint=$('toolModeHint');
@@ -213,7 +250,7 @@ function snapPt(p){
   }
   return best?best.slice():p;
 }
-function finish(){if(cur.length>=2){snapshot();lines.push({k:'P',pts:cur});const n=ensureIntersectionPoints(true);if(n)$('st').innerHTML='<span class="status-dot"></span><span>Titik persilangan dibuat: '+n+'.</span>'}cur=[];stat();draw()}
+function finish(){if(cur.length>=2){snapshot();lines.push({k:'P',pts:cur});const n=ensureIntersectionPoints(true);if(n)setStatus('info','Titik persilangan dibuat: '+n+'.')}cur=[];stat();draw()}
 function nearestVertex(sp,preferLi=-1){
   let best=null,bd=12;
   lines.forEach((l,li)=>{
@@ -230,16 +267,16 @@ function click(sp,ev){
   if(tool==='M'&&addLinePick){finishAddLineAt(sp);return}
   if(tool==='A' && detectModeEl?.value==='all'){runDet({x:0,y:0,w:iw,h:ih});return}
   if(tool==='A' && detectModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('dMsg').textContent='Batas area deteksi: '+selectionPoly.length+' titik. Tekan Enter untuk menjalankan deteksi.';draw();return}
-  if(tool==='E' && eraseModeEl?.value==='poly'){selectionPoly.push(sp.slice());$('st').innerHTML='<span class="status-dot"></span><span>Batas area hapus: '+selectionPoly.length+' titik; tekan Enter untuk menghapus</span>';draw();return}
+  if(tool==='E' && eraseModeEl?.value==='poly'){selectionPoly.push(sp.slice());setStatus('info','Batas area hapus: '+selectionPoly.length+' titik; tekan Enter untuk menghapus');draw();return}
   if(tool==='TRIM'||tool==='EXT'){cadApply(sp);return}
   if(tool==='trim'){handleTopoTool(sp);return}
   if(tool==='cal'){if(cal.pts.length<4){cal.pts.push(p);crs()}draw();return}
   if(tool==='P'){const q=snapPt(p);cur.push(q);if(cur.length>=3&&q[0]===cur[0][0]&&q[1]===cur[0][1]&&cur.length-1>0)finish();draw();return}
-  if(tool==='T'){snapshot();texts.push({p,no:'',su:''});selT=texts.length-1;tform(true);stat();draw();return}
+  if(tool==='T'){snapshot();texts.push({p,no:'',su:''});selT=texts.length-1;tform(true);showTextEditPopover(texts.length-1);stat();draw();return}
   if(tool==='M'){
     const h=topoNearestLinePoint(sp,10);
     if(!h){
-      $('st').innerHTML='<span class="status-dot"></span><span>Klik garis untuk potong, 2x segmen untuk hapus, atau klik titik untuk mulai menambah garis.</span>';
+      setStatus('info','Klik garis untuk potong, 2x segmen untuk hapus, atau klik titik untuk mulai menambah garis.');
       draw();return;
     }
     if(mClickTimer)clearTimeout(mClickTimer);
@@ -257,7 +294,7 @@ function click(sp,ev){
     texts.forEach((t,i)=>{const s=toS(t.p);if(Math.hypot(s[0]-sp[0],s[1]-sp[1])<14)hit=i});
     if(hit>=0){
       snapshot();texts.splice(hit,1);selT=-1;erasePick=null;tform();
-      $('st').innerHTML='<span class="status-dot"></span><span>Teks dihapus.</span>';
+      setStatus('info','Teks dihapus.');
       stat();draw();return;
     }
     if(typeof aiTexts!=='undefined'){
@@ -265,13 +302,13 @@ function click(sp,ev){
       aiTexts.forEach((t,i)=>{const s=toS(t.p);if(Math.hypot(s[0]-sp[0],s[1]-sp[1])<14)hitA=i});
       if(hitA>=0){
         snapshot();aiTexts.splice(hitA,1);aiSel=-1;erasePick=null;closeTextEditPopover();tform();
-        $('st').innerHTML='<span class="status-dot"></span><span>Teks hasil AI dihapus.</span>';
+        setStatus('info','Teks hasil AI dihapus.');
         stat();draw();return;
       }
     }
     const h=topoNearestLinePoint(sp,10);
     if(!h){
-      $('st').innerHTML='<span class="status-dot"></span><span>Klik tepat pada segmen garis.</span>';
+      setStatus('info','Klik tepat pada segmen garis.');
       draw();return;
     }
     if(ev&&ev.shiftKey){
@@ -282,11 +319,11 @@ function click(sp,ev){
       erasePick=null;hoverSeg=null;
       if(target===cand)candMsg();
       if(typeof syncCandClean==='function')syncCandClean();
-      $('st').innerHTML='<span class="status-dot"></span><span>1 jalur dihapus.</span>';
+      setStatus('info','1 jalur dihapus.');
       stat();draw();return;
     }
     if(!deleteSegmentAt(h.li,h.si)){
-      $('st').innerHTML='<span class="status-dot"></span><span>Segmen tidak ditemukan; klik ulang.</span>';
+      setStatus('info','Segmen tidak ditemukan; klik ulang.');
       draw();
     }
     return;
@@ -313,7 +350,7 @@ plotCanvas.addEventListener('pointerdown',e=>{
     plotCanvas.setPointerCapture(e.pointerId);
     freehandDrawing=true; drag=null; box=null; selectionPoly=[sp];
     if(tool==='A') $('dMsg').textContent='Sedang menggambar area deteksi bebas… lepaskan mouse untuk mulai deteksi.';
-    else $('st').innerHTML='<span class="status-dot"></span><span>Sedang menggambar area hapus bebas… lepaskan mouse untuk menghapus</span>';
+    else setStatus('info','Sedang menggambar area hapus bebas… lepaskan mouse untuk menghapus');
     draw(); return;
   }
   plotCanvas.setPointerCapture(e.pointerId);
@@ -396,9 +433,8 @@ plotCanvas.addEventListener('pointermove',e=>{
   }
   if(img){
     const p=toI(mouse),r=toReal(p);
-    const dotClr = r ? '#10b981' : '#f59e0b';
-    const txt = r ? 'X: '+f2(r[0])+'   Y: '+f2(r[1]) : 'px: '+Math.round(p[0])+', '+Math.round(p[1])+' (belum dikalibrasi)';
-    $('st').innerHTML='<span class="status-dot" style="background:'+dotClr+';box-shadow:0 0 8px '+dotClr+'"></span><span>'+txt+'</span>';
+    const lineCount=lines.reduce((sum,l)=>sum+Math.max(0,l.pts.length-1),0);
+    setStatus('context','',{zoom:V.s,x:r?r[0]:null,y:r?r[1]:null,px:r?null:p[0],py:r?null:p[1],tool:toolName(),segments:lineCount});
   }
   draw();
 });
@@ -414,7 +450,7 @@ plotCanvas.addEventListener('pointerup',e=>{
     mv=null;mvStart=null;mvMoved=false;
     if(wasMoved){
       const n=cand.length?0:ensureIntersectionPoints(true);
-      if(n)$('st').innerHTML='<span class="status-dot"></span><span>Titik persilangan dibuat: '+n+'.</span>';
+      if(n)setStatus('info','Titik persilangan dibuat: '+n+'.');
       stat();draw();
     }else{
       startAddLineAt([e.offsetX,e.offsetY]);
@@ -587,18 +623,8 @@ function commitAiText(){
 }
 function tform(foc){
   const t=selTextObj();
-  $('tform').classList.toggle('hide',!t);
-  $('tmsg').classList.toggle('hide',!!t);
-  if(t){
-    $('tno').value=t.no||'';
-    $('tsu').value=t.su||'';
-    if(foc){
-      $('tno').focus();
-      try { $('tform').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch(_){}
-    }
-  } else {
-    closeTextEditPopover();
-  }
+  if(!t)closeTextEditPopover();
+  stat();
 }
 function positionTextEditPopover(idx){
   const pop=$('textEditPopover');
@@ -644,30 +670,11 @@ function closeTextEditPopover(){
   const pop=$('textEditPopover');
   if(pop)pop.classList.add('hide');
 }
-$('tno').oninput=e=>{
-  const t=selTextObj();
-  if(t){
-    t.no=e.target.value;
-    if(aiSel>=0)commitAiText();
-    const p=$('popNo');if(p)p.value=e.target.value;
-    dirty=true;draw();
-  }
-};
-$('tsu').oninput=e=>{
-  const t=selTextObj();
-  if(t){
-    t.su=e.target.value;
-    if(aiSel>=0)commitAiText();
-    const p=$('popSu');if(p)p.value=e.target.value;
-    dirty=true;draw();
-  }
-};
 $('popNo')?.addEventListener('input',e=>{
   const t=selTextObj();
   if(t){
     t.no=e.target.value;
     if(aiSel>=0)commitAiText();
-    $('tno').value=e.target.value;
     dirty=true;draw();
   }
 });
@@ -676,7 +683,6 @@ $('popSu')?.addEventListener('input',e=>{
   if(t){
     t.su=e.target.value;
     if(aiSel>=0)commitAiText();
-    $('tsu').value=e.target.value;
     dirty=true;draw();
   }
 });
@@ -713,11 +719,11 @@ if(popEl){
   popEl.addEventListener('mousedown',e=>e.stopPropagation());
   popEl.addEventListener('wheel',e=>e.stopPropagation());
 }
-$('tdel').onclick=()=>{
-  if(aiSel>=0&&aiTexts[aiSel]){snapshot();aiTexts.splice(aiSel,1);aiSel=-1;closeTextEditPopover();tform();stat();draw()}
-  else if(selT>=0){snapshot();texts.splice(selT,1);selT=-1;closeTextEditPopover();tform();stat();draw()}
+const stat=()=>{
+  $('cnt').textContent=lines.length+' rangkaian garis, '+(texts.length+(typeof aiTexts==='undefined'?0:aiTexts.length))+' teks';
+  if(typeof updateSidebarForTool==='function')updateSidebarForTool();
+  if(typeof updateOverview==='function')updateOverview();
 };
-const stat=()=>$('cnt').textContent=lines.length+' rangkaian garis, '+(texts.length+(typeof aiTexts==='undefined'?0:aiTexts.length))+' teks';
 
 // Teks & ikon OCR: anchor tengah dari PlotPetaDrawer agar label pas di atas
 // tulisan tangan peta (fallback lokal bila modul drawer belum termuat).
@@ -1058,6 +1064,7 @@ function draw(){
   if((selT>=0||aiSel>=0) && !$('textEditPopover')?.classList.contains('hide')){
     positionTextEditPopover();
   }
+  if(typeof updateActionBar==='function')updateActionBar();
 }
 
 // Pembuatan DXF dipindahkan ke server (Edge Function export-dxf), tidak ada lagi di browser.
@@ -1084,8 +1091,8 @@ async function save(name,data){
   }catch(e){return false}
 }
 function ready(){
-  if(cal.mode==='map'&&!cal.ok){alert('Lengkapi 4 titik dan koordinat sebenarnya pada kalibrasi sebelum ekspor.');return false}
-  if(!lines.length&&!texts.length&&!polys.length){alert('Belum ada garis, poligon, atau teks yang digambar.');return false}
+  if(cal.mode==='map'&&!cal.ok){uiToast('Lengkapi 4 titik dan koordinat sebenarnya pada kalibrasi sebelum ekspor.','warn');return false}
+  if(!lines.length&&!texts.length&&!polys.length){uiToast('Belum ada garis, poligon, atau teks yang digambar.','warn');return false}
   return true;
 }
 
@@ -1093,10 +1100,10 @@ function ready(){
 // Hapus peta yang sedang terbuka tanpa menyentuh file JSON atau file peta pengguna.
 $('btnClearMap').onclick=async()=>{
   if(!img && !lines.length && !texts.length && !polys.length){
-    alert('Belum ada peta atau pekerjaan yang sedang terbuka.');
+    uiToast('Belum ada peta atau pekerjaan yang sedang terbuka.','warn');
     return;
   }
-  if(!confirm('Hapus peta yang sedang terbuka beserta semua garis, poligon, teks, dan kalibrasinya? File JSON dan peta di komputer tidak ikut terhapus.')) return;
+  if(!await uiConfirm({title:'Hapus peta?',body:'Hapus peta yang sedang terbuka beserta semua garis, poligon, teks, dan kalibrasinya? File JSON dan peta di komputer tidak ikut terhapus.',confirmText:'Hapus',cancelText:'Batal',danger:true},'Hapus peta yang sedang terbuka beserta semua garis, poligon, teks, dan kalibrasinya? File JSON dan peta di komputer tidak ikut terhapus.')) return;
   img=null; iw=0; ih=0; mapName='';
   lines=[]; texts=[]; polys=[]; gaps=[]; cand=[]; cur=[]; hist=[];  aiTexts=[]; aiRaw=[];
   candDropped=[]; lastDetR=null;
@@ -1105,30 +1112,33 @@ $('btnClearMap').onclick=async()=>{
   ['cx0','cy0','cx1','cy1','cx2','cy2','cx3','cy3'].forEach(id=>{ if($(id)) $(id).value=''; });
   setCoordMode('local'); crs(); tform(); stat();
   $('file').value='';
-  $('st').innerHTML='<span class="status-dot"></span><span>Belum ada peta</span>';
+  setStatus('ready','Belum ada peta');
+  updateFileChip();
+  if(typeof updateSidebarForTool==='function')updateSidebarForTool();
+  if(typeof updateOverview==='function')updateOverview();
   updateDropzone(); draw();
   if(typeof syncCandClean==='function')syncCandClean();
   if(window.polyAutoSync)window.polyAutoSync();
   if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
   if(window.__ppClear){ try{await window.__ppClear();}catch(e){console.warn('Pemulihan otomatis tidak bisa dibersihkan:',e);} }
-  alert('Peta dan pekerjaan yang sedang terbuka sudah dihapus.');
+  uiToast('Peta dan pekerjaan yang sedang terbuka sudah dihapus.','success');
 };
 
 $('sp').onclick=async()=>{
-  if(!img){alert('Buka peta terlebih dahulu sebelum menyimpan proyek.');return;}
+  if(!img){uiToast('Buka peta terlebih dahulu sebelum menyimpan proyek.','warn');return;}
   const base=(mapName?mapName.replace(/\.[^.]+$/,''):'')||'proyek_peta';
   let nama='';
   while(true){
-    const v=window.prompt('Beri nama proyek ini:',base);
+    const v=await uiPrompt({title:'Simpan Proyek',label:'Nama proyek',placeholder:'proyek_peta'},'Beri nama proyek ini:',base);
     if(v===null)return;
-    nama=v.replace(/[\\\/:*?"<>|\u0000-\u001f]/g,'').replace(/\.json$/i,'').trim().slice(0,100);
+    nama=String(v).replace(/[\\\/:*?"<>|\u0000-\u001f]/g,'').replace(/\.json$/i,'').trim().slice(0,100);
     if(nama)break;
-    alert('Nama proyek tidak boleh kosong.');
+    uiToast('Nama proyek tidak boleh kosong.','warn');
   }
   const o={v:1,nama,size:[iw,ih],coordinateMode:cal.mode,cal:cal.pts.map((p,i)=>({p,x:$('cx'+i).value,y:$('cy'+i).value})),lines,texts,polys,th:$('th').value,ly:['lP','lD','lSu','lM','lPoly'].map(i=>$(i).value)};
   const ok=await save(nama+'.json',JSON.stringify(o));
-  if(ok){dirty=false;if(window.__ppSaved)await window.__ppSaved();}
-  else alert('Simpan proyek tidak tersedia di tampilan ini.');
+  if(ok){dirty=false;updateFileChip();if(window.__ppSaved)await window.__ppSaved();}
+  else uiToast('Simpan proyek tidak tersedia di tampilan ini.','error',8000);
 };
 $('op').onchange=e=>{
   const f=e.target.files[0];
@@ -1147,11 +1157,11 @@ $('op').onchange=e=>{
       hist=[];cur=[];selT=-1;aiSel=-1;tform();stat();
       if(cal.pts.length===4)fitCal();
       dirty=false;
-      if(img&&o.size&&(o.size[0]!==iw||o.size[1]!==ih))alert('Ukuran peta berbeda dari proyek. Pastikan membuka file peta yang sama.');
+      if(img&&o.size&&(o.size[0]!==iw||o.size[1]!==ih))uiToast('Ukuran peta berbeda dari proyek. Pastikan membuka file peta yang sama.','warn');
       draw();
       if(window.polyAutoSync)window.polyAutoSync();
       if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
-    }catch(x){alert('File proyek tidak valid.')}
+    }catch(x){uiToast('File proyek tidak valid.','error',8000)}
   });
 };
 function findV(sp){

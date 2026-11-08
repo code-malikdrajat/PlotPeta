@@ -1,5 +1,7 @@
 // PlotPeta: Akun, token, top-up, riwayat token, ekspor DXF (Supabase)
 
+const sToast=(m,t,d)=>{if(typeof showToast==='function')showToast(m,t,d)};
+
 // ====================================================================
 // ==================== SUPABASE SAAS INTEGRATION =====================
 // ====================================================================
@@ -71,11 +73,11 @@ function triggerGoogleIdentity(){
     });
     google.accounts.id.prompt((notification) => {
       if(notification.isNotDisplayed() || notification.isSkippedMoment()){
-        alert('Untuk login Google: pastikan provider Google telah diaktifkan di Supabase Dashboard (Authentication -> Providers -> Google) dengan Client ID ini.');
+        sToast('Untuk login Google: pastikan provider Google telah diaktifkan di Supabase Dashboard (Authentication -> Providers -> Google) dengan Client ID ini.','warn',8000);
       }
     });
   } else {
-    alert('Google Sign-In sedang dimuat. Silakan coba kembali dalam beberapa detik.');
+    sToast('Google Sign-In sedang dimuat. Silakan coba kembali dalam beberapa detik.','warn');
   }
 }
 
@@ -157,7 +159,7 @@ async function deleteMyAccount(){
   }
   try{ if(window.__ppClear) await window.__ppClear(); }catch(_){}
   try{ await sb.auth.signOut({ scope: 'local' }); }catch(_){}
-  alert('Akun dan data Anda telah dihapus dari PlotPeta.');
+  sToast('Akun dan data Anda telah dihapus dari PlotPeta.','success');
   window.location.reload();
 }
 
@@ -214,6 +216,7 @@ async function fetchUserTokens(tries){
   }
   currentTokenBalance = data.balance || 0;
   $('tokenCount').textContent = currentTokenBalance;
+  if (typeof updateOverview === 'function') updateOverview();
   if(data.earliest_expiry){
     const expDate = new Date(data.earliest_expiry).toLocaleDateString('id-ID', { day:'numeric', month:'short' });
     $('tokenPill').title = `${currentTokenBalance} token aktif (berlaku s.d. ${expDate})`;
@@ -384,11 +387,14 @@ async function checkActiveTopupPaid(){
   if(data.status === 'disetujui'){
     stopQrTimer();
     $('topupQrActive').style.display = 'none';
-    $('btnPayNow').style.display = '';
+    $('btnPayNow').style.display = 'none';
     activeTopup = null;
-    setAutoAlert('Pembayaran berhasil! 50 token sudah ditambahkan.', 'success');
+    setAutoAlert('✓ Pembayaran berhasil! 50 token ditambahkan. Modal akan menutup otomatis.', 'success');
     fetchUserTokens();
     loadUserTopupHistory();
+    setTimeout(() => {
+      if (typeof closeTopupModal === 'function') closeTopupModal();
+    }, 3000);
   } else if(data.status === 'ditolak' || data.status === 'gagal'){
     stopQrTimer();
     $('topupQrActive').style.display = 'none';
@@ -498,8 +504,8 @@ async function loadPublicPaymentInfo(){
   $('btnCopyEwalletNomor').disabled = !r.ewallet_nomor;
 }
 
-$('btnCopyBankNorek').onclick = async () => { const value = $('userBankNorek').textContent.trim(); if(value && value !== '-') { try { await navigator.clipboard.writeText(value); alert('Nomor rekening disalin.'); } catch { alert('Tidak dapat menyalin otomatis. Silakan salin nomor rekening secara manual.'); } } };
-$('btnCopyEwalletNomor').onclick = async () => { const value = $('userEwalletNomor').textContent.trim(); if(value && value !== '-') { try { await navigator.clipboard.writeText(value); alert('Nomor dompet digital disalin.'); } catch { alert('Tidak dapat menyalin otomatis. Silakan salin nomor secara manual.'); } } };
+$('btnCopyBankNorek').onclick = async () => { const value = $('userBankNorek').textContent.trim(); if(value && value !== '-') { try { await navigator.clipboard.writeText(value); sToast('Nomor rekening disalin.','success'); } catch { sToast('Tidak dapat menyalin otomatis. Silakan salin nomor rekening secara manual.','error'); } } };
+$('btnCopyEwalletNomor').onclick = async () => { const value = $('userEwalletNomor').textContent.trim(); if(value && value !== '-') { try { await navigator.clipboard.writeText(value); sToast('Nomor dompet digital disalin.','success'); } catch { sToast('Tidak dapat menyalin otomatis. Silakan salin nomor secara manual.','error'); } } };
 
 async function handleTopupSubmit(e){
   e.preventDefault();
@@ -507,8 +513,8 @@ async function handleTopupSubmit(e){
 
   const fileInput = $('topupBuktiFile');
   const file = fileInput.files[0];
-  if(!file){ alert('Pilih foto bukti pembayaran'); return; }
-  if(file.size > 2.5 * 1024 * 1024){ alert('Ukuran foto bukti maksimal 2.5 MB'); return; }
+  if(!file){ sToast('Pilih foto bukti pembayaran','warn'); return; }
+  if(file.size > 2.5 * 1024 * 1024){ sToast('Ukuran foto bukti maksimal 2.5 MB','warn'); return; }
 
   $('btnSubmitTopup').disabled = true;
   $('btnSubmitTopup').textContent = 'Mengunggah bukti...';
@@ -722,17 +728,30 @@ $('exp').onclick = async () => {
   const aiLines = lines.filter(l => l.ai).length;
   const aiTxts = texts.filter(t => t.ai).length;
   if(aiLines + aiTxts > 0){
-    if(!confirm(`Ada ${aiLines} garis dan ${aiTxts} teks hasil AI yang belum ditandai diperiksa. Tetap ekspor?`)) return;
+    const proceed = await new Promise(res => {
+      if(typeof showConfirm === 'function') showConfirm({
+        title:'Hasil AI belum diperiksa',
+        body:`Ada ${aiLines} garis dan ${aiTxts} teks hasil AI yang belum ditandai diperiksa. Tetap ekspor?`,
+        confirmText:'Tetap ekspor', cancelText:'Batal',
+        onConfirm:()=>res(true), onCancel:()=>res(false)
+      });
+      else res(confirm(`Ada ${aiLines} garis dan ${aiTxts} teks hasil AI yang belum ditandai diperiksa. Tetap ekspor?`));
+    });
+    if(!proceed) return;
   }
 
   // 1. Cek Sesi Pengguna
   if(!currentUser){
-    if(tokenBiaya.ekspor_dxf === 0){
-      alert('Untuk mengunduh file DXF AutoCAD, silakan masuk atau daftar akun terlebih dahulu.');
-    } else {
-      alert('Untuk mengunduh file DXF AutoCAD, silakan masuk atau daftar akun terlebih dahulu.\n\nDapatkan 3 token gratis saat mendaftar akun baru!');
-    }
-    openAuthModal('register');
+    const go = await new Promise(res => {
+      if(typeof showConfirm === 'function') showConfirm({
+        title:'Perlu Masuk',
+        body:'Untuk mengunduh file DXF AutoCAD, silakan masuk atau daftar akun terlebih dahulu. Dapatkan 3 token gratis saat mendaftar akun baru!',
+        confirmText:'Masuk Sekarang', cancelText:'Nanti', focusPrimary:true,
+        onConfirm:()=>res(true), onCancel:()=>res(false)
+      });
+      else res(confirm('Untuk mengunduh file DXF AutoCAD, silakan masuk atau daftar akun terlebih dahulu.'));
+    });
+    if(go) openAuthModal('register');
     return;
   }
 
@@ -767,7 +786,7 @@ $('exp').onclick = async () => {
   $('exp').innerHTML = originalExpText;
 
   if(!res || !res.ok){
-    alert(errMsg || (res && res.message) || 'Gagal membuat DXF. Coba lagi.');
+    sToast(errMsg || (res && res.message) || 'Gagal membuat DXF. Coba lagi.','error',8000);
     if(noToken) openTopupModal();
     return;
   }
@@ -784,9 +803,9 @@ $('exp').onclick = async () => {
     if(window.__ppSaved) await window.__ppSaved();
     // Biaya 0 (gratis) tidak menyebut pemotongan token sama sekali.
     if(res.charged === 0){
-      alert('Berhasil mengunduh DXF!');
+      sToast('Berhasil mengunduh DXF!','success');
     } else {
-      alert(`Berhasil mengunduh DXF!\n1 token telah dipotong. Sisa saldo token Anda: ${res.remaining} token.`);
+      sToast(`Berhasil mengunduh DXF! 1 token telah dipotong. Sisa saldo token Anda: ${res.remaining} token.`,'success',6000);
     }
   }
 };
@@ -815,7 +834,7 @@ if(sb){
   const authErr = hashParams.get('error_description') || queryParams.get('error_description');
   if(authErr){
     setTimeout(() => {
-      alert('Gagal autentikasi Google: ' + decodeURIComponent(authErr).replace(/\+/g, ' '));
+      sToast('Gagal autentikasi Google: ' + decodeURIComponent(authErr).replace(/\+/g, ' '),'error',8000);
       history.replaceState(null, '', window.location.pathname);
     }, 400);
   }
