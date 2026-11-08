@@ -493,15 +493,7 @@ async function loadPublicPaymentInfo(){
   $('userEwalletNomor').textContent = r.ewallet_nomor || '-';
   $('userEwalletAn').textContent = r.ewallet_an || '-';
   $('userEwalletCard').style.display = (r.ewallet_name || r.ewallet_nomor) ? '' : 'none';
-  const hasQris = Boolean(r.qris_url);
-  $('userQrisSection').style.display = hasQris ? '' : 'none';
-  if(hasQris){
-    $('userQrisImg').src = r.qris_url;
-    $('userQrisZoomImg').src = r.qris_url;
-  } else {
-    $('userQrisImg').removeAttribute('src');
-    $('userQrisZoomImg').removeAttribute('src');
-  }
+  // QRIS statis sudah dihapus — QRIS otomatis tersedia di tab QRIS dinamis
   $('btnCopyBankNorek').disabled = !(r.bank_norek || r.nomor);
   $('btnCopyEwalletNomor').disabled = !r.ewallet_nomor;
 }
@@ -571,7 +563,6 @@ async function loadUserTopupHistory(){
   const { data: topups } = await sb.from('topups')
     .select('id, nominal, jumlah_token, metode, status, catatan, created_at, expires_at, sumber, gateway_ref, qr_image_url, qris_payload, pay_url')
     .eq('user_id', currentUser.id)
-    .neq('status', 'gagal')
     .order('created_at', { ascending: false })
     .limit(5);
 
@@ -605,6 +596,13 @@ async function loadUserTopupHistory(){
     }
     if(st === 'disetujui') badge = `<span style="color:var(--success);font-weight:600">&#10003; Disetujui (+${nTok ?? '?'} Token)</span>`;
     if(st === 'ditolak') badge = `<span style="color:var(--danger);font-weight:600">&times; Ditolak (${esc(t.catatan || 'Bukti tidak valid')})</span>`;
+    if(st === 'gagal'){
+      badge = '<span style="color:var(--danger);font-weight:600">&times; Gagal</span>';
+      actions = `<div style="display:flex;gap:6px;margin-top:4px;justify-content:flex-end">
+        <button type="button" class="btn pri" style="padding:3px 8px;font-size:11px" data-hact="renew">Coba lagi</button>
+        <button type="button" class="btn" style="padding:3px 8px;font-size:11px" data-hact="proof" data-id="${esc(t.id)}">Saya sudah bayar</button>
+      </div>`;
+    }
     const fDate = new Date(t.created_at).toLocaleDateString('id-ID', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
     return `
       <div style="background:var(--bg-input);padding:6px 10px;border-radius:7px">

@@ -475,11 +475,11 @@ plotCanvas.addEventListener('wheel',e=>{
 },{passive:false});
 addEventListener('keydown',e=>{
   if(e.key==='Shift'&&!shiftDown){shiftDown=true;if(tool==='E'&&hoverSeg)draw();if(cadTool()){cadResetHover();updateToolModeHint();if(mouse&&img)cadScheduleHover();else draw()}}
-  if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;
   
   if(e.key==='Enter'){if(!finishSelection())finish()}
   else if(e.key==='Escape'){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClickPt=null}cur=[];selectionPoly=[];box=null;erasePick=null;addLinePick=null;hoverSeg=null;cadResetHover();draw()}
-  else if(e.key==='Backspace'||(e.key==='z'&&(e.ctrlKey||e.metaKey))){e.preventDefault();undo()}
+  else if(e.key==='z'&&(e.ctrlKey||e.metaKey)){e.preventDefault();undo()}
 });
 addEventListener('keyup',e=>{if(e.key==='Shift'&&shiftDown){shiftDown=false;if(tool==='E'&&hoverSeg)draw();if(cadTool()){cadResetHover();updateToolModeHint();if(mouse&&img)cadScheduleHover();else draw()}}});
 // Shift bisa terlepas saat fokus keluar jendela (mis. pengguna tekan Shift klik
