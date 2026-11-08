@@ -1872,3 +1872,32 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 #main.drawer-collapsed .tool-group-label { display: none; }
 .pp-overview .ov-hint.clickable { cursor: pointer; text-decoration: underline; }
 @media (max-width: 680px) { .tool-group-label { display: none; } }
+/* ===== UI/UX Fase 3: stepper, banner, coach, chip, token warn ===== */
+.pp-stepper { display:flex; align-items:stretch; justify-content:center; gap:6px; flex-wrap:wrap; margin-top:14px; }
+.pp-step { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:76px; padding:6px 10px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; font-size:11px; color:var(--text-muted); cursor:default; text-align:center; }
+.pp-step.active { background:var(--accent-subtle); border-color:var(--accent-border); color:var(--accent-text); font-weight:700; }
+.pp-step-num { font-size:12px; font-weight:700; }
+.pp-step small { font-size:9.5px; color:var(--text-dim); font-style:italic; line-height:1.2; }
+.pp-step-arrow { align-self:center; color:var(--text-dim); font-size:16px; }
+@media (max-width:480px) {
+  .pp-stepper { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .pp-step-arrow { display:none; }
+}
+
+.pp-banner { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:12; display:flex; align-items:center; gap:10px; max-width:min(720px, calc(100% - 24px)); padding:8px 12px; background:var(--bg-panel); border:1px solid var(--accent-border); border-radius:10px; box-shadow:var(--shadow-md); font-size:12px; color:var(--text-main); }
+.pp-banner.hide { display:none !important; }
+.pp-banner-text { flex:1; min-width:0; }
+.pp-banner-actions { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.pp-banner-close { border:0; background:transparent; color:var(--text-dim); font-size:16px; line-height:1; cursor:pointer; padding:0 2px; }
+
+.coach-overlay { position:fixed; inset:0; z-index:250; background:rgba(0,0,0,.45); padding:16px; }
+.coach-overlay.hide { display:none !important; }
+.coach-card { position:fixed; max-width:360px; background:var(--bg-panel); border:1px solid var(--border); border-radius:12px; padding:14px; box-shadow:var(--shadow-lg); color:var(--text-main); font-size:12.5px; line-height:1.5; }
+.coach-text b { color:var(--accent-text); }
+.coach-check { display:flex; align-items:center; gap:6px; margin-top:10px; font-size:11px; color:var(--text-muted); }
+.coach-check input { width:auto; }
+.coach-actions { display:flex; justify-content:flex-end; gap:6px; margin-top:10px; }
+
+.chip-file .dot.autosaved { background:var(--success); }
+#tokenPill.token-warn { background:var(--warning-subtle); border-color:rgba(245,158,11,.45); }
+#tokenPill.token-empty { background:var(--danger-subtle); border-color:rgba(239,68,68,.4); }
