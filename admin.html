@@ -138,6 +138,26 @@ tr:hover td { background: var(--bg-card); }
 :root { --shadow-soft: 0 10px 28px rgba(0,0,0,.13); }
 body { background:var(--bg-app); }
 .header { position:sticky; top:0; z-index:30; backdrop-filter:blur(16px); background:color-mix(in srgb,var(--bg-panel) 92%,transparent); border-bottom:1px solid var(--border); box-shadow:0 4px 18px rgba(0,0,0,.08); }
+.notif-wrap { position:relative; }
+.notif-bell { position:relative; display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:9px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); cursor:pointer; }
+.notif-bell:hover { background:var(--bg-input); }
+.notif-badge { position:absolute; top:-5px; right:-5px; min-width:17px; height:17px; padding:0 4px; border-radius:999px; background:var(--danger); color:#fff; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.notif-dropdown { position:absolute; right:0; top:calc(100% + 8px); width:min(320px,calc(100vw - 24px)); background:var(--bg-panel); border:1px solid var(--border); border-radius:12px; box-shadow:0 18px 36px rgba(0,0,0,.45); z-index:120; display:none; overflow:hidden; }
+.notif-dropdown.open { display:block; }
+.notif-head { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border); font-size:12px; }
+.notif-head b { margin-right:auto; }
+.notif-head .btn { padding:3px 8px; font-size:10.5px; }
+.notif-list { max-height:360px; overflow:auto; }
+.notif-item { display:flex; gap:9px; width:100%; padding:10px 12px; border:0; border-bottom:1px solid var(--border-subtle); background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.notif-item:hover { background:var(--bg-card); }
+.notif-item.unread { background:var(--accent-subtle); }
+.notif-icon { font-size:16px; line-height:1.2; }
+.notif-copy { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.notif-title { font-size:12px; font-weight:600; }
+.notif-sub { font-size:10.5px; color:var(--text-muted); overflow-wrap:anywhere; }
+.notif-foot { display:flex; justify-content:flex-end; padding:9px 12px; border-top:1px solid var(--border); }
+.notif-foot .btn { padding:4px 9px; font-size:11px; }
+.notif-empty { padding:18px 12px; text-align:center; color:var(--text-muted); font-size:12px; }
 .container.admin-layout { width:min(1500px,100%); max-width:none; margin:0 auto; padding:24px; display:grid; grid-template-columns:230px minmax(0,1fr); gap:22px; align-items:start; }
 .admin-sidebar { position:sticky; top:88px; border:1px solid var(--border); border-radius:16px; background:var(--bg-panel); padding:14px; box-shadow:var(--shadow-soft); min-height:calc(100vh - 115px); display:flex; flex-direction:column; gap:6px; }
 .sidebar-heading { color:var(--text-dim); font-size:10px; font-weight:800; letter-spacing:1.4px; padding:8px 10px 12px; }
@@ -154,6 +174,17 @@ body { background:var(--bg-app); }
 .welcome-row p { color:var(--text-muted); margin:0; font-size:12.5px; line-height:1.6; }
 .eyebrow { font-size:10px; color:var(--accent-text); letter-spacing:1.5px; font-weight:800; }
 .summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px; margin-bottom:20px; }
+.analytics-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px; margin-bottom:16px; }
+.analytics-card { display:flex; flex-direction:column; gap:4px; text-align:left; padding:14px 15px; border:1px solid var(--border); border-radius:14px; background:var(--bg-panel); color:inherit; font:inherit; cursor:pointer; transition:.18s ease; }
+.analytics-card:hover { border-color:color-mix(in srgb,var(--accent) 40%,var(--border)); transform:translateY(-1px); }
+.analytics-label { font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--text-muted); }
+.analytics-card strong { font-family:var(--font-mono); font-size:24px; line-height:1.2; color:var(--accent-text); }
+.analytics-delta { font-size:11px; font-weight:700; }
+.analytics-delta.up { color:var(--success); }
+.analytics-delta.down { color:var(--danger); }
+.analytics-delta.flat { color:var(--text-muted); }
+.analytics-hint { font-size:10px; color:var(--text-dim); }
+.analytics-chart { width:100%; height:auto; display:block; }
 .summary-card { display:flex; align-items:center; gap:13px; background:var(--bg-panel); border:1px solid var(--border); border-radius:14px; padding:16px; min-width:0; box-shadow:var(--shadow-soft); }
 .summary-icon { display:grid; place-items:center; flex-shrink:0; width:42px; height:42px; border-radius:12px; font-size:20px; }
 .summary-icon.blue { color:var(--accent-text); background:var(--accent-subtle); }.summary-icon.green { color:var(--success); background:var(--success-subtle); }.summary-icon.purple { color:#a78bfa; background:rgba(167,139,250,.13); }
@@ -167,7 +198,7 @@ body { background:var(--bg-app); }
 .table-wrap { border:1px solid var(--border); border-radius:10px; }
 th { white-space:nowrap; }
 #btnThemeToggle { white-space:nowrap; }
-@media(max-width:1000px) { .container.admin-layout { grid-template-columns:190px minmax(0,1fr); padding:16px; gap:14px; } .summary-grid { grid-template-columns:1fr; } .summary-card { padding:12px 14px; } }
+@media(max-width:1000px) { .container.admin-layout { grid-template-columns:190px minmax(0,1fr); padding:16px; gap:14px; } .summary-grid, .analytics-grid { grid-template-columns:1fr; } .summary-card { padding:12px 14px; } }
 @media(max-width:760px) { .container.admin-layout { display:flex; flex-direction:column; padding:12px; gap:14px; } .admin-sidebar { position:static; min-height:0; width:100%; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding:10px; } .sidebar-heading,.sidebar-foot { grid-column:1/-1; } .sidebar-heading { padding:4px 6px; } .sidebar-foot { margin-top:5px; } .nav-item { padding:10px 8px; font-size:11px; } .welcome-row { align-items:flex-start; } .welcome-row h1 { font-size:21px; } .welcome-row p { max-width:300px; } .header { padding:12px; } .brand-badge { display:none; } #adminSessionLabel { max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } }
 @media(max-width:480px) { .summary-grid { grid-template-columns:1fr; } .welcome-row { flex-direction:column; } .welcome-row #btnThemeToggle { align-self:flex-start; } .admin-sidebar { grid-template-columns:1fr 1fr; } .card { padding:14px; } }
 
@@ -316,6 +347,17 @@ th { white-space:nowrap; }
     </div>
     <div style="display:flex;align-items:center;gap:12px">
       <span id="adminSessionLabel" class="mono" style="font-size:12px;color:var(--text-muted)"></span>
+      <div class="notif-wrap">
+        <button class="notif-bell" id="btnNotifBell" type="button" aria-label="Notifikasi" aria-expanded="false">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+          <span class="notif-badge" id="notifBadge" hidden>0</span>
+        </button>
+        <div class="notif-dropdown" id="notifDropdown">
+          <div class="notif-head"><b>Notifikasi</b><button class="btn" type="button" id="notifMarkAll">Tandai semua dibaca</button></div>
+          <div class="notif-list" id="notifList"><div class="notif-empty">Belum ada notifikasi.</div></div>
+          <div class="notif-foot"><button class="btn" type="button" id="notifSeeAll">Lihat semua</button></div>
+        </div>
+      </div>
       <button id="btnAdminLogout" class="btn dan" style="padding:6px 12px">Keluar</button>
     </div>
   </div>
@@ -331,6 +373,7 @@ th { white-space:nowrap; }
       <button class="nav-item" data-nav="panel-history"><span>▤</span> Riwayat Transaksi</button>
       <button class="nav-item" data-nav="panel-announcements"><span>📢</span> Pengumuman</button>
       <button class="nav-item" data-nav="panel-support"><span>✉</span> Chat Pengguna <b id="navSupportCount" class="nav-count">—</b></button>
+      <button class="nav-item" data-nav="panel-activity"><span>◷</span> Log Aktivitas</button>
       <div class="sidebar-foot"><span class="status-dot"></span> Terhubung ke panel admin</div>
     </aside>
     <main class="admin-main" id="adminContentPanels">
@@ -338,6 +381,26 @@ th { white-space:nowrap; }
       <div class="welcome-row">
         <div><div class="eyebrow">PUSAT KONTROL</div><h1>Dashboard Admin</h1><p>Kelola transaksi, pengguna, pembayaran, dan token PlotPeta.</p></div>
         <button class="btn" id="btnThemeToggle" type="button">☼ Tema terang</button>
+      </div>
+      <div class="analytics-grid" id="analyticsGrid">
+        <button class="analytics-card" type="button" data-analytics="revenue">
+          <span class="analytics-label">Revenue bulan ini</span>
+          <strong id="anRevenue">Memuat...</strong>
+          <span class="analytics-delta flat" id="anRevenueDelta"></span>
+          <span class="analytics-hint">Klik untuk grafik 12 bulan</span>
+        </button>
+        <button class="analytics-card" type="button" data-analytics="users">
+          <span class="analytics-label">User baru bulan ini</span>
+          <strong id="anUsers">Memuat...</strong>
+          <span class="analytics-delta flat" id="anUsersDelta"></span>
+          <span class="analytics-hint">Klik untuk grafik 12 bulan</span>
+        </button>
+        <button class="analytics-card" type="button" data-analytics="usage">
+          <span class="analytics-label">Token dipakai bulan ini</span>
+          <strong id="anUsage">Memuat...</strong>
+          <span class="analytics-delta flat" id="anUsageDelta"></span>
+          <span class="analytics-hint">Klik untuk grafik 12 bulan</span>
+        </button>
       </div>
       <div class="summary-grid preview-summary-grid">
         <div class="summary-card"><span class="summary-icon blue">◷</span><div><small>Top-up menunggu</small><strong id="summaryPending">—</strong><span>Permintaan perlu verifikasi</span></div></div>
@@ -598,6 +661,54 @@ th { white-space:nowrap; }
     <div class="support-filters"><button type="button" class="support-filter active" data-support-filter="all">Semua</button><button type="button" class="support-filter" data-support-filter="unread">Belum dibaca</button><button type="button" class="support-filter" data-support-filter="replied">Sudah dibalas</button></div>
     <div class="support-inbox" id="supportInbox"><section class="support-list-pane"><div class="support-pane-head"><span>Daftar percakapan</span><span id="supportConversationCount" class="badge">0</span></div><div id="adminSupportList"><div class="support-empty">Memuat percakapan...</div></div></section><section class="support-chat-pane"><div class="support-chat-placeholder" id="supportChatPlaceholder"><div style="font-size:34px">✉</div><b>Pilih percakapan</b><span>Pilih pengguna di daftar untuk membaca dan membalas pesan.</span></div><div id="adminSupportReplyBox"><div class="support-chat-header"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="btnSupportBack" style="display:none;margin-bottom:8px">← Daftar chat</button><b id="adminSupportUserLabel">Percakapan</b><button type="button" class="btn" id="btnRefreshChat" title="Muat ulang percakapan" style="padding:4px 8px;font-size:11px">↻ Refresh</button><span class="mu" id="chatRefreshState" style="font-size:11px"></span></div></div><div id="adminSupportThread"></div><div class="support-compose"><textarea id="adminSupportReply" rows="2" placeholder="Tulis balasan..."></textarea><button class="btn pri" id="btnSendSupportReply" type="button">Kirim ↗</button></div></div></section></div>
     </div>
+    <div class="card admin-section" id="panel-activity" data-panel="panel-activity" style="display:none">
+      <div class="card-head">
+        <h2 class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 16 14"></polyline></svg>
+          <span>Log Aktivitas Admin</span>
+        </h2>
+        <button class="btn" type="button" id="btnReloadActivity">Refresh</button>
+      </div>
+      <div class="history-toolbar">
+        <input type="search" id="actSearch" placeholder="Cari admin, aksi, atau target...">
+        <select id="actAction">
+          <option value="">Semua aksi</option>
+          <option value="approve_topup">Approve top-up</option>
+          <option value="reject_topup">Reject top-up</option>
+          <option value="koreksi_token">Koreksi token</option>
+          <option value="delete_user">Hapus user</option>
+          <option value="save_settings">Ubah pengaturan</option>
+          <option value="save_payment">Ubah pembayaran</option>
+          <option value="delete_announcement">Hapus pengumuman</option>
+          <option value="edit_announcement">Edit pengumuman</option>
+        </select>
+        <select id="actRange">
+          <option value="">Semua tanggal</option>
+          <option value="7">7 hari</option>
+          <option value="30">30 hari</option>
+          <option value="90">90 hari</option>
+        </select>
+        <button class="btn" type="button" id="actReset" hidden>Reset</button>
+        <span class="mu" id="actCount" style="font-size:11px"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>Admin</th>
+              <th>Aksi</th>
+              <th>Target</th>
+              <th>Detail</th>
+            </tr>
+          </thead>
+          <tbody id="tblActivity">
+            <tr><td colspan="5" style="text-align:center;color:var(--text-muted)">Memuat log aktivitas...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mu" id="actLimitNotice" style="font-size:11px;margin-top:8px" hidden>Menampilkan 200 aktivitas terbaru saja. Aktivitas lama tidak dimuat.</div>
+    </div>
     </main>
   </div>
 </div>
@@ -681,6 +792,28 @@ th { white-space:nowrap; }
     <div id="topupDetailBody" style="max-height:65vh;overflow:auto;padding-right:8px"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px" id="topupDetailActions">
       <button class="btn" type="button" onclick="$('topupDetailModal').classList.remove('open')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="analyticsModal">
+  <div class="modal-box" style="max-width:680px">
+    <button class="modal-close" onclick="$('analyticsModal').classList.remove('open')">&times;</button>
+    <h3 style="margin-top:0" id="analyticsModalTitle">Analytics</h3>
+    <div id="analyticsModalBody" style="max-height:65vh;overflow:auto;padding-right:8px"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+      <button class="btn" type="button" onclick="$('analyticsModal').classList.remove('open')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="activityDetailModal">
+  <div class="modal-box" style="max-width:600px">
+    <button class="modal-close" onclick="$('activityDetailModal').classList.remove('open')">&times;</button>
+    <h3 style="margin-top:0" id="activityDetailTitle">Detail Aktivitas</h3>
+    <div id="activityDetailBody" style="max-height:65vh;overflow:auto;padding-right:8px"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+      <button class="btn" type="button" onclick="$('activityDetailModal').classList.remove('open')">Tutup</button>
     </div>
   </div>
 </div>
@@ -781,6 +914,22 @@ function showPrompt(opts) {
 function uiConfirm(opts) { return new Promise(res => showConfirm(Object.assign({}, opts, { onConfirm: () => res(true), onCancel: () => res(false) }))); }
 function uiPrompt(opts) { return new Promise(res => showPrompt(Object.assign({}, opts, { onConfirm: v => res(v), onCancel: () => res(null) }))); }
 function uiToast(msg, type, duration) { showToast(msg, type, duration); }
+
+// Audit trail: fire-and-forget. Kegagalan log tidak boleh memblokir aksi utama.
+function logAdminAction(action, targetType, targetId, metadata) {
+  try {
+    sb.rpc('log_admin_action', {
+      p_action: action,
+      p_target_type: targetType || null,
+      p_target_id: targetId == null ? null : String(targetId),
+      p_metadata: metadata || {}
+    }).then(({ error }) => {
+      if (error) console.warn('Log aktivitas gagal:', error.message);
+    }).catch(e => console.warn('Log aktivitas gagal:', e?.message || e));
+  } catch (e) {
+    console.warn('Log aktivitas gagal:', e?.message || e);
+  }
+}
 
 document.getElementById('adminConfirmOk').onclick = () => closeAdminConfirm(true);
 document.getElementById('adminConfirmCancel').onclick = () => closeAdminConfirm(false);
@@ -921,6 +1070,8 @@ function showDashboard(profile){
   loadAllTopups();
   // Muat hitungan pesan belum dibaca segera setelah dashboard admin tampil.
   if (typeof loadAdminSupport === 'function') loadAdminSupport();
+  if (typeof startAdminNotifications === 'function') startAdminNotifications();
+  if (typeof loadAnalytics === 'function') loadAnalytics();
 }
 
 // Login administrator hanya lewat Google
@@ -1008,6 +1159,7 @@ async function savePaymentInfo({ quiet = false } = {}){
     if(!quiet) uiToast('Gagal menyimpan info pembayaran: ' + error.message,'error',8000);
     return false;
   }
+  logAdminAction('save_payment', 'settings', 'main', { fields_changed: Object.keys(rekObj).filter(k => rekObj[k] !== '') });
   return true;
 }
 
@@ -1044,7 +1196,10 @@ $('btnSaveTokenSettings').onclick = async () => {
     { key: 'ai_tile_per_blok', value: tileBlok }
   ]);
   if(error) uiToast('Gagal menyimpan pengaturan token: ' + error.message,'error',8000);
-  else uiToast('Pengaturan aturan token berhasil disimpan!','success');
+  else {
+    logAdminAction('save_settings', 'settings', 'token', { keys_changed: ['masa_berlaku_token_hari','token_gratis_daftar','harga_paket_50','token_biaya_ekspor_dxf','token_biaya_deteksi_ai','ai_tile_per_blok'] });
+    uiToast('Pengaturan aturan token berhasil disimpan!','success');
+  }
 };
 
 // 3. LOAD PERMINTAAN TOP-UP MENUNGGU
@@ -1077,7 +1232,7 @@ async function loadPendingTopups() {
 
   tb.innerHTML = data.map(t => `
     <tr>
-      <td><input type="checkbox" class="pending-chk" data-id="${esc(t.id)}" data-nama="${esc(t.profiles?.nama || 'Pengguna')}" data-token="${Number(t.jumlah_token) || 0}" data-nominal="${Number(t.nominal) || 0}" aria-label="Pilih top-up ${esc(t.profiles?.nama || '')}"></td>
+      <td><input type="checkbox" class="pending-chk" data-id="${esc(t.id)}" data-uid="${esc(t.user_id || '')}" data-nama="${esc(t.profiles?.nama || 'Pengguna')}" data-token="${Number(t.jumlah_token) || 0}" data-nominal="${Number(t.nominal) || 0}" aria-label="Pilih top-up ${esc(t.profiles?.nama || '')}"></td>
       <td class="mono">${fDate(t.created_at)}</td>
       <td><b>${esc(t.profiles?.nama || '-')}</b><br><span class="mono" style="font-size:11px;color:var(--text-dim)">${esc(t.profiles?.email || '-')}</span></td>
       <td>${t.jumlah_token} Token</td>
@@ -1088,7 +1243,7 @@ async function loadPendingTopups() {
       </td>
       <td>
         <div style="display:flex;gap:6px">
-          <button class="btn suc" style="padding:4px 8px;font-size:11px" data-act="approve" data-id="${esc(t.id)}" data-nama="${esc(t.profiles?.nama || 'Pengguna')}" data-jml="${Number(t.jumlah_token) || 0}">Setujui</button>
+          <button class="btn suc" style="padding:4px 8px;font-size:11px" data-act="approve" data-id="${esc(t.id)}" data-uid="${esc(t.user_id || '')}" data-nama="${esc(t.profiles?.nama || 'Pengguna')}" data-jml="${Number(t.jumlah_token) || 0}" data-nominal="${Number(t.nominal) || 0}">Setujui</button>
           <button class="btn dan" style="padding:4px 8px;font-size:11px" data-act="reject" data-id="${esc(t.id)}" data-nama="${esc(t.profiles?.nama || 'Pengguna')}" data-nominal="${Number(t.nominal) || 0}">Tolak</button>
         </div>
       </td>
@@ -1110,7 +1265,7 @@ $('bulkReject')?.addEventListener('click', bulkRejectTopups);
 
 function pendingSelected() {
   return [...document.querySelectorAll('#tblPending .pending-chk:checked')].map(c => ({
-    id: c.dataset.id, nama: c.dataset.nama, token: Number(c.dataset.token) || 0, nominal: Number(c.dataset.nominal) || 0
+    id: c.dataset.id, uid: c.dataset.uid, nama: c.dataset.nama, token: Number(c.dataset.token) || 0, nominal: Number(c.dataset.nominal) || 0
   }));
 }
 function updateBulkTopupBar() {
@@ -1133,6 +1288,9 @@ async function bulkApproveTopups() {
     if ($('bulkCount')) $('bulkCount').textContent = `Memproses ${done + 1}/${list.length}...`;
     const { data, error } = await sb.rpc('admin_approve_topup', { p_topup_id: item.id });
     if (error || (data && !data.success)) { failed = error?.message || data?.message || 'tidak diketahui'; break; }
+    logAdminAction('approve_topup', 'topup', item.id, {
+      topup_id: item.id, user_id: item.uid || null, nominal: item.nominal, token_count: item.token
+    });
     done++;
   }
   if (failed) {
@@ -1160,6 +1318,7 @@ async function bulkRejectTopups() {
     if ($('bulkCount')) $('bulkCount').textContent = `Memproses ${done + 1}/${list.length}...`;
     const { data, error } = await sb.rpc('admin_reject_topup', { p_topup_id: item.id, p_catatan: catatan });
     if (error || (data && !data.success)) { failed = error?.message || data?.message || 'tidak diketahui'; break; }
+    logAdminAction('reject_topup', 'topup', item.id, { topup_id: item.id, reason: catatan });
     done++;
   }
   if (failed) uiToast(`${done} berhasil, 1 gagal: ${failed}. Sisanya tidak diproses.`, 'error', 8000);
@@ -1182,7 +1341,7 @@ async function previewBukti(path) {
   }
 }
 
-async function approveTopup(id, nama, token) {
+async function approveTopup(id, nama, token, nominal, uid) {
   const ok = await uiConfirm({
     title:'Setujui top-up?',
     body:`Setujui top-up ${token} token untuk ${nama}? Token akan langsung ditambahkan ke saldo pengguna.`,
@@ -1193,6 +1352,9 @@ async function approveTopup(id, nama, token) {
   if(error || (data && !data.success)){
     uiToast('Gagal menyetujui: ' + (error?.message || data?.message),'error',8000);
   } else {
+    logAdminAction('approve_topup', 'topup', id, {
+      topup_id: id, user_id: uid || null, nominal: Number(nominal) || 0, token_count: Number(token) || 0
+    });
     uiToast('Top-up berhasil disetujui!','success');
     loadPendingTopups();
     loadAllTopups();
@@ -1217,6 +1379,7 @@ async function rejectTopup(id, nama, nominal) {
   if(error || (data && !data.success)){
     uiToast('Gagal menolak: ' + (error?.message || data?.message),'error',8000);
   } else {
+    logAdminAction('reject_topup', 'topup', id, { topup_id: id, reason: catatan });
     uiToast('Permintaan top-up telah ditolak.','success');
     loadPendingTopups();
     loadAllTopups();
@@ -1511,6 +1674,7 @@ async function deleteUserAccount(targetId, nama, email, bal) {
       return;
     }
     uiToast('Akun ' + (nama || 'pengguna') + ' dihapus', 'success');
+    logAdminAction('delete_user', 'user', targetId, { target_user_id: targetId, target_email: email || null, target_saldo: Number(bal) || 0 });
     $('userDetailModal').classList.remove('open');
     loadUsers();
     loadPendingTopups();
@@ -1606,6 +1770,9 @@ $('btnSubmitKoreksi').onclick = async () => {
     return;
   }
 
+  logAdminAction('koreksi_token', 'user', selectedUserIdForKoreksi, {
+    target_user_id: selectedUserIdForKoreksi, delta: qty, note: catatan, balance_before: Number(cache.bal) || 0, balance_after: (Number(cache.bal) || 0) + qty
+  });
   uiToast('Koreksi token disimpan. Saldo baru: ' + (cache.bal + qty) + ' token', 'success');
   $('modalKoreksi').classList.remove('open');
   loadUsers();
@@ -1730,7 +1897,7 @@ document.addEventListener('click', e => {
   if(!b) return;
   const a = b.dataset.act;
   if(a === 'bukti') previewBukti(b.dataset.path);
-  else if(a === 'approve') approveTopup(b.dataset.id, b.dataset.nama, Number(b.dataset.jml));
+  else if(a === 'approve') approveTopup(b.dataset.id, b.dataset.nama, Number(b.dataset.jml), Number(b.dataset.nominal) || 0, b.dataset.uid);
   else if(a === 'reject') rejectTopup(b.dataset.id, b.dataset.nama, Number(b.dataset.nominal) || 0);
   else if(a === 'detail') openUserDetail(b.dataset.id, b.dataset.nama);
   else if(a === 'koreksi') openKoreksiModal(b.dataset.id, b.dataset.nama);
@@ -1777,8 +1944,10 @@ async function saveEditedAnnouncement(){
     if(ok)loadAdminAnnouncements();
     return;
   }
+  const oldTitle = adminAnnouncements.find(x => x.id === editAnnId)?.title || '';
   const { error } = await sb.from('announcements').update({title,body,is_published:$('editAnnPublished').checked,updated_at:new Date().toISOString()}).eq('id',editAnnId);
   if(error){uiToast('Gagal menyimpan pengumuman: '+error.message,'error',8000);return;}
+  logAdminAction('edit_announcement', 'announcement', editAnnId, { announcement_id: editAnnId, title_old: oldTitle, title_new: title });
   uiToast('Pengumuman berhasil diperbarui.','success');
   $('editAnnouncementModal').classList.remove('open');
   loadAdminAnnouncements();
@@ -1796,7 +1965,17 @@ $('editAnnPreviewBtn')?.addEventListener('click',()=>{
   } else box.style.display='none';
 });
 async function toggleAnnouncement(id,published){const {error}=await sb.from('announcements').update({is_published:published}).eq('id',id);if(error)uiToast('Gagal: '+error.message,'error',8000);else loadAdminAnnouncements();}
-async function deleteAnnouncement(id){const ok=await uiConfirm({title:'Hapus pengumuman?',body:'Pengumuman akan dihapus permanen. Pengguna yang sedang buka aplikasi mungkin masih lihat sampai reload.',confirmText:'Hapus',cancelText:'Batal',danger:true});if(!ok)return;const {error}=await sb.from('announcements').delete().eq('id',id);if(error)uiToast('Gagal: '+error.message,'error',8000);else loadAdminAnnouncements();}
+async function deleteAnnouncement(id){
+  const ann = adminAnnouncements.find(x => x.id === id);
+  const ok = await uiConfirm({title:'Hapus pengumuman?',body:'Pengumuman akan dihapus permanen. Pengguna yang sedang buka aplikasi mungkin masih lihat sampai reload.',confirmText:'Hapus',cancelText:'Batal',danger:true});
+  if(!ok) return;
+  const {error} = await sb.from('announcements').delete().eq('id',id);
+  if(error) uiToast('Gagal: '+error.message,'error',8000);
+  else {
+    logAdminAction('delete_announcement', 'announcement', id, { announcement_id: id, title: ann?.title || '' });
+    loadAdminAnnouncements();
+  }
+}
 async function saveAnnouncement(){const title=$('annTitle').value.trim(),body=$('annBody').value.trim();if(!title||!body){uiToast('Isi judul dan isi pengumuman.','warn');return;}const {error}=await sb.from('announcements').insert({title,body,is_published:$('annPublished').checked,created_by:currentAdminUser.id});if(error){uiToast('Gagal menyimpan pengumuman: '+error.message,'error',8000);return;}$('annTitle').value='';$('annBody').value='';loadAdminAnnouncements();}
 let supportInboxRows=[];let supportInboxProfiles={};let supportInboxFilter='all';
 function renderAdminSupportList(){
@@ -1851,6 +2030,365 @@ $('btnRefreshChat')?.addEventListener('click', async () => {
 });
 $('supportSearch')?.addEventListener('input',renderAdminSupportList);document.querySelectorAll('[data-support-filter]').forEach(b=>b.addEventListener('click',()=>{supportInboxFilter=b.dataset.supportFilter;document.querySelectorAll('[data-support-filter]').forEach(x=>x.classList.toggle('active',x===b));renderAdminSupportList();}));$('btnSupportBack')?.addEventListener('click',()=>{$('supportInbox').classList.remove('chat-selected');supportSelectedUserId=null;$('adminSupportReplyBox').classList.remove('support-chat-open');$('supportChatPlaceholder').style.display='flex';renderAdminSupportList();});
 
+// ===== Analytics Dashboard (A5c) =====
+const ANALYTICS_CFG = {
+  revenue: { label: 'Revenue', color: '#10b981', fmt: v => fRp(v) },
+  users: { label: 'User baru', color: '#3b82f6', fmt: v => v + ' user' },
+  usage: { label: 'Token dipakai', color: '#f59e0b', fmt: v => v + ' token' }
+};
+let analyticsData = null;
+function analyticsMonthKey(value) {
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function buildAnalyticsMonths() {
+  const now = new Date();
+  const months = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      key: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'),
+      label: d.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' }),
+      revenue: 0, users: 0, usage: 0
+    });
+  }
+  return months;
+}
+function analyticsDelta(cur, prev) {
+  if (!prev) return { text: cur > 0 ? '+100% vs bulan lalu' : '— vs bulan lalu', cls: cur > 0 ? 'up' : 'flat' };
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  return { text: (pct > 0 ? '+' : '') + pct + '% vs bulan lalu', cls: pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat' };
+}
+async function loadAnalytics() {
+  ['anRevenue', 'anUsers', 'anUsage'].forEach(id => { if ($(id)) $(id).textContent = 'Memuat...'; });
+  const since = new Date();
+  since.setDate(1);
+  since.setMonth(since.getMonth() - 11);
+  since.setHours(0, 0, 0, 0);
+  const sinceIso = since.toISOString();
+  try {
+    const [{ data: topups, error: e1 }, { data: profiles, error: e2 }, { data: ledger, error: e3 }] = await Promise.all([
+      sb.from('topups').select('nominal,created_at').eq('status', 'disetujui').gte('created_at', sinceIso),
+      sb.from('profiles').select('created_at').gte('created_at', sinceIso),
+      sb.from('token_ledger').select('jumlah,waktu').eq('jenis', 'pakai').gte('waktu', sinceIso)
+    ]);
+    if (e1 || e2 || e3) {
+      console.warn('Analytics gagal dimuat:', (e1 || e2 || e3).message);
+      ['anRevenue', 'anUsers', 'anUsage'].forEach(id => { if ($(id)) $(id).textContent = 'Belum tersedia'; });
+      return;
+    }
+    const months = buildAnalyticsMonths();
+    const map = {};
+    months.forEach(m => { map[m.key] = m; });
+    (topups || []).forEach(t => { const m = map[analyticsMonthKey(t.created_at)]; if (m) m.revenue += Number(t.nominal) || 0; });
+    (profiles || []).forEach(p => { const m = map[analyticsMonthKey(p.created_at)]; if (m) m.users += 1; });
+    (ledger || []).forEach(l => { const m = map[analyticsMonthKey(l.waktu)]; if (m) m.usage += Math.abs(Number(l.jumlah) || 0); });
+    analyticsData = { months };
+    renderAnalytics();
+  } catch (e) {
+    console.warn('Analytics gagal dimuat:', e?.message || e);
+    ['anRevenue', 'anUsers', 'anUsage'].forEach(id => { if ($(id)) $(id).textContent = 'Belum tersedia'; });
+  }
+}
+function renderAnalytics() {
+  if (!analyticsData) return;
+  const months = analyticsData.months;
+  const cur = months[months.length - 1], prev = months[months.length - 2];
+  if ($('anRevenue')) $('anRevenue').textContent = fRp(cur.revenue);
+  if ($('anUsers')) $('anUsers').textContent = cur.users + ' user';
+  if ($('anUsage')) $('anUsage').textContent = cur.usage + ' token';
+  const apply = (id, c, p) => {
+    const el = $(id);
+    if (!el) return;
+    const d = analyticsDelta(c, p);
+    el.textContent = d.text;
+    el.className = 'analytics-delta ' + d.cls;
+  };
+  apply('anRevenueDelta', cur.revenue, prev.revenue);
+  apply('anUsersDelta', cur.users, prev.users);
+  apply('anUsageDelta', cur.usage, prev.usage);
+}
+function analyticsSvg(months, metric) {
+  const cfg = ANALYTICS_CFG[metric];
+  const values = months.map(m => Number(m[metric]) || 0);
+  const max = Math.max(1, ...values);
+  const w = 620, h = 220, left = 8, right = 8, base = h - 26, top = 10;
+  const bw = (w - left - right) / months.length;
+  const bars = months.map((m, i) => {
+    const v = values[i];
+    const bh = Math.max(v > 0 ? 2 : 0, (v / max) * (base - top));
+    const x = left + i * bw;
+    return `<rect x="${x + 3}" y="${base - bh}" width="${Math.max(bw - 6, 2)}" height="${bh}" rx="3" fill="${cfg.color}"><title>${esc(m.label + ': ' + cfg.fmt(v))}</title></rect>` +
+      `<text x="${x + bw / 2}" y="${h - 8}" text-anchor="middle" font-size="9" fill="var(--text-muted)">${esc(m.label)}</text>`;
+  }).join('');
+  return `<svg class="analytics-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Grafik 12 bulan">${bars}</svg>`;
+}
+function openAnalyticsDetail(metric) {
+  if (!analyticsData) return;
+  const cfg = ANALYTICS_CFG[metric];
+  if (!cfg) return;
+  const months = analyticsData.months;
+  const cur = months[months.length - 1], prev = months[months.length - 2];
+  const d = analyticsDelta(cur[metric], prev[metric]);
+  const color = d.cls === 'up' ? 'var(--success)' : d.cls === 'down' ? 'var(--danger)' : 'var(--text-muted)';
+  $('analyticsModalTitle').textContent = cfg.label + ' — 12 bulan';
+  $('analyticsModalBody').innerHTML = `
+    <div class="detail-section">
+      <div class="detail-row"><span>Bulan ini</span><span><b>${esc(cfg.fmt(cur[metric]))}</b></span></div>
+      <div class="detail-row"><span>Bulan lalu</span><span>${esc(cfg.fmt(prev[metric]))}</span></div>
+      <div class="detail-row"><span>Perubahan</span><span style="color:${color}">${esc(d.text)}</span></div>
+    </div>
+    <div class="detail-section">${analyticsSvg(months, metric)}</div>
+    <div class="detail-section"><h4>Rincian bulanan</h4><div class="detail-list">${months.slice().reverse().map(m => `<div class="detail-row"><span>${esc(m.label)}</span><span>${esc(cfg.fmt(m[metric]))}</span></div>`).join('')}</div></div>`;
+  $('analyticsModal').classList.add('open');
+}
+document.querySelectorAll('[data-analytics]').forEach(b => b.addEventListener('click', () => openAnalyticsDetail(b.dataset.analytics)));
+
+// ===== Notification bell (A5b) =====
+const NOTIF_KEY = 'pp_admin_notifs';
+const NOTIF_MAX = 50;
+let adminNotifs = [];
+let notifChannel = null;
+let notifPollSince = Date.now();
+let notifPollBusy = false;
+
+function loadStoredNotifs() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]');
+    const cutoff = Date.now() - 24 * 3600 * 1000;
+    adminNotifs = (Array.isArray(raw) ? raw : []).filter(n => n && n.ts >= cutoff).slice(0, NOTIF_MAX);
+  } catch (_) { adminNotifs = []; }
+}
+function saveNotifs() {
+  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(adminNotifs.slice(0, NOTIF_MAX))); } catch (_) {}
+}
+function notifRelTime(ts) {
+  const diff = Math.max(0, Date.now() - Number(ts || 0));
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'baru saja';
+  if (m < 60) return m + ' menit lalu';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + ' jam lalu';
+  return Math.floor(h / 24) + ' hari lalu';
+}
+function pushNotif(n) {
+  if (!n || !n.id) return;
+  if (adminNotifs.some(x => x.type + ':' + x.id === n.type + ':' + n.id)) return;
+  adminNotifs.unshift(Object.assign({ ts: Date.now(), read: false }, n));
+  adminNotifs = adminNotifs.slice(0, NOTIF_MAX);
+  saveNotifs();
+  renderNotifs();
+}
+function renderNotifs() {
+  const badge = $('notifBadge'), list = $('notifList');
+  const unread = adminNotifs.filter(n => !n.read).length;
+  if (badge) { badge.hidden = unread === 0; badge.textContent = unread > 9 ? '9+' : String(unread); }
+  if (!list) return;
+  list.innerHTML = adminNotifs.slice(0, 10).map(n => `
+    <button type="button" class="notif-item ${n.read ? '' : 'unread'}" data-notif-key="${esc(n.type + ':' + n.id)}">
+      <span class="notif-icon">${n.type === 'topup' ? '💰' : '✉️'}</span>
+      <span class="notif-copy">
+        <span class="notif-title">${esc(n.title || 'Notifikasi')}</span>
+        <span class="notif-sub">${esc(n.subtitle || '')} · ${notifRelTime(n.ts)}</span>
+      </span>
+    </button>`).join('') || '<div class="notif-empty">Belum ada notifikasi.</div>';
+}
+function setNotifDropdown(open) {
+  const d = $('notifDropdown'), b = $('btnNotifBell');
+  if (!d) return;
+  d.classList.toggle('open', !!open);
+  if (b) b.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+function markNotifRead(key) {
+  const n = adminNotifs.find(x => x.type + ':' + x.id === key);
+  if (n && !n.read) { n.read = true; saveNotifs(); renderNotifs(); }
+  return n;
+}
+function markAllNotifsRead() {
+  adminNotifs.forEach(n => { n.read = true; });
+  saveNotifs(); renderNotifs();
+}
+function navTo(id) {
+  const btn = document.querySelector('[data-nav="' + id + '"]');
+  if (btn) btn.click();
+}
+function openNotification(key) {
+  const n = markNotifRead(key);
+  setNotifDropdown(false);
+  if (!n) return;
+  if (n.type === 'topup') {
+    navTo('panel-topups');
+  } else if (n.type === 'chat') {
+    navTo('panel-support');
+    if (n.userId && typeof openAdminSupport === 'function') openAdminSupport(n.userId);
+  }
+}
+async function pollAdminNotifications() {
+  if (notifPollBusy || !currentAdminUser) return;
+  notifPollBusy = true;
+  const since = new Date(notifPollSince).toISOString();
+  try {
+    const [{ data: topups }, { data: msgs }] = await Promise.all([
+      sb.from('topups').select('id,nominal,created_at').eq('status', 'menunggu').gte('created_at', since).order('created_at', { ascending: false }).limit(10),
+      sb.from('support_messages').select('id,user_id,message,created_at').eq('sender_role', 'user').gte('created_at', since).order('created_at', { ascending: false }).limit(10)
+    ]);
+    (topups || []).forEach(t => pushNotif({ id: t.id, type: 'topup', title: 'Topup baru: ' + fRp(t.nominal || 0), subtitle: 'Topup menunggu verifikasi' }));
+    (msgs || []).forEach(m => pushNotif({ id: m.id, type: 'chat', title: 'Pesan baru dari pengguna', subtitle: (m.message || '').slice(0, 60), userId: m.user_id }));
+    notifPollSince = Date.now();
+  } catch (e) {
+    console.warn('Polling notifikasi gagal:', e?.message || e);
+  } finally { notifPollBusy = false; }
+}
+function startAdminNotifications() {
+  loadStoredNotifs();
+  renderNotifs();
+  notifPollSince = Date.now();
+  if (notifChannel) return;
+  try {
+    notifChannel = sb.channel('admin-notifications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'topups' }, payload => {
+        const t = payload.new || {};
+        if (t.status === 'menunggu') pushNotif({ id: t.id, type: 'topup', title: 'Topup baru: ' + fRp(t.nominal || 0), subtitle: 'Topup menunggu verifikasi' });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'topups' }, payload => {
+        const t = payload.new || {};
+        if (t.status === 'menunggu') pushNotif({ id: t.id, type: 'topup', title: 'Topup webhook masuk: ' + fRp(t.nominal || 0), subtitle: 'Pembayaran otomatis menunggu verifikasi' });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages' }, payload => {
+        const m = payload.new || {};
+        if (m.sender_role === 'user') pushNotif({ id: m.id, type: 'chat', title: 'Pesan baru dari pengguna', subtitle: (m.message || '').slice(0, 60), userId: m.user_id });
+      })
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.warn('Realtime notifikasi tidak aktif:', status);
+      });
+  } catch (e) {
+    console.warn('Realtime notifikasi gagal:', e?.message || e);
+  }
+  window.setInterval(pollAdminNotifications, 60000);
+}
+$('btnNotifBell')?.addEventListener('click', e => {
+  e.stopPropagation();
+  setNotifDropdown(!$('notifDropdown')?.classList.contains('open'));
+});
+$('notifMarkAll')?.addEventListener('click', e => { e.stopPropagation(); markAllNotifsRead(); });
+$('notifSeeAll')?.addEventListener('click', () => { setNotifDropdown(false); navTo('panel-topups'); });
+document.addEventListener('click', e => {
+  const item = e.target.closest('[data-notif-key]');
+  if (item) { openNotification(item.dataset.notifKey); return; }
+  if (!e.target.closest('.notif-wrap')) setNotifDropdown(false);
+});
+
+// ===== Log Aktivitas Admin (A5a) =====
+let actRaw = [];
+let actFilterTimer = null;
+const ACT_LABELS = {
+  approve_topup: 'Approve top-up',
+  reject_topup: 'Reject top-up',
+  koreksi_token: 'Koreksi token',
+  delete_user: 'Hapus user',
+  save_settings: 'Ubah pengaturan',
+  save_payment: 'Ubah pembayaran',
+  delete_announcement: 'Hapus pengumuman',
+  edit_announcement: 'Edit pengumuman'
+};
+const activityLabel = a => ACT_LABELS[a] || a || '-';
+function activityDetail(a) {
+  const m = a.metadata || {};
+  switch (a.action) {
+    case 'approve_topup': return `Approve topup ${fRp(Number(m.nominal) || 0)}${m.token_count ? ` (+${m.token_count} token)` : ''}`;
+    case 'reject_topup': return `Reject topup ${m.topup_id ? String(m.topup_id).slice(0, 8) : '-'} — alasan: ${m.reason || '-'}`;
+    case 'koreksi_token': return `${Number(m.delta) >= 0 ? '+' : ''}${Number(m.delta) || 0} token${m.note ? ` (alasan: ${m.note})` : ''}`;
+    case 'delete_user': return `Hapus akun ${m.target_email || m.target_user_id || '-'} (saldo ${m.target_saldo ?? 0})`;
+    case 'save_settings': return `Ubah: ${(m.keys_changed || []).join(', ') || '-'}`;
+    case 'save_payment': return `Ubah info pembayaran: ${(m.fields_changed || []).join(', ') || '-'}`;
+    case 'delete_announcement': return `Hapus pengumuman: ${m.title || m.announcement_id || '-'}`;
+    case 'edit_announcement': return `Edit pengumuman: ${m.title_new || m.title_old || '-'}`;
+    default: return m.message || JSON.stringify(m);
+  }
+}
+async function loadActivity() {
+  const tb = $('tblActivity');
+  if (!tb) return;
+  tableSkeleton(tb, 5);
+  const { data, error } = await sb.from('admin_actions').select('*').order('created_at', { ascending: false }).limit(200);
+  if (error) {
+    tableError(tb, 5, 'Gagal memuat log: ' + error.message + '. Pastikan sql/8. plotpeta_admin_actions.sql sudah dijalankan.', 'loadActivity');
+    return;
+  }
+  actRaw = data || [];
+  renderActivity();
+}
+function filteredActivity() {
+  const q = ($('actSearch')?.value || '').trim().toLowerCase();
+  const action = $('actAction')?.value || '';
+  const range = Number($('actRange')?.value || 0);
+  const cutoff = range ? Date.now() - range * 86400000 : 0;
+  return actRaw.filter(a => {
+    if (action && a.action !== action) return false;
+    if (cutoff && new Date(a.created_at).getTime() < cutoff) return false;
+    if (q) {
+      const txt = ((a.admin_email || '') + ' ' + (a.action || '') + ' ' + (a.target_type || '') + ' ' + (a.target_id || '') + ' ' + JSON.stringify(a.metadata || {})).toLowerCase();
+      if (!txt.includes(q)) return false;
+    }
+    return true;
+  });
+}
+function renderActivity() {
+  const tb = $('tblActivity');
+  if (!tb) return;
+  const rows = filteredActivity();
+  const hasFilter = !!($('actSearch')?.value || $('actAction')?.value || $('actRange')?.value);
+  if ($('actReset')) $('actReset').hidden = !hasFilter;
+  const atLimit = actRaw.length >= 200;
+  if ($('actLimitNotice')) $('actLimitNotice').hidden = !atLimit;
+  if ($('actCount')) $('actCount').textContent = atLimit
+    ? `Menampilkan ${rows.length} dari 200 terbaru`
+    : `Menampilkan ${rows.length} dari ${actRaw.length} aktivitas`;
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:18px">Tidak ada aktivitas yang cocok.</td></tr>';
+    return;
+  }
+  tb.innerHTML = rows.map(a => `
+    <tr class="clickable-row" data-activity-id="${esc(a.id)}">
+      <td class="mono" style="font-size:11.5px">${fDate(a.created_at)}</td>
+      <td>${esc(a.admin_email || a.admin_id || '-')}</td>
+      <td><b>${esc(activityLabel(a.action))}</b></td>
+      <td>${esc(a.target_type || '-')}${a.target_id ? ` · <span class="mono" style="font-size:10px">${esc(String(a.target_id).slice(0, 12))}</span>` : ''}</td>
+      <td style="font-size:11.5px;color:var(--text-muted)">${esc(activityDetail(a))}</td>
+    </tr>`).join('');
+}
+function openActivityDetail(id) {
+  const a = actRaw.find(x => x.id === id);
+  if (!a) return;
+  $('activityDetailTitle').textContent = 'Detail: ' + activityLabel(a.action);
+  $('activityDetailBody').innerHTML = `
+    <div class="detail-section">
+      <div class="detail-row"><span>Waktu</span><span>${fDate(a.created_at)}</span></div>
+      <div class="detail-row"><span>Admin</span><span>${esc(a.admin_email || '-')}</span></div>
+      <div class="detail-row"><span>Target</span><span>${esc(a.target_type || '-')} · <span class="mono" style="font-size:10px">${esc(a.target_id || '-')}</span></span></div>
+    </div>
+    <div class="detail-section">
+      <h4>Metadata</h4>
+      <pre class="mono" style="white-space:pre-wrap;word-break:break-word;font-size:11.5px;margin:0">${esc(JSON.stringify(a.metadata || {}, null, 2))}</pre>
+    </div>`;
+  $('activityDetailModal').classList.add('open');
+}
+$('actSearch')?.addEventListener('input', () => { clearTimeout(actFilterTimer); actFilterTimer = setTimeout(renderActivity, 300); });
+$('actAction')?.addEventListener('change', renderActivity);
+$('actRange')?.addEventListener('change', renderActivity);
+$('actReset')?.addEventListener('click', () => {
+  if ($('actSearch')) $('actSearch').value = '';
+  if ($('actAction')) $('actAction').value = '';
+  if ($('actRange')) $('actRange').value = '';
+  renderActivity();
+});
+$('btnReloadActivity')?.addEventListener('click', loadActivity);
+document.addEventListener('click', e => {
+  const tr = e.target.closest('#tblActivity tr[data-activity-id]');
+  if (tr) openActivityDetail(tr.dataset.activityId);
+});
+
 // Inisialisasi
 checkAdminSession();
 </script>
@@ -1868,6 +2406,8 @@ checkAdminSession();
     if(id==='panel-topups' && typeof loadPendingTopups==='function') loadPendingTopups();
     if(id==='panel-announcements') loadAdminAnnouncements();
     if(id==='panel-support') loadAdminSupport();
+    if(id==='panel-activity' && typeof loadActivity==='function') loadActivity();
+    if(id==='panel-overview' && typeof loadAnalytics==='function') loadAnalytics();
     navItems.forEach(x=>x.classList.toggle('active',x===btn || (x.classList.contains('nav-item') && x.dataset.nav===id)));
     const overview=document.getElementById('panel-overview');
     if(overview) overview.style.display=id==='panel-overview'?'':'none';
