@@ -121,6 +121,7 @@ body {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 /* Brand Logo */
@@ -1705,20 +1706,25 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
   align-items: center;
   gap: 6px;
   height: 32px;
+  min-width: 100px;
   padding: 0 10px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 12px;
-  max-width: 220px;
+  max-width: 240px;
+  flex-shrink: 1;
+  overflow: hidden;
   cursor: default;
 }
 .chip-file svg { color: var(--text-muted); flex-shrink: 0; }
 .chip-file .name {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 140px;
   font-weight: 500;
 }
 .chip-file .dot {
@@ -1729,6 +1735,9 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
   flex-shrink: 0;
 }
 .chip-file[hidden] { display: none !important; }
+@media (max-width: 900px) { .chip-file { max-width: 140px; } }
+@media (max-width: 680px) { .chip-file { max-width: 100px; } }
+@media (max-width: 480px) { .chip-file { display: none !important; } }
 
 .action-bar {
   position: absolute;
