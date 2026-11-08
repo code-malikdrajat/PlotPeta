@@ -631,6 +631,40 @@ async function openLedgerModal(){
   const c = $('ledgerList');
   c.innerHTML = '<div class="mu" style="text-align:center;padding:20px">Memuat riwayat token...</div>';
 
+  // Reset header saldo sementara loading
+  if ($('ledgerBalanceVal')) $('ledgerBalanceVal').textContent = '—';
+  if ($('ledgerBalanceMeta')) $('ledgerBalanceMeta').textContent = 'Memuat...';
+
+  // 1. Ambil saldo aktif + jumlah batch aktif + expiry terdekat
+  const { data: batches } = await sb.from('token_batches')
+    .select('sisa, kedaluwarsa_pada')
+    .eq('user_id', currentUser.id)
+    .gt('sisa', 0)
+    .gt('kedaluwarsa_pada', new Date().toISOString());
+
+  const activeBatches = batches || [];
+  const currentBalance = activeBatches.reduce((sum, b) => sum + (b.sisa || 0), 0);
+  const earliestExpiry = activeBatches
+    .map(b => b.kedaluwarsa_pada)
+    .filter(Boolean)
+    .sort()[0];
+
+  // 2. Tampilkan header saldo aktif
+  if ($('ledgerBalanceVal')) {
+    $('ledgerBalanceVal').textContent = currentBalance + ' token';
+  }
+  if ($('ledgerBalanceMeta')) {
+    if (activeBatches.length === 0) {
+      $('ledgerBalanceMeta').textContent = 'Tidak ada token aktif';
+    } else {
+      const expDate = earliestExpiry
+        ? new Date(earliestExpiry).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' })
+        : '-';
+      $('ledgerBalanceMeta').textContent = `${activeBatches.length} batch aktif · expire terdekat ${expDate}`;
+    }
+  }
+
+  // 3. Ambil ledger (40 terbaru)
   const { data: ledger, error } = await sb.from('token_ledger')
     .select('*')
     .eq('user_id', currentUser.id)
@@ -642,18 +676,40 @@ async function openLedgerModal(){
     return;
   }
 
-  c.innerHTML = ledger.map(l => {
+  // 4. Running balance: walk dari saldo aktif, kurangi jumlah (karena descending)
+  let runningBalance = currentBalance;
+  const ledgerWithBalance = ledger.map(l => {
+    const saldoAfter = runningBalance;
+    const saldoBefore = runningBalance - (l.jumlah || 0);
+    runningBalance = saldoBefore;
+    return { ...l, saldoAfter };
+  });
+
+  // 5. Render
+  c.innerHTML = ledgerWithBalance.map(l => {
     const isPlus = l.jumlah > 0;
     const clr = isPlus ? 'var(--success)' : 'var(--danger)';
     const sign = isPlus ? '+' : '';
-    const fDate = new Date(l.waktu).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const fDate = new Date(l.waktu).toLocaleDateString('id-ID', {
+      day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'
+    });
+    const balanceColor = l.saldoAfter === 0 ? 'var(--text-dim)' : 'var(--text-main)';
     return `
-      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <b style="color:${clr}">${sign}${l.jumlah} Token</b> <span style="font-size:11.5px;color:var(--text-main)">(${esc(l.jenis)})</span>
-          <div class="mu" style="font-size:11px;margin-top:2px">${esc(l.catatan || '-')}</div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div>
+              <b style="color:${clr};font-size:13px">${sign}${l.jumlah} Token</b>
+              <span style="font-size:11.5px;color:var(--text-main);margin-left:4px">(${esc(l.jenis)})</span>
+            </div>
+            <div class="mu" style="font-size:11px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.catatan || '-')}</div>
+            <div class="mono" style="font-size:10px;color:var(--text-dim);margin-top:3px">${fDate}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;min-width:60px">
+            <div style="font-size:9px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Saldo</div>
+            <div class="mono" style="font-size:16px;font-weight:700;color:${balanceColor};line-height:1.1">${l.saldoAfter}</div>
+          </div>
         </div>
-        <div class="mono" style="font-size:11px;color:var(--text-muted)">${fDate}</div>
       </div>
     `;
   }).join('');
