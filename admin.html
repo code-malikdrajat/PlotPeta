@@ -271,6 +271,25 @@ th { white-space:nowrap; }
 #adminConfirm, #adminPrompt { z-index:400; }
 #adminConfirm .modal-box, #adminPrompt .modal-box { max-width:430px; }
 #adminConfirmBody { font-size:13px; line-height:1.55; color:var(--text-main); margin:6px 0 14px; white-space:pre-line; }
+.bulk-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px; padding:8px 10px; background:var(--accent-subtle); border:1px solid var(--accent-border); border-radius:8px; }
+.bulk-bar.hide { display:none !important; }
+.bulk-bar > span { font-size:12px; font-weight:700; margin-right:auto; }
+.history-toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px; }
+.history-toolbar input { max-width:260px; }
+.history-toolbar select { width:auto; min-width:130px; }
+.table-wrap input[type="checkbox"] { width:auto; }
+.sk { height:12px; border-radius:4px; background:var(--border); animation:skPulse 1.2s ease-in-out infinite; }
+@keyframes skPulse { 0%,100% { opacity:.4; } 50% { opacity:.95; } }
+.support-bulk { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; font-size:12px; color:var(--text-muted); }
+.support-bulk span { margin-right:auto; font-weight:600; }
+#tblAllTopups tr.clickable-row { cursor:pointer; }
+#tblAllTopups tr.clickable-row:hover { background:var(--bg-card); }
+.detail-section { padding:10px 0; border-bottom:1px solid var(--border-subtle); }
+.detail-section:last-child { border-bottom:0; }
+.detail-section h4 { margin:0 0 8px; font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
+.detail-row { display:flex; justify-content:space-between; gap:12px; font-size:12.5px; padding:3px 0; }
+.detail-row span:last-child { text-align:right; }
+.detail-list { display:flex; flex-direction:column; gap:4px; font-size:12px; }
 </style>
 </head>
 <body>
@@ -367,10 +386,16 @@ th { white-space:nowrap; }
         </h2>
         <button class="btn" onclick="loadPendingTopups()">Refresh</button>
       </div>
+      <div class="bulk-bar hide" id="bulkTopupBar">
+        <span id="bulkCount">0 terpilih</span>
+        <button class="btn suc" type="button" id="bulkApprove">Approve terpilih</button>
+        <button class="btn dan" type="button" id="bulkReject">Reject terpilih</button>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
+              <th style="width:34px"><input type="checkbox" id="chkAllPending" aria-label="Pilih semua top-up"></th>
               <th>Waktu</th>
               <th>Pengguna</th>
               <th>Paket</th>
@@ -381,7 +406,7 @@ th { white-space:nowrap; }
             </tr>
           </thead>
           <tbody id="tblPending">
-            <tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Memuat data...</td></tr>
+            <tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Memuat data...</td></tr>
           </tbody>
         </table>
       </div>
@@ -532,7 +557,27 @@ th { white-space:nowrap; }
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
           <span>Daftar Pengguna & Saldo Token</span>
         </h2>
-        <button class="btn" onclick="loadUsers()">Refresh</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn" type="button" id="btnExportUsers">Export CSV</button>
+          <button class="btn" onclick="loadUsers()">Refresh</button>
+        </div>
+      </div>
+      <div class="history-toolbar">
+        <input type="search" id="userSearch" placeholder="Cari nama atau email...">
+        <select id="userSort">
+          <option value="newest">Terbaru</option>
+          <option value="balance-desc">Saldo tertinggi</option>
+          <option value="balance-asc">Saldo terendah</option>
+          <option value="name">Nama A-Z</option>
+          <option value="oldest">Terlama</option>
+        </select>
+        <select id="userRole">
+          <option value="">Semua role</option>
+          <option value="admin">Admin</option>
+          <option value="user">User</option>
+        </select>
+        <button class="btn" type="button" id="userReset" hidden>Reset</button>
+        <span class="mu" id="userCount" style="font-size:11px"></span>
       </div>
       <div class="table-wrap">
         <table>
@@ -563,6 +608,26 @@ th { white-space:nowrap; }
         </h2>
         <button class="btn" onclick="loadAllTopups()">Refresh</button>
       </div>
+      <div class="history-toolbar">
+        <input type="search" id="histSearch" placeholder="Cari nama, email, atau order ID...">
+        <select id="histStatus">
+          <option value="">Semua status</option>
+          <option value="menunggu">Menunggu</option>
+          <option value="disetujui">Disetujui</option>
+          <option value="ditolak">Ditolak</option>
+          <option value="kedaluwarsa">Kedaluwarsa</option>
+          <option value="gagal">Gagal</option>
+        </select>
+        <select id="histRange">
+          <option value="">Semua tanggal</option>
+          <option value="7">7 hari</option>
+          <option value="30">30 hari</option>
+          <option value="90">90 hari</option>
+        </select>
+        <button class="btn" type="button" id="histReset" hidden>Reset</button>
+        <button class="btn pri" type="button" id="btnExportTopups">Export CSV</button>
+        <span class="mu" id="histCount" style="font-size:11px"></span>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -589,9 +654,13 @@ th { white-space:nowrap; }
     </div>
     <div class="card admin-section" id="panel-support" data-panel="panel-support" style="display:none">
       <div class="card-head"><div><h2 class="card-title">Inbox Chat Pengguna</h2><div style="font-size:11px;color:var(--text-muted);margin-top:5px">Percakapan tiap pengguna dipisahkan otomatis.</div></div><button class="btn" type="button" id="btnReloadSupport">↻ Refresh</button></div>
+    <div class="support-bulk">
+      <span id="supportUnreadLabel">0 percakapan belum dibaca</span>
+      <button class="btn pri" type="button" id="btnMarkAllRead" hidden>Tandai semua dibaca</button>
+    </div>
     <div class="support-toolbar"><input id="supportSearch" type="search" placeholder="Cari nama atau email pengguna..."><span class="badge" style="align-self:center">Privat per pengguna</span></div>
     <div class="support-filters"><button type="button" class="support-filter active" data-support-filter="all">Semua</button><button type="button" class="support-filter" data-support-filter="unread">Belum dibaca</button><button type="button" class="support-filter" data-support-filter="replied">Sudah dibalas</button></div>
-    <div class="support-inbox" id="supportInbox"><section class="support-list-pane"><div class="support-pane-head"><span>Daftar percakapan</span><span id="supportConversationCount" class="badge">0</span></div><div id="adminSupportList"><div class="support-empty">Memuat percakapan...</div></div></section><section class="support-chat-pane"><div class="support-chat-placeholder" id="supportChatPlaceholder"><div style="font-size:34px">✉</div><b>Pilih percakapan</b><span>Pilih pengguna di daftar untuk membaca dan membalas pesan.</span></div><div id="adminSupportReplyBox"><div class="support-chat-header"><button type="button" class="btn" id="btnSupportBack" style="display:none;margin-bottom:8px">← Daftar chat</button><b id="adminSupportUserLabel">Percakapan</b></div><div id="adminSupportThread"></div><div class="support-compose"><textarea id="adminSupportReply" rows="2" placeholder="Tulis balasan..."></textarea><button class="btn pri" id="btnSendSupportReply" type="button">Kirim ↗</button></div></div></section></div>
+    <div class="support-inbox" id="supportInbox"><section class="support-list-pane"><div class="support-pane-head"><span>Daftar percakapan</span><span id="supportConversationCount" class="badge">0</span></div><div id="adminSupportList"><div class="support-empty">Memuat percakapan...</div></div></section><section class="support-chat-pane"><div class="support-chat-placeholder" id="supportChatPlaceholder"><div style="font-size:34px">✉</div><b>Pilih percakapan</b><span>Pilih pengguna di daftar untuk membaca dan membalas pesan.</span></div><div id="adminSupportReplyBox"><div class="support-chat-header"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="btnSupportBack" style="display:none;margin-bottom:8px">← Daftar chat</button><b id="adminSupportUserLabel">Percakapan</b><button type="button" class="btn" id="btnRefreshChat" title="Muat ulang percakapan" style="padding:4px 8px;font-size:11px">↻ Refresh</button><span class="mu" id="chatRefreshState" style="font-size:11px"></span></div></div><div id="adminSupportThread"></div><div class="support-compose"><textarea id="adminSupportReply" rows="2" placeholder="Tulis balasan..."></textarea><button class="btn pri" id="btnSendSupportReply" type="button">Kirim ↗</button></div></div></section></div>
     </div>
     </main>
   </div>
@@ -628,7 +697,53 @@ th { white-space:nowrap; }
         <label class="form-label">Alasan / Catatan</label>
         <input type="text" id="koreksiCatatan" placeholder="Contoh: Kompensasi kendala sistem">
       </div>
+      <div id="koreksiPreview" class="mono" style="font-size:12px;color:var(--text-muted)"></div>
+      <div id="koreksiWarn" class="form-alert error" style="display:none;margin-top:6px"></div>
       <button class="btn pri" id="btnSubmitKoreksi" style="margin-top:8px">Simpan Koreksi</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="userDetailModal">
+  <div class="modal-box" style="max-width:640px">
+    <button class="modal-close" onclick="$('userDetailModal').classList.remove('open')">&times;</button>
+    <h3 style="margin-top:0" id="userDetailTitle">Detail Pengguna</h3>
+    <div id="userDetailBody" style="max-height:65vh;overflow:auto"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn pri" type="button" id="userDetailKoreksi">Koreksi Token</button>
+      <button class="btn" type="button" onclick="$('userDetailModal').classList.remove('open')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editAnnouncementModal">
+  <div class="modal-box" style="max-width:520px">
+    <button class="modal-close" onclick="$('editAnnouncementModal').classList.remove('open')">&times;</button>
+    <h3 style="margin-top:0">Edit Pengumuman</h3>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <input id="editAnnTitle" placeholder="Judul pengumuman">
+      <textarea id="editAnnBody" rows="5" placeholder="Isi pengumuman"></textarea>
+      <label><input id="editAnnPublished" type="checkbox"> Tampilkan ke pengguna</label>
+      <div id="editAnnPreview" style="display:none;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card)">
+        <b id="editAnnPreviewTitle"></b>
+        <p id="editAnnPreviewBody" style="white-space:pre-wrap;margin:6px 0 0"></p>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" type="button" id="editAnnPreviewBtn">Preview</button>
+        <button class="btn" type="button" onclick="$('editAnnouncementModal').classList.remove('open')">Batal</button>
+        <button class="btn pri" type="button" id="editAnnSave">Simpan perubahan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="topupDetailModal">
+  <div class="modal-box" style="max-width:600px">
+    <button class="modal-close" onclick="$('topupDetailModal').classList.remove('open')">&times;</button>
+    <h3 style="margin-top:0" id="topupDetailTitle">Detail Top-up</h3>
+    <div id="topupDetailBody" style="max-height:65vh;overflow:auto"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px" id="topupDetailActions">
+      <button class="btn" type="button" onclick="$('topupDetailModal').classList.remove('open')">Tutup</button>
     </div>
   </div>
 </div>
@@ -734,6 +849,11 @@ document.getElementById('adminConfirmOk').onclick = () => closeAdminConfirm(true
 document.getElementById('adminConfirmCancel').onclick = () => closeAdminConfirm(false);
 document.getElementById('adminPromptOk').onclick = () => closeAdminPrompt(true);
 document.getElementById('adminPromptCancel').onclick = () => closeAdminPrompt(false);
+document.addEventListener('click', e => {
+  if (e.target && e.target.classList && e.target.classList.contains('modal-overlay') && e.target.classList.contains('open')) {
+    e.target.classList.remove('open');
+  }
+});
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
@@ -759,6 +879,7 @@ let currentAdminUser = null;
 let currentQrisUrl = '';
 let selectedUserIdForKoreksi = null;
 const adminUserCache = {};
+const usersRaw = [];
 
 const fRp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -766,6 +887,16 @@ const fDate = d => d ? new Date(d).toLocaleString('id-ID', { dateStyle:'short', 
 function tableLoading(tb, cols, text) {
   if (!tb) return;
   tb.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;padding:18px;color:var(--text-muted)">${esc(text || 'Memuat...')}</td></tr>`;
+}
+function tableSkeleton(tb, cols, rows = 5) {
+  if (!tb) return;
+  let html = '';
+  for (let r = 0; r < rows; r++) {
+    html += '<tr>';
+    for (let c = 0; c < cols; c++) html += '<td><div class="sk"></div></td>';
+    html += '</tr>';
+  }
+  tb.innerHTML = html;
 }
 function tableError(tb, cols, msg, retryFn) {
   if (!tb) return;
@@ -1095,7 +1226,7 @@ $('btnSaveTokenSettings').onclick = async () => {
 
 async function loadPendingTopups() {
   const tb = $('tblPending');
-  tableLoading(tb, 7, 'Memuat permintaan top-up...');
+  tableSkeleton(tb, 8);
   const { data, error } = await sb.from('topups')
     .select('*, profiles!topups_user_id_fkey(nama, email)')
     .eq('status', 'menunggu')
@@ -1103,23 +1234,25 @@ async function loadPendingTopups() {
 
   if (error) {
     console.error('Gagal mengambil data top-up:', error);
-    tableError(tb, 7, 'Gagal memuat permintaan top-up: ' + error.message, 'loadPendingTopups');
+    tableError(tb, 8, 'Gagal memuat permintaan top-up: ' + error.message, 'loadPendingTopups');
     return;
   }
 
   if (!data || data.length === 0) {
     tb.innerHTML = `
       <tr>
-        <td colspan="7" style="text-align:center;color:var(--text-muted);padding:18px">
+        <td colspan="8" style="text-align:center;color:var(--text-muted);padding:18px">
           Tidak ada permintaan top-up yang menunggu verifikasi.
         </td>
       </tr>`;
+    if ($('chkAllPending')) $('chkAllPending').checked = false;
+    updateBulkTopupBar();
     return;
   }
 
-
   tb.innerHTML = data.map(t => `
     <tr>
+      <td><input type="checkbox" class="pending-chk" data-id="${esc(t.id)}" data-nama="${esc(t.profiles?.nama || 'Pengguna')}" data-token="${Number(t.jumlah_token) || 0}" data-nominal="${Number(t.nominal) || 0}" aria-label="Pilih top-up ${esc(t.profiles?.nama || '')}"></td>
       <td class="mono">${fDate(t.created_at)}</td>
       <td><b>${esc(t.profiles?.nama || '-')}</b><br><span class="mono" style="font-size:11px;color:var(--text-dim)">${esc(t.profiles?.email || '-')}</span></td>
       <td>${t.jumlah_token} Token</td>
@@ -1136,6 +1269,78 @@ async function loadPendingTopups() {
       </td>
     </tr>
   `).join('');
+  if ($('chkAllPending')) $('chkAllPending').checked = false;
+  updateBulkTopupBar();
+}
+
+$('chkAllPending')?.addEventListener('change', e => {
+  document.querySelectorAll('#tblPending .pending-chk').forEach(c => { c.checked = e.target.checked; });
+  updateBulkTopupBar();
+});
+document.addEventListener('change', e => {
+  if (e.target && e.target.classList && e.target.classList.contains('pending-chk')) updateBulkTopupBar();
+});
+$('bulkApprove')?.addEventListener('click', bulkApproveTopups);
+$('bulkReject')?.addEventListener('click', bulkRejectTopups);
+
+function pendingSelected() {
+  return [...document.querySelectorAll('#tblPending .pending-chk:checked')].map(c => ({
+    id: c.dataset.id, nama: c.dataset.nama, token: Number(c.dataset.token) || 0, nominal: Number(c.dataset.nominal) || 0
+  }));
+}
+function updateBulkTopupBar() {
+  const bar = $('bulkTopupBar'), count = pendingSelected().length;
+  if (bar) bar.classList.toggle('hide', count === 0);
+  if ($('bulkCount')) $('bulkCount').textContent = count + ' terpilih';
+}
+async function bulkApproveTopups() {
+  const list = pendingSelected();
+  if (!list.length) return;
+  const total = list.reduce((s, x) => s + x.token, 0);
+  const ok = await uiConfirm({
+    title: 'Approve top-up terpilih?',
+    body: `Approve ${list.length} topup? ${total} token total akan ditambahkan.`,
+    confirmText: 'Approve', cancelText: 'Batal', focusPrimary: true
+  });
+  if (!ok) return;
+  let done = 0, failed = null;
+  for (const item of list) {
+    if ($('bulkCount')) $('bulkCount').textContent = `Memproses ${done + 1}/${list.length}...`;
+    const { data, error } = await sb.rpc('admin_approve_topup', { p_topup_id: item.id });
+    if (error || (data && !data.success)) { failed = error?.message || data?.message || 'tidak diketahui'; break; }
+    done++;
+  }
+  if (failed) {
+    uiToast(`${done} berhasil, 1 gagal: ${failed}. Sisanya tidak diproses.`, 'error', 8000);
+  } else {
+    uiToast(`${done} topup disetujui`, 'success');
+  }
+  loadPendingTopups();
+  loadAllTopups();
+  loadUsers();
+}
+async function bulkRejectTopups() {
+  const list = pendingSelected();
+  if (!list.length) return;
+  const ok = await uiConfirm({
+    title: 'Reject top-up terpilih?',
+    body: `${list.length} permintaan top-up akan ditolak. User tidak mendapat token.`,
+    confirmText: 'Reject', cancelText: 'Batal', danger: true
+  });
+  if (!ok) return;
+  const catatan = await uiPrompt({ title: 'Alasan penolakan', label: 'Alasan untuk semua top-up terpilih', defaultValue: 'Bukti transfer tidak sesuai atau dana belum masuk' });
+  if (catatan === null) return;
+  let done = 0, failed = null;
+  for (const item of list) {
+    if ($('bulkCount')) $('bulkCount').textContent = `Memproses ${done + 1}/${list.length}...`;
+    const { data, error } = await sb.rpc('admin_reject_topup', { p_topup_id: item.id, p_catatan: catatan });
+    if (error || (data && !data.success)) { failed = error?.message || data?.message || 'tidak diketahui'; break; }
+    done++;
+  }
+  if (failed) uiToast(`${done} berhasil, 1 gagal: ${failed}. Sisanya tidak diproses.`, 'error', 8000);
+  else uiToast(`${done} top-up ditolak`, 'success');
+  loadPendingTopups();
+  loadAllTopups();
 }
 
 async function previewBukti(path) {
@@ -1196,7 +1401,7 @@ async function rejectTopup(id, nama, nominal) {
 // 4. DAFTAR PENGGUNA & SALDO TOKEN
 async function loadUsers() {
   const tb = $('tblUsers');
-  tableLoading(tb, 7, 'Memuat pengguna...');
+  tableSkeleton(tb, 7);
   const { data: users, error } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
   if(error || !users){
     tableError(tb, 7, 'Gagal memuat pengguna', 'loadUsers');
@@ -1219,24 +1424,202 @@ async function loadUsers() {
     });
   }
 
-  tb.innerHTML = users.map(u => {
+  usersRaw.length = 0;
+  users.forEach(u => {
     const bal = balanceMap[u.id] || 0;
     adminUserCache[u.id] = { nama: u.nama || u.email, bal };
-    const exp = expMap[u.id] ? fDate(expMap[u.id]) : '-';
-    return `
-      <tr>
-        <td><b>${esc(u.nama || '-')}</b></td>
-        <td class="mono">${esc(u.email)}</td>
-        <td>${u.is_admin ? '<span class="badge rej">Admin</span>' : '<span class="badge" style="background:var(--border)">User</span>'}</td>
-        <td class="mono" style="font-weight:700;color:var(--accent-text)">${bal} Token</td>
-        <td class="mono" style="font-size:11.5px">${exp}</td>
-        <td class="mono" style="font-size:11.5px">${fDate(u.created_at)}</td>
-        <td>
-          <button class="btn" style="padding:4px 8px;font-size:11px" data-act="koreksi" data-id="${esc(u.id)}" data-nama="${esc(u.nama || u.email)}">Koreksi Token</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
+    usersRaw.push({
+      id: u.id, nama: u.nama || '-', email: u.email || '',
+      role: u.is_admin ? 'Admin' : 'User', isAdmin: !!u.is_admin,
+      bal, exp: expMap[u.id] ? fDate(expMap[u.id]) : '-',
+      created: fDate(u.created_at), createdRaw: u.created_at
+    });
+  });
+  renderUsersTable();
+}
+
+function filteredUsers() {
+  const q = ($('userSearch')?.value || '').trim().toLowerCase();
+  const role = $('userRole')?.value || '';
+  const sort = $('userSort')?.value || 'newest';
+  let list = usersRaw.filter(u => {
+    if (role === 'admin' && !u.isAdmin) return false;
+    if (role === 'user' && u.isAdmin) return false;
+    if (q && !((u.nama + ' ' + u.email).toLowerCase().includes(q))) return false;
+    return true;
+  });
+  if (sort === 'balance-desc') list = list.slice().sort((a, b) => b.bal - a.bal);
+  else if (sort === 'balance-asc') list = list.slice().sort((a, b) => a.bal - b.bal);
+  else if (sort === 'name') list = list.slice().sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
+  else if (sort === 'oldest') list = list.slice().sort((a, b) => new Date(a.createdRaw) - new Date(b.createdRaw));
+  else list = list.slice().sort((a, b) => new Date(b.createdRaw) - new Date(a.createdRaw));
+  return list;
+}
+let topupDetailCurrent = null;
+function openTopupDetail(id) {
+  const t = histRaw.find(x => x.id === id);
+  if (!t) return;
+  topupDetailCurrent = t;
+  const body = $('topupDetailBody'), actions = $('topupDetailActions');
+  if (!body || !actions) return;
+  $('topupDetailTitle').textContent = 'Detail Top-up';
+  const status = historyStatusLabel(t.status);
+  const proof = t.bukti_url ? `<button type="button" class="btn" data-detail-act="proof" data-path="${esc(t.bukti_url)}">Lihat bukti</button>` : '<span class="mu">Tidak ada</span>';
+  const copyBtn = (val) => val ? ` <button type="button" class="btn" style="padding:2px 6px;font-size:10px" data-copy="${esc(val)}">Copy</button>` : '';
+  const timeline = [
+    `Dibuat: ${fDate(t.created_at)}`,
+    t.expires_at ? `Kedaluwarsa: ${fDate(t.expires_at)}` : '',
+    (t.status === 'disetujui' || t.status === 'ditolak') && (t.diputuskan_pada || t.updated_at) ? `Diputuskan: ${fDate(t.diputuskan_pada || t.updated_at)}` : ''
+  ].filter(Boolean).map(x => `<div class="detail-row"><span>${esc(x.split(':')[0])}</span><span>${esc(x.slice(x.indexOf(':') + 1).trim())}</span></div>`).join('');
+  body.innerHTML = `
+    <div class="detail-section">
+      <h4>Transaksi</h4>
+      <div class="detail-row"><span>ID</span><span class="mono" style="font-size:10px">${esc(t.id)}</span></div>
+      <div class="detail-row"><span>Order ID</span><span class="mono" style="font-size:10px">${esc(t.order_id || '-')}${copyBtn(t.order_id)}</span></div>
+      <div class="detail-row"><span>User</span><span>${esc(t.profiles?.nama || '-')}<br><span class="mono" style="font-size:10px">${esc(t.profiles?.email || '')}</span></span></div>
+      <div class="detail-row"><span>Nominal</span><span>${fRp(t.nominal)} · ${Number(t.jumlah_token) || 0} token</span></div>
+      <div class="detail-row"><span>Status</span><span><b>${esc(status)}</b></span></div>
+    </div>
+    <div class="detail-section">
+      <h4>Timeline</h4>
+      ${timeline || '<div class="mu">-</div>'}
+    </div>
+    <div class="detail-section">
+      <h4>Metode & Gateway</h4>
+      <div class="detail-row"><span>Metode</span><span>${esc(String(t.metode || '-').toUpperCase())}</span></div>
+      <div class="detail-row"><span>Sumber</span><span>${esc(t.sumber || '-')}</span></div>
+      ${t.gateway_ref ? `<div class="detail-row"><span>Gateway ref</span><span class="mono" style="font-size:10px">${esc(t.gateway_ref)}${copyBtn(t.gateway_ref)}</span></div>` : ''}
+    </div>
+    <div class="detail-section">
+      <h4>Bukti & Catatan</h4>
+      <div class="detail-row"><span>Bukti bayar</span><span>${proof}</span></div>
+      <div class="detail-row"><span>Diputuskan oleh</span><span>${esc(t.decider?.nama || '-')}</span></div>
+      <div class="detail-row"><span>Catatan</span><span>${esc(t.catatan || '-')}</span></div>
+    </div>`;
+  actions.innerHTML = '<button class="btn" type="button" onclick="$(\'topupDetailModal\').classList.remove(\'open\')">Tutup</button>';
+  if (t.status === 'menunggu') {
+    const approve = document.createElement('button');
+    approve.className = 'btn suc'; approve.type = 'button'; approve.textContent = 'Approve';
+    approve.onclick = () => { $('topupDetailModal').classList.remove('open'); approveTopup(t.id, t.profiles?.nama || 'Pengguna', Number(t.jumlah_token) || 0); };
+    const reject = document.createElement('button');
+    reject.className = 'btn dan'; reject.type = 'button'; reject.textContent = 'Reject';
+    reject.onclick = () => { $('topupDetailModal').classList.remove('open'); rejectTopup(t.id, t.profiles?.nama || 'Pengguna', Number(t.nominal) || 0); };
+    actions.appendChild(approve); actions.appendChild(reject);
+  }
+  $('topupDetailModal').classList.add('open');
+}
+document.addEventListener('click', e => {
+  const tr = e.target.closest('#tblAllTopups tr[data-topup-id]');
+  if (tr && !e.target.closest('button,a,input')) { openTopupDetail(tr.dataset.topupId); return; }
+  const copy = e.target.closest('[data-copy]');
+  if (copy) {
+    const val = copy.dataset.copy;
+    if (navigator.clipboard) navigator.clipboard.writeText(val).then(() => uiToast('Disalin ke clipboard.', 'success')).catch(() => uiToast('Gagal menyalin.', 'error'));
+    else uiToast('Clipboard tidak tersedia.', 'warn');
+    return;
+  }
+  const proof = e.target.closest('[data-detail-act="proof"]');
+  if (proof) { previewBukti(proof.dataset.path); }
+});function renderUsersTable() {
+  const tb = $('tblUsers');
+  if (!tb) return;
+  const list = filteredUsers();
+  const active = !!($('userSearch')?.value || $('userRole')?.value || ($('userSort')?.value && $('userSort').value !== 'newest'));
+  if ($('userReset')) $('userReset').hidden = !active;
+  if ($('userCount')) $('userCount').textContent = `Menampilkan ${list.length} dari ${usersRaw.length} pengguna`;
+  tb.innerHTML = list.map(u => `
+    <tr>
+      <td><b>${esc(u.nama)}</b></td>
+      <td class="mono">${esc(u.email)}</td>
+      <td>${u.isAdmin ? '<span class="badge rej">Admin</span>' : '<span class="badge" style="background:var(--border)">User</span>'}</td>
+      <td class="mono" style="font-weight:700;color:var(--accent-text)">${u.bal} Token</td>
+      <td class="mono" style="font-size:11.5px">${esc(u.exp)}</td>
+      <td class="mono" style="font-size:11.5px">${esc(u.created)}</td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn" style="padding:4px 8px;font-size:11px" data-act="detail" data-id="${esc(u.id)}" data-nama="${esc(u.nama)}">Detail</button>
+          <button class="btn" style="padding:4px 8px;font-size:11px" data-act="koreksi" data-id="${esc(u.id)}" data-nama="${esc(u.nama)}">Koreksi Token</button>
+        </div>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:18px">Tidak ada pengguna yang cocok.</td></tr>';
+}
+let userFilterTimer = null;
+$('userSearch')?.addEventListener('input', () => { clearTimeout(userFilterTimer); userFilterTimer = setTimeout(renderUsersTable, 300); });
+$('userSort')?.addEventListener('change', renderUsersTable);
+$('userRole')?.addEventListener('change', renderUsersTable);
+$('userReset')?.addEventListener('click', () => {
+  if ($('userSearch')) $('userSearch').value = '';
+  if ($('userRole')) $('userRole').value = '';
+  if ($('userSort')) $('userSort').value = 'newest';
+  renderUsersTable();
+});
+
+async function openUserDetail(userId, name) {
+  const modal = $('userDetailModal'), body = $('userDetailBody');
+  if (!modal || !body) return;
+  const base = usersRaw.find(u => u.id === userId) || { nama: name || '-', email: '', role: 'User', bal: 0, created: '-' };
+  $('userDetailTitle').textContent = 'Detail: ' + base.nama;
+  body.innerHTML = '<div class="mu" style="padding:16px;text-align:center">Memuat detail pengguna...</div>';
+  modal.classList.add('open');
+  const koreksiBtn = $('userDetailKoreksi');
+  if (koreksiBtn) koreksiBtn.onclick = () => { modal.classList.remove('open'); openKoreksiModal(userId, base.nama); };
+  try {
+    const [profRes, batchRes, ledgerRes, topupRes, pendingRes, chatRes] = await Promise.all([
+      sb.from('profiles').select('*').eq('id', userId).maybeSingle(),
+      sb.from('token_batches').select('*').eq('user_id', userId).order('kedaluwarsa_pada', { ascending: false }),
+      sb.from('token_ledger').select('*').eq('user_id', userId).order('waktu', { ascending: false }).limit(20),
+      sb.from('topups').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
+      sb.from('topups').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'menunggu'),
+      sb.from('support_messages').select('id', { count: 'exact', head: true }).eq('user_id', userId)
+    ]);
+    const p = profRes.data || {};
+    const batches = batchRes.data || [];
+    const ledger = ledgerRes.data || [];
+    const topups = topupRes.data || [];
+    const pending = pendingRes.count || 0;
+    const chatCount = chatRes.count || 0;
+    const activeBal = batches.filter(b => Number(b.sisa) > 0).reduce((s, b) => s + (Number(b.sisa) || 0), 0);
+    const badge = pending ? ` <span class="badge rej">${pending} topup pending</span>` : '';
+    $('userDetailTitle').innerHTML = 'Detail: ' + esc(base.nama) + badge;
+    const batchHtml = batches.length ? batches.map(b => `<div class="detail-row"><span>${esc(b.asal || b.sumber || 'batch')}</span><span>${Number(b.sisa) || 0} token · exp ${fDate(b.kedaluwarsa_pada)}</span></div>`).join('') : '<div class="mu">Tidak ada batch token.</div>';
+    const ledgerHtml = ledger.length ? ledger.map(l => `<div class="detail-row"><span>${esc(l.jenis || '-')} · ${fDate(l.waktu)}</span><span style="color:${Number(l.jumlah) >= 0 ? 'var(--success)' : 'var(--danger)'}">${Number(l.jumlah) >= 0 ? '+' : ''}${Number(l.jumlah) || 0}</span></div><div class="mu" style="font-size:11px">${esc(l.catatan || '-')}</div>`).join('') : '<div class="mu">Belum ada riwayat token.</div>';
+    const topupHtml = topups.length ? topups.map(t => `<div class="detail-row"><span>${fDate(t.created_at)} · ${esc(String(t.metode || '').toUpperCase())}</span><span>${fRp(t.nominal)} · ${esc(historyStatusLabel(t.status))}</span></div>`).join('') : '<div class="mu">Belum ada riwayat top-up.</div>';
+    body.innerHTML = `
+      <div class="detail-section">
+        <h4>Akun</h4>
+        <div class="detail-row"><span>Nama</span><span>${esc(p.nama || base.nama)}</span></div>
+        <div class="detail-row"><span>Email</span><span class="mono">${esc(p.email || base.email)}</span></div>
+        <div class="detail-row"><span>Role</span><span>${p.is_admin ? 'Admin' : 'User'}</span></div>
+        <div class="detail-row"><span>Terdaftar</span><span>${fDate(p.created_at) || base.created}</span></div>
+      </div>
+      <div class="detail-section">
+        <h4>Saldo & Token</h4>
+        <div class="detail-row"><span>Total saldo aktif</span><span><b>${activeBal} token</b></span></div>
+        <div class="detail-list" style="margin-top:6px">${batchHtml}</div>
+      </div>
+      <div class="detail-section">
+        <h4>Riwayat Token (20 terakhir)</h4>
+        <div class="detail-list">${ledgerHtml}</div>
+      </div>
+      <div class="detail-section">
+        <h4>Riwayat Top-up (10 terakhir)</h4>
+        <div class="detail-list">${topupHtml}</div>
+      </div>
+      <div class="detail-section">
+        <h4>Chat</h4>
+        ${chatCount ? `<button class="btn" type="button" id="userDetailChat">Buka chat (${chatCount} pesan)</button>` : '<div class="mu">Tidak ada percakapan.</div>'}
+      </div>`;
+    const chatBtn = $('userDetailChat');
+    if (chatBtn) chatBtn.onclick = () => {
+      modal.classList.remove('open');
+      const nav = document.querySelector('[data-nav="panel-support"]');
+      if (nav) nav.click();
+      openAdminSupport(userId);
+    };
+  } catch (e) {
+    body.innerHTML = '<div class="support-empty" style="color:var(--danger)">Gagal memuat detail: ' + esc(e.message || e) + '</div>';
+  }
 }
 
 function openKoreksiModal(userId, name) {
@@ -1244,8 +1627,33 @@ function openKoreksiModal(userId, name) {
   $('koreksiUserInfo').textContent = 'User: ' + name;
   $('koreksiJumlah').value = '';
   $('koreksiCatatan').value = '';
+  updateKoreksiPreview();
   $('modalKoreksi').classList.add('open');
 }
+function updateKoreksiPreview() {
+  const qty = parseInt($('koreksiJumlah').value);
+  const rawNote = $('koreksiCatatan').value.trim();
+  const cache = adminUserCache[selectedUserIdForKoreksi] || { nama:'pengguna', bal:0 };
+  const bal = Number(cache.bal) || 0;
+  const valid = Number.isFinite(qty);
+  const after = bal + (valid ? qty : 0);
+  const p = $('koreksiPreview'), w = $('koreksiWarn'), b = $('btnSubmitKoreksi');
+  if (p) p.textContent = valid
+    ? `Saldo saat ini: ${bal} → setelah koreksi: ${after} token`
+    : `Saldo saat ini: ${bal} token`;
+  let warn = '';
+  if (!valid) warn = 'Masukkan jumlah token yang valid.';
+  else if (after < 0) warn = 'Koreksi akan membuat saldo negatif. Tidak bisa dilanjutkan.';
+  else if (qty === 0) warn = 'Jumlah koreksi 0 tidak bisa disimpan.';
+  else if (!rawNote) warn = 'Koreksi tanpa catatan sulit di-audit nanti.';
+  if (w) {
+    w.style.display = warn ? 'block' : 'none';
+    w.textContent = warn;
+  }
+  if (b) b.disabled = !valid || qty === 0 || after < 0;
+}
+$('koreksiJumlah')?.addEventListener('input', updateKoreksiPreview);
+$('koreksiCatatan')?.addEventListener('input', updateKoreksiPreview);
 
 $('btnSubmitKoreksi').onclick = async () => {
   const qty = parseInt($('koreksiJumlah').value);
@@ -1260,6 +1668,14 @@ $('btnSubmitKoreksi').onclick = async () => {
   if(!selectedUserIdForKoreksi){ uiToast('Pengguna belum dipilih.','warn'); return; }
 
   const cache = adminUserCache[selectedUserIdForKoreksi] || { nama:'pengguna', bal:0 };
+  if(Math.abs(qty) > 100){
+    const big = await uiConfirm({
+      title:'Koreksi besar',
+      body:`Koreksi ${qty} token. Pastikan disengaja.`,
+      confirmText:'Lanjut', cancelText:'Batal'
+    });
+    if(!big) return;
+  }
   if(qty < 0){
     const ok1 = await uiConfirm({
       title:'Kurangi token?',
@@ -1290,40 +1706,66 @@ $('btnSubmitKoreksi').onclick = async () => {
     return;
   }
 
-  uiToast('Koreksi token berhasil disimpan.','success');
+  uiToast('Koreksi token disimpan. Saldo baru: ' + (cache.bal + qty) + ' token', 'success');
   $('modalKoreksi').classList.remove('open');
   loadUsers();
 };
 
 // 5. RIWAYAT SELURUH TOP-UP
+let histRaw = [], histFilterTimer = null;
 async function loadAllTopups() {
   const tb = $('tblAllTopups');
   if (!tb) return;
-  tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Memuat riwayat top-up...</td></tr>';
+  tableSkeleton(tb, 8);
 
-  // Gunakan relasi FK user yang sama seperti daftar verifikasi top-up.
-  // profiles(nama,email) tanpa nama FK dapat gagal jika PostgREST melihat relasi ambigu.
   const { data, error } = await sb.from('topups')
     .select('*, profiles:profiles!topups_user_id_fkey(nama, email), decider:profiles!topups_diputuskan_oleh_fkey(nama)')
     .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Gagal memuat riwayat top-up:', error);
-    tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:18px">Gagal memuat riwayat: ${esc(error.message)}.<div style="margin-top:8px"><button type="button" class="btn" onclick="loadAllTopups()">Coba lagi</button></div></td></tr>`;
+    tableError(tb, 8, 'Gagal memuat riwayat: ' + error.message + '. Periksa relasi tabel/RLS Supabase.', 'loadAllTopups');
     return;
   }
-  if (!data || data.length === 0) {
-    tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">Belum ada transaksi top-up di database.</td></tr>';
+  histRaw = data || [];
+  renderHistoryRows();
+}
+function historyStatusLabel(st) {
+  return ({ menunggu:'Menunggu', disetujui:'Disetujui', ditolak:'Ditolak', kedaluwarsa:'Kedaluwarsa', gagal:'Gagal' })[st] || (st || '-');
+}
+function historyFiltered() {
+  const q = ($('histSearch')?.value || '').trim().toLowerCase();
+  const st = $('histStatus')?.value || '';
+  const range = Number($('histRange')?.value || 0);
+  const cutoff = range ? Date.now() - range * 86400000 : 0;
+  return histRaw.filter(t => {
+    if (st && t.status !== st) return false;
+    if (cutoff && new Date(t.created_at).getTime() < cutoff) return false;
+    if (q) {
+      const txt = ((t.profiles?.nama || '') + ' ' + (t.profiles?.email || '') + ' ' + (t.order_id || '')).toLowerCase();
+      if (!txt.includes(q)) return false;
+    }
+    return true;
+  });
+}
+function renderHistoryRows() {
+  const tb = $('tblAllTopups');
+  if (!tb) return;
+  const rows = historyFiltered();
+  const hasFilter = !!($('histSearch')?.value || $('histStatus')?.value || $('histRange')?.value);
+  if ($('histReset')) $('histReset').hidden = !hasFilter;
+  if ($('histCount')) $('histCount').textContent = `Menampilkan ${rows.length} dari ${histRaw.length} transaksi`;
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:18px">Tidak ada transaksi yang cocok dengan filter.</td></tr>';
     return;
   }
-
-  tb.innerHTML = data.map(t => {
+  tb.innerHTML = rows.map(t => {
     let stBadge = '<span class="badge wait">Menunggu</span>';
     if(t.status === 'disetujui') stBadge = '<span class="badge app">Disetujui</span>';
-    if(t.status === 'ditolak') stBadge = '<span class="badge rej">Ditolak</span>';
-
+    if(t.status === 'ditolak' || t.status === 'gagal') stBadge = '<span class="badge rej">'+historyStatusLabel(t.status)+'</span>';
+    if(t.status === 'kedaluwarsa') stBadge = '<span class="badge">Kedaluwarsa</span>';
     return `
-      <tr>
+      <tr class="clickable-row" data-topup-id="${esc(t.id)}">
         <td class="mono" style="font-size:11.5px">${fDate(t.created_at)}</td>
         <td><b>${esc(t.profiles?.nama || '-')}</b><br><span class="mono" style="font-size:11px;color:var(--text-dim)">${esc(t.profiles?.email || '-')}</span></td>
         <td>${t.jumlah_token} Token</td>
@@ -1337,6 +1779,46 @@ async function loadAllTopups() {
   }).join('');
 }
 
+// ===== CSV export =====
+function csvField(v) {
+  const s = String(v == null ? '' : v);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCsv(filename, header, rows) {
+  const csv = '\uFEFF' + [header].concat(rows).map(r => r.map(csvField).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+const csvDate = () => new Date().toISOString().slice(0, 10);
+function exportTopupsCsv() {
+  const rows = historyFiltered();
+  downloadCsv('plotpeta-topups-' + csvDate() + '.csv',
+    ['Waktu','Order ID','User','Email','Token','Nominal','Metode','Sumber','Status','Catatan'],
+    rows.map(t => [fDate(t.created_at), t.order_id || '', t.profiles?.nama || '', t.profiles?.email || '', t.jumlah_token, t.nominal, t.metode || '', t.sumber || '', historyStatusLabel(t.status), t.catatan || '']));
+  uiToast(`${rows.length} transaksi diekspor ke CSV.`, 'success');
+}
+function exportUsersCsv() {
+  const list = filteredUsers();
+  downloadCsv('plotpeta-users-' + csvDate() + '.csv',
+    ['Nama','Email','Role','Token Aktif','Terdaftar'],
+    list.map(u => [u.nama, u.email, u.role, u.bal, u.created]));
+  uiToast(`${list.length} pengguna diekspor ke CSV.`, 'success');
+}
+$('histSearch')?.addEventListener('input', () => { clearTimeout(histFilterTimer); histFilterTimer = setTimeout(renderHistoryRows, 300); });
+$('histStatus')?.addEventListener('change', renderHistoryRows);
+$('histRange')?.addEventListener('change', renderHistoryRows);
+$('histReset')?.addEventListener('click', () => {
+  if ($('histSearch')) $('histSearch').value = '';
+  if ($('histStatus')) $('histStatus').value = '';
+  if ($('histRange')) $('histRange').value = '';
+  renderHistoryRows();
+});
+$('btnExportTopups')?.addEventListener('click', exportTopupsCsv);
+$('btnExportUsers')?.addEventListener('click', exportUsersCsv);
+
 // Tombol di dalam tabel memakai atribut data-*, tanpa kode di dalam HTML
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
@@ -1345,13 +1827,69 @@ document.addEventListener('click', e => {
   if(a === 'bukti') previewBukti(b.dataset.path);
   else if(a === 'approve') approveTopup(b.dataset.id, b.dataset.nama, Number(b.dataset.jml));
   else if(a === 'reject') rejectTopup(b.dataset.id, b.dataset.nama, Number(b.dataset.nominal) || 0);
+  else if(a === 'detail') openUserDetail(b.dataset.id, b.dataset.nama);
   else if(a === 'koreksi') openKoreksiModal(b.dataset.id, b.dataset.nama);
 });
 
 
 // Pengumuman dan chat privat pengguna. RLS Supabase tetap menjadi batas keamanan utama.
 let supportSelectedUserId=null;
-async function loadAdminAnnouncements(){const box=$('adminAnnouncementsList');if(!box)return;box.textContent='Memuat...';const {data,error}=await sb.from('announcements').select('*').order('created_at',{ascending:false});if(error){box.innerHTML='<div class="support-empty" style="color:var(--danger)">Gagal memuat: '+esc(error.message)+'</div><div style="margin-top:8px"><button type="button" class="btn" onclick="loadAdminAnnouncements()">Coba lagi</button></div>';return;}box.innerHTML=(data||[]).map(a=>`<div style="padding:12px;border:1px solid var(--border);border-radius:10px;margin:8px 0"><b>${esc(a.title)}</b> <span class="badge">${a.is_published?'Tayang':'Draft'}</span><p style="white-space:pre-wrap">${esc(a.body)}</p><small>${fDate(a.created_at)}</small><button class="btn" style="margin-left:8px" onclick="toggleAnnouncement('${a.id}',${!a.is_published})">${a.is_published?'Sembunyikan':'Terbitkan'}</button><button class="btn dan" style="margin-left:6px" onclick="deleteAnnouncement('${a.id}')">Hapus</button></div>`).join('')||'Belum ada pengumuman.';}
+let adminAnnouncements=[];
+async function loadAdminAnnouncements(){
+  const box=$('adminAnnouncementsList');if(!box)return;
+  box.textContent='Memuat...';
+  const {data,error}=await sb.from('announcements').select('*').order('created_at',{ascending:false});
+  if(error){box.innerHTML='<div class="support-empty" style="color:var(--danger)">Gagal memuat: '+esc(error.message)+'</div><div style="margin-top:8px"><button type="button" class="btn" onclick="loadAdminAnnouncements()">Coba lagi</button></div>';return;}
+  adminAnnouncements=data||[];
+  renderAdminAnnouncements();
+}
+function renderAdminAnnouncements(){
+  const box=$('adminAnnouncementsList');if(!box)return;
+  box.innerHTML=adminAnnouncements.map(a=>`<div style="padding:12px;border:1px solid var(--border);border-radius:10px;margin:8px 0"><b>${esc(a.title)}</b> <span class="badge">${a.is_published?'Tayang':'Draft'}</span><p style="white-space:pre-wrap">${esc(a.body)}</p><small>${fDate(a.created_at)}</small><button class="btn" style="margin-left:8px" onclick="editAnnouncement('${a.id}')">Edit</button><button class="btn" style="margin-left:6px" onclick="toggleAnnouncement('${a.id}',${!a.is_published})">${a.is_published?'Sembunyikan':'Terbitkan'}</button><button class="btn dan" style="margin-left:6px" onclick="deleteAnnouncement('${a.id}')">Hapus</button></div>`).join('')||'Belum ada pengumuman.';
+}
+let editAnnId=null, editAnnUpdatedAt=null;
+function updateEditAnnSaveState(){
+  const ok=!!($('editAnnTitle')?.value.trim() && $('editAnnBody')?.value.trim());
+  if($('editAnnSave'))$('editAnnSave').disabled=!ok;
+}
+function editAnnouncement(id){
+  const a=adminAnnouncements.find(x=>x.id===id);if(!a)return;
+  editAnnId=id;editAnnUpdatedAt=a.updated_at||null;
+  $('editAnnTitle').value=a.title||'';
+  $('editAnnBody').value=a.body||'';
+  $('editAnnPublished').checked=!!a.is_published;
+  $('editAnnPreview').style.display='none';
+  updateEditAnnSaveState();
+  $('editAnnouncementModal').classList.add('open');
+}
+async function saveEditedAnnouncement(){
+  if(!editAnnId)return;
+  const title=$('editAnnTitle').value.trim(), body=$('editAnnBody').value.trim();
+  if(!title||!body){uiToast('Judul dan isi tidak boleh kosong.','warn');return;}
+  const { data: cur } = await sb.from('announcements').select('updated_at').eq('id',editAnnId).maybeSingle();
+  if(cur && editAnnUpdatedAt && cur.updated_at && cur.updated_at!==editAnnUpdatedAt){
+    const ok=await uiConfirm({title:'Pengumuman sudah berubah',body:'Announcement sudah diubah dari tab lain. Muat ulang daftar?',confirmText:'Muat ulang',cancelText:'Batal'});
+    if(ok)loadAdminAnnouncements();
+    return;
+  }
+  const { error } = await sb.from('announcements').update({title,body,is_published:$('editAnnPublished').checked,updated_at:new Date().toISOString()}).eq('id',editAnnId);
+  if(error){uiToast('Gagal menyimpan pengumuman: '+error.message,'error',8000);return;}
+  uiToast('Pengumuman berhasil diperbarui.','success');
+  $('editAnnouncementModal').classList.remove('open');
+  loadAdminAnnouncements();
+}
+$('editAnnTitle')?.addEventListener('input',updateEditAnnSaveState);
+$('editAnnBody')?.addEventListener('input',updateEditAnnSaveState);
+$('editAnnSave')?.addEventListener('click',saveEditedAnnouncement);
+$('editAnnPreviewBtn')?.addEventListener('click',()=>{
+  const box=$('editAnnPreview');
+  if(!box)return;
+  if(box.style.display==='none'){
+    $('editAnnPreviewTitle').textContent=$('editAnnTitle').value||'(judul kosong)';
+    $('editAnnPreviewBody').textContent=$('editAnnBody').value||'(isi kosong)';
+    box.style.display='block';
+  } else box.style.display='none';
+});
 async function toggleAnnouncement(id,published){const {error}=await sb.from('announcements').update({is_published:published}).eq('id',id);if(error)uiToast('Gagal: '+error.message,'error',8000);else loadAdminAnnouncements();}
 async function deleteAnnouncement(id){const ok=await uiConfirm({title:'Hapus pengumuman?',body:'Pengumuman akan dihapus permanen. Pengguna yang sedang buka aplikasi mungkin masih lihat sampai reload.',confirmText:'Hapus',cancelText:'Batal',danger:true});if(!ok)return;const {error}=await sb.from('announcements').delete().eq('id',id);if(error)uiToast('Gagal: '+error.message,'error',8000);else loadAdminAnnouncements();}
 async function saveAnnouncement(){const title=$('annTitle').value.trim(),body=$('annBody').value.trim();if(!title||!body){uiToast('Isi judul dan isi pengumuman.','warn');return;}const {error}=await sb.from('announcements').insert({title,body,is_published:$('annPublished').checked,created_by:currentAdminUser.id});if(error){uiToast('Gagal menyimpan pengumuman: '+error.message,'error',8000);return;}$('annTitle').value='';$('annBody').value='';loadAdminAnnouncements();}
@@ -1376,11 +1914,36 @@ async function loadAdminSupport(){
  if($('navSupportCount'))$('navSupportCount').textContent=String(unreadCount);
  if(users.length){const {data:profiles,error:profileError}=await sb.from('profiles').select('id,nama,email').in('id',users);if(!profileError){supportInboxProfiles={};(profiles||[]).forEach(p=>supportInboxProfiles[p.id]={nama:p.nama||'',email:p.email||''});}}
  renderAdminSupportList();
+ updateSupportBulk();
 }
+function updateSupportBulk(){
+ const unread=supportInboxRows.filter(x=>x.sender_role==='user'&&!x.admin_read_at);
+ const users=new Set(unread.map(x=>x.user_id)).size;
+ if($('supportUnreadLabel'))$('supportUnreadLabel').textContent=users+' percakapan · '+unread.length+' pesan belum dibaca';
+ if($('btnMarkAllRead'))$('btnMarkAllRead').hidden=unread.length===0;
+}
+$('btnMarkAllRead')?.addEventListener('click',async()=>{
+ const unread=supportInboxRows.filter(x=>x.sender_role==='user'&&!x.admin_read_at).length;
+ if(!unread)return;
+ const ok=await uiConfirm({title:'Tandai semua dibaca?',body:`Tandai semua ${unread} pesan sebagai dibaca?`,confirmText:'Tandai dibaca',cancelText:'Batal',focusPrimary:true});
+ if(!ok)return;
+ const {error}=await sb.from('support_messages').update({admin_read_at:new Date().toISOString()}).is('admin_read_at',null);
+ if(error){uiToast('Gagal menandai dibaca: '+error.message,'error',8000);return;}
+ uiToast('Semua pesan ditandai dibaca.','success');
+ await loadAdminSupport();
+ if(supportSelectedUserId)await openAdminSupport(supportSelectedUserId);
+});
 async function openAdminSupport(uid){supportSelectedUserId=uid;$('supportInbox').classList.add('chat-selected');$('supportChatPlaceholder').style.display='none';$('adminSupportReplyBox').classList.add('support-chat-open');$('adminSupportUserLabel').textContent='Memuat identitas pengguna...';if($('btnSupportBack'))$('btnSupportBack').style.display='inline-flex';renderAdminSupportList();const readAt=new Date().toISOString();const {error:readError}=await sb.from('support_messages').update({admin_read_at:readAt}).eq('user_id',uid).eq('sender_role','user').is('admin_read_at',null);if(readError){console.warn('Status baca pesan belum berhasil diperbarui:',readError.message);}const [{data,error},{data:profiles}]=await Promise.all([sb.from('support_messages').select('*').eq('user_id',uid).order('created_at',{ascending:true}).limit(300),sb.from('profiles').select('id,nama,email').eq('id',uid).limit(1)]);const profile=(profiles||[])[0]||{};$('adminSupportUserLabel').textContent=(profile.nama||'Nama belum tersedia')+' · '+(profile.email||'Email belum tersedia');if(error){$('adminSupportThread').textContent=error.message;return;}$('adminSupportThread').innerHTML=(data||[]).map(m=>`<div style="padding:9px 11px;margin:6px 0;border-radius:10px;border:1px solid ${m.sender_role==='admin'?'#16a34a':'var(--accent-text)'};background:${m.sender_role==='admin'?'#153b2a':'#123b57'};color:${m.sender_role==='admin'?'#f0fdf4':'#f0f9ff'};overflow-wrap:anywhere"><b>${m.sender_role==='admin'?'🟢 Admin PlotPeta':'🔵 Pengguna'}</b><div style="white-space:pre-wrap;margin:4px 0">${esc(m.message)}</div><small>${fDate(m.created_at)}</small><div style="margin-top:6px"><button type="button" class="btn dan" style="padding:4px 8px;font-size:11px" onclick="deleteAdminSupportMessage('${m.id}')">Hapus pesan</button></div></div>`).join('')||'Belum ada pesan dalam percakapan ini.';$('adminSupportThread').scrollTop=$('adminSupportThread').scrollHeight;await loadAdminSupport();}
 async function deleteAdminSupportMessage(id){const ok=await uiConfirm({title:'Hapus pesan?',body:'Pesan ini akan dihapus permanen dari database.',confirmText:'Hapus',cancelText:'Batal',danger:true});if(!ok)return;const {error}=await sb.from('support_messages').delete().eq('id',id);if(error){uiToast('Gagal menghapus pesan: '+error.message+'\nPastikan SQL izin hapus pesan sudah dijalankan.','error',8000);return;}if(supportSelectedUserId)await openAdminSupport(supportSelectedUserId);await loadAdminSupport();}
 async function sendAdminSupportReply(){const message=$('adminSupportReply').value.trim();if(!supportSelectedUserId||!message)return;const {error}=await sb.from('support_messages').insert({user_id:supportSelectedUserId,sender_role:'admin',message});if(error){uiToast('Balasan gagal dikirim: '+error.message,'error',8000);return;}$('adminSupportReply').value='';await openAdminSupport(supportSelectedUserId);loadAdminSupport();}
 $('btnSaveAnnouncement').addEventListener('click',saveAnnouncement);$('btnReloadAnnouncements').addEventListener('click',loadAdminAnnouncements);$('btnReloadSupport').addEventListener('click',loadAdminSupport);$('btnSendSupportReply').addEventListener('click',sendAdminSupportReply);
+$('btnRefreshChat')?.addEventListener('click', async () => {
+  const st = $('chatRefreshState');
+  if (st) st.textContent = 'Memuat...';
+  await loadAdminSupport();
+  if (supportSelectedUserId) await openAdminSupport(supportSelectedUserId);
+  if (st) st.textContent = '';
+});
 $('supportSearch')?.addEventListener('input',renderAdminSupportList);document.querySelectorAll('[data-support-filter]').forEach(b=>b.addEventListener('click',()=>{supportInboxFilter=b.dataset.supportFilter;document.querySelectorAll('[data-support-filter]').forEach(x=>x.classList.toggle('active',x===b));renderAdminSupportList();}));$('btnSupportBack')?.addEventListener('click',()=>{$('supportInbox').classList.remove('chat-selected');supportSelectedUserId=null;$('adminSupportReplyBox').classList.remove('support-chat-open');$('supportChatPlaceholder').style.display='flex';renderAdminSupportList();});
 
 // Inisialisasi
@@ -1464,7 +2027,7 @@ checkAdminSession();
     } catch(err) { console.warn('Auto-refresh chat gagal:', err); }
     finally { adminAutoRefreshBusy = false; }
   }
-  window.setInterval(autoRefreshAdminChat, 15000);
+  window.setInterval(autoRefreshAdminChat, 60000);
 })();
 </script>
 
