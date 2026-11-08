@@ -142,8 +142,27 @@ if (btnFileMenu && fileMenuEl) {
   });
 }
 
+// ==================== PAN NAV BUTTON ====================
+function syncPanNav() {
+  const b = document.getElementById('btnPanNav');
+  if (!b) return;
+  const on = (typeof tool !== 'undefined' && tool === 'pan');
+  b.classList.toggle('on', on);
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+const btnPanNav = document.getElementById('btnPanNav');
+if (btnPanNav) {
+  btnPanNav.addEventListener('click', () => {
+    if (typeof setTool !== 'function') return;
+    setTool(tool === 'pan' ? null : 'pan');
+    syncPanNav();
+  });
+}
+syncPanNav();
+
 // ==================== ACTION BAR ====================
 function updateActionBar() {
+  syncPanNav();
   const bar = document.getElementById('actionBar');
   const finishBtn = document.getElementById('btnFinish');
   const cancelBtn = document.getElementById('btnCancel');
@@ -245,7 +264,8 @@ function updateSidebarForTool() {
   side.classList.toggle('side-hidden', !img);
   if (!img) return;
   const secs = { kalibrasi:false, deteksi:false, teks:false, poligon:false, proyek:true };
-  secs.kalibrasi = tool === 'cal' || (tool === 'pan' && cal.mode === 'map');
+  const idle = tool === 'pan' || tool === null;
+  secs.kalibrasi = tool === 'cal' || (idle && cal.mode === 'map');
   secs.deteksi = tool === 'A';
   secs.teks = tool === 'T' || texts.length > 0 || (typeof aiTexts !== 'undefined' && aiTexts.length > 0);
   secs.poligon = ['P','M','E'].includes(tool) || polys.length > 0;
@@ -254,11 +274,12 @@ function updateSidebarForTool() {
     if (sec) sec.hidden = !secs[id];
   });
   const ov = document.getElementById('overviewCard');
-  if (ov) ov.classList.toggle('hide', tool !== 'pan');
+  if (ov) ov.classList.toggle('hide', !idle);
   accMeta('kalibrasi', cal.mode === 'map' ? (cal.ok ? 'Terkalibrasi' : 'Belum') : 'Lokal');
   accMeta('deteksi', cand.length ? cand.length + ' jalur' : '');
   accMeta('teks', (texts.length + (typeof aiTexts !== 'undefined' ? aiTexts.length : 0)) + ' teks');
   accMeta('poligon', polys.length + ' bidang');
+  if (typeof maybeCoachFromState === 'function') maybeCoachFromState();
 }
 
 function updateOverview() {
@@ -280,7 +301,7 @@ function updateOverview() {
     else if (!lines.length) h = 'Langkah 1: Deteksi Cepat (A) atau Garis penuh (P)';
     else if (!nTexts) h = 'Langkah 3: Tambah Teks Bidang (T)';
     else if (bal < 1) h = 'Butuh token — Isi ulang dulu';
-    else h = 'Langkah 4: Simpan DXF';
+    else h = 'Langkah 4: Simpan DXF' + ((typeof tokenBiaya === 'object' && tokenBiaya && Number(tokenBiaya.ekspor_dxf) === 0) ? ' (Gratis)' : '');
     hint.textContent = h;
     const needToken = h.indexOf('Butuh token') === 0;
     hint.classList.toggle('clickable', needToken);
@@ -310,13 +331,13 @@ addEventListener('keyup', e => {
   if (e.code !== 'Space' || spacePrevTool === null) return;
   const prev = spacePrevTool;
   spacePrevTool = null;
-  setTool(prev || 'pan');
+  setTool(prev === undefined ? 'pan' : prev);
 });
 addEventListener('blur', () => {
   if (spacePrevTool === null) return;
   const prev = spacePrevTool;
   spacePrevTool = null;
-  setTool(prev || 'pan');
+  setTool(prev === undefined ? 'pan' : prev);
 });
 // ==================== TOAST + CONFIRM + PROMPT (Fase 2B) ====================
 function showToast(msg, type, duration) {
@@ -338,8 +359,9 @@ function closeConfirm(ok) {
   m.classList.remove('open');
   const o = confirmOpts;
   confirmOpts = null;
+  const checked = !!(document.getElementById('confirmCheck') && document.getElementById('confirmCheck').checked);
   if (!o) return;
-  if (ok) { if (typeof o.onConfirm === 'function') o.onConfirm(); }
+  if (ok) { if (typeof o.onConfirm === 'function') o.onConfirm(checked); }
   else if (typeof o.onCancel === 'function') o.onCancel();
 }
 function showConfirm(opts) {
@@ -352,6 +374,17 @@ function showConfirm(opts) {
   ok.textContent = confirmOpts.confirmText || 'OK';
   cancel.textContent = confirmOpts.cancelText || 'Batal';
   ok.className = 'btn ' + (confirmOpts.danger ? 'danger' : 'pri');
+  const cw = document.getElementById('confirmCheckWrap'), cc = document.getElementById('confirmCheck');
+  if (cw && cc) {
+    if (confirmOpts.checkboxLabel) {
+      cw.style.display = 'flex';
+      document.getElementById('confirmCheckLabel').textContent = confirmOpts.checkboxLabel;
+      cc.checked = !!confirmOpts.checkboxChecked;
+    } else {
+      cw.style.display = 'none';
+      cc.checked = false;
+    }
+  }
   m.classList.add('open');
   const focusEl = (confirmOpts.danger || !confirmOpts.focusPrimary) ? cancel : ok;
   setTimeout(() => { try { focusEl.focus(); } catch (_) {} }, 30);
@@ -402,3 +435,92 @@ addEventListener('keydown', e => {
 window.showToast = showToast;
 window.showConfirm = showConfirm;
 window.showPrompt = showPrompt;
+// ==================== FASE 3: banner relink / restore ====================
+document.getElementById('relinkPick')?.addEventListener('click', () => document.getElementById('file')?.click());
+document.getElementById('relinkExport')?.addEventListener('click', () => document.getElementById('exp')?.click());
+document.getElementById('relinkClose')?.addEventListener('click', () => document.getElementById('relinkBanner')?.classList.add('hide'));
+
+document.getElementById('restoreKeep')?.addEventListener('click', () => {
+  clearTimeout(window.__ppRestoreTimer);
+  document.getElementById('restoreBanner')?.classList.add('hide');
+});
+document.getElementById('restoreNew')?.addEventListener('click', async () => {
+  document.getElementById('restoreBanner')?.classList.add('hide');
+  clearTimeout(window.__ppRestoreTimer);
+  try { if (window.__ppClear) await window.__ppClear(); } catch (_) {}
+  img = null; iw = 0; ih = 0; mapName = '';
+  lines = []; texts = []; polys = []; gaps = []; cand = []; cur = []; hist = []; aiTexts = []; aiRaw = [];
+  candDropped = []; lastDetR = null;
+  selT = -1; aiSel = -1; dirty = false; window.__ppAutosaved = false;
+  box = null; mv = null; drag = null; mouse = null; erasePick = null; addLinePick = null;
+  cal.pts = []; cal.ok = false; cal.M = null;
+  ['cx0','cy0','cx1','cy1','cx2','cy2','cx3','cy3'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  setCoordMode('local'); crs(); tform(); stat();
+  if (typeof setStatus === 'function') setStatus('ready', 'Belum ada peta');
+  if (typeof updateFileChip === 'function') updateFileChip();
+  if (typeof updateDropzone === 'function') updateDropzone();
+  draw();
+  if (window.polyAutoSync) window.polyAutoSync();
+  if (typeof aiUpdateCostUI === 'function') aiUpdateCostUI();
+});
+
+// ==================== FASE 3: coach mark ====================
+const COACH_KEY = 'pp_coach_seen';
+let coachSeen = [];
+try { coachSeen = JSON.parse(localStorage.getItem(COACH_KEY) || '[]') || []; } catch (_) { coachSeen = []; }
+const coachSessionSeen = new Set();
+const coachTexts = {
+  drawer: 'Mulai dari sini. Gambar batas dengan <b>Garis penuh</b>, atau biarkan AI mendeteksi otomatis dengan <b>Deteksi Cepat</b>.',
+  poligon: 'Poligon bidang dibuat otomatis. Ikut diekspor di layer poligon saat Ekspor DXF.',
+  export: 'Simpan proyek agar bisa dibuka lagi. <b>File ▾ → Simpan proyek</b> (Ctrl+S).'
+};
+let coachCurrent = null;
+function showCoach(id, anchor) {
+  if (!id || coachSeen.includes(id) || coachSessionSeen.has(id)) return;
+  const ov = document.getElementById('coachOverlay');
+  const card = document.getElementById('coachCard');
+  const txt = document.getElementById('coachText');
+  if (!ov || !card || !txt) return;
+  coachCurrent = id;
+  txt.innerHTML = coachTexts[id] || '';
+  document.getElementById('coachNever').checked = false;
+  ov.classList.remove('hide');
+  let left = Math.max(10, (window.innerWidth - 380) / 2);
+  let top = Math.max(70, (window.innerHeight - 220) / 2);
+  if (anchor && anchor.getBoundingClientRect) {
+    const r = anchor.getBoundingClientRect();
+    left = r.right + 12;
+    if (left + 370 > window.innerWidth) left = Math.max(10, r.left - 370);
+    top = Math.min(window.innerHeight - 220, Math.max(10, r.top));
+  }
+  card.style.left = left + 'px';
+  card.style.top = top + 'px';
+}
+function closeCoach(never) {
+  if (coachCurrent) {
+    if (never) {
+      if (!coachSeen.includes(coachCurrent)) coachSeen.push(coachCurrent);
+      try { localStorage.setItem(COACH_KEY, JSON.stringify(coachSeen)); } catch (_) {}
+    } else {
+      coachSessionSeen.add(coachCurrent);
+    }
+  }
+  coachCurrent = null;
+  document.getElementById('coachOverlay')?.classList.add('hide');
+}
+document.getElementById('coachOk')?.addEventListener('click', () => closeCoach(document.getElementById('coachNever').checked));
+document.getElementById('coachSkip')?.addEventListener('click', () => closeCoach(document.getElementById('coachNever').checked));
+window.showCoach = showCoach;
+
+// Trigger 1 (peta pertama) dan 2 (poligon pertama) dipanggil dari updateSidebarForTool.
+let coachMapQueued = false, coachPolyQueued = false;
+function maybeCoachFromState() {
+  if (typeof img !== 'undefined' && img && !coachMapQueued && !coachSeen.includes('drawer') && !coachSessionSeen.has('drawer')) {
+    coachMapQueued = true;
+    setTimeout(() => showCoach('drawer', document.getElementById('toolDrawer')), 800);
+  }
+  if (typeof polys !== 'undefined' && polys.length > 0 && !coachPolyQueued && !coachSeen.includes('poligon') && !coachSessionSeen.has('poligon')) {
+    coachPolyQueued = true;
+    setTimeout(() => showCoach('poligon', document.querySelector('.pp-acc[data-acc="poligon"] .box-header')), 800);
+  }
+}

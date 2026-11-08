@@ -24,7 +24,10 @@ function openAuthModal(tab = 'login'){
   $('authAlert').style.display = 'block';
   $('authModalTitle').textContent = 'Lanjutkan ke PlotPeta';
 }
-function closeAuthModal(){ $('modalAuth').classList.remove('open'); }
+function closeAuthModal(){
+  $('modalAuth').classList.remove('open');
+  if(!currentUser){ try{ sessionStorage.removeItem('pp_intent_export'); }catch(_){} }
+}
 $('btnOpenAuth').onclick = () => openAuthModal('login');
 
 // Google Sign-In Integration
@@ -186,6 +189,12 @@ async function updateAuthState(session){
     }
 
     await fetchUserTokens();
+    let intent = false;
+    try{ intent = sessionStorage.getItem('pp_intent_export') === '1'; }catch(_){}
+    if(intent){
+      try{ sessionStorage.removeItem('pp_intent_export'); }catch(_){}
+      setTimeout(()=>{ const e = $('exp'); if(e) e.click(); }, 400);
+    }
   } else {
     currentUser = null;
     currentProfile = null;
@@ -217,11 +226,25 @@ async function fetchUserTokens(tries){
   currentTokenBalance = data.balance || 0;
   $('tokenCount').textContent = currentTokenBalance;
   if (typeof updateOverview === 'function') updateOverview();
-  if(data.earliest_expiry){
-    const expDate = new Date(data.earliest_expiry).toLocaleDateString('id-ID', { day:'numeric', month:'short' });
-    $('tokenPill').title = `${currentTokenBalance} token aktif (berlaku s.d. ${expDate})`;
-  } else {
-    $('tokenPill').title = `${currentTokenBalance} token aktif`;
+  const pill = $('tokenPill');
+  if (pill) {
+    pill.classList.remove('token-warn', 'token-empty');
+    if (currentTokenBalance <= 0) {
+      pill.classList.add('token-empty');
+      pill.title = 'Saldo token habis';
+    } else if (data.earliest_expiry) {
+      const expAt = new Date(data.earliest_expiry);
+      const days = Math.ceil((expAt.getTime() - Date.now()) / 86400000);
+      const expDate = expAt.toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' });
+      if (days < 7) {
+        pill.classList.add('token-warn');
+        pill.title = `${currentTokenBalance} token akan expired dalam ${days} hari (${expDate})`;
+      } else {
+        pill.title = `${currentTokenBalance} token aktif (berlaku s.d. ${expDate})`;
+      }
+    } else {
+      pill.title = `${currentTokenBalance} token aktif`;
+    }
   }
 }
 
@@ -473,13 +496,14 @@ async function loadTokenBiaya(){
 
 // Teks UI yang menyebut biaya mengikuti pengaturan, bukan angka tetap.
 function applyTokenBiayaTexts(){
-  const bebas = tokenBiaya.ekspor_dxf === 0;
+  const n = Number(tokenBiaya.ekspor_dxf) || 0;
+  const label = n === 0 ? 'Ekspor DXF (Gratis)' : `Ekspor DXF (${n} token)`;
   const exp = $('exp');
-  if(exp) exp.title = bebas ? 'Simpan DXF AutoCAD (gratis; tanpa token)' : 'Simpan DXF AutoCAD (Memotong 1 token)';
+  if(exp){ exp.title = label; exp.setAttribute('aria-label', label); }
   const pill = $('tokenPill');
-  if(pill && currentUser) pill.title = bebas
-    ? `${currentTokenBalance} token aktif`
-    : `Saldo token Anda (1 download DXF = 1 token)`;
+  if(pill && currentUser) pill.title = n === 0
+    ? `${currentTokenBalance} token aktif · ekspor DXF gratis`
+    : `Saldo token Anda (${n} token per ekspor DXF)`;
 }
 $('btnTopupPill').onclick = openTopupModal;
 
@@ -727,32 +751,53 @@ $('exp').onclick = async () => {
 
   const aiLines = lines.filter(l => l.ai).length;
   const aiTxts = texts.filter(t => t.ai).length;
-  if(aiLines + aiTxts > 0){
-    const proceed = await new Promise(res => {
-      if(typeof showConfirm === 'function') showConfirm({
-        title:'Hasil AI belum diperiksa',
-        body:`Ada ${aiLines} garis dan ${aiTxts} teks hasil AI yang belum ditandai diperiksa. Tetap ekspor?`,
-        confirmText:'Tetap ekspor', cancelText:'Batal',
-        onConfirm:()=>res(true), onCancel:()=>res(false)
-      });
-      else res(confirm(`Ada ${aiLines} garis dan ${aiTxts} teks hasil AI yang belum ditandai diperiksa. Tetap ekspor?`));
-    });
-    if(!proceed) return;
-  }
 
-  // 1. Cek Sesi Pengguna
+  // 1. Gate login + ingat niat ekspor lewat login (sessionStorage)
   if(!currentUser){
+    try{ sessionStorage.setItem('pp_intent_export','1'); }catch(_){}
     const go = await new Promise(res => {
       if(typeof showConfirm === 'function') showConfirm({
         title:'Perlu Masuk',
         body:'Untuk mengunduh file DXF AutoCAD, silakan masuk atau daftar akun terlebih dahulu. Dapatkan 3 token gratis saat mendaftar akun baru!',
         confirmText:'Masuk Sekarang', cancelText:'Nanti', focusPrimary:true,
-        onConfirm:()=>res(true), onCancel:()=>res(false)
+        onConfirm:()=>res(true),
+        onCancel:()=>{ try{ sessionStorage.removeItem('pp_intent_export'); }catch(_){} res(false); }
       });
       else res(confirm('Untuk mengunduh file DXF AutoCAD, silakan masuk atau daftar akun terlebih dahulu.'));
     });
     if(go) openAuthModal('register');
     return;
+  }
+
+  // 2. Dialog konfirmasi ekspor (summary + biaya dinamis + AI warning)
+  let skipConfirm = false;
+  try{ skipConfirm = localStorage.getItem('pp_export_skip_confirm') === '1'; }catch(_){}
+  if(!skipConfirm){
+    const cost = Number(tokenBiaya.ekspor_dxf) || 0;
+    const bal = Number(currentTokenBalance) || 0;
+    const enough = cost === 0 || bal >= cost;
+    const summary = 'Akan mengekspor ' + lines.length + ' garis, ' + texts.length + ' teks, ' + polys.length + ' poligon. ' +
+      'Biaya: ' + (cost === 0 ? 'Gratis' : cost + ' token') + '.';
+    const warn = (aiLines + aiTxts) > 0 ? ' ' + (aiLines + aiTxts) + ' hasil AI belum diperiksa.' : '';
+    const body = enough ? (summary + warn) : ('Saldo token: ' + bal + ', butuh ' + cost + '. ' + summary + warn);
+    const proceed = await new Promise(res => {
+      if(typeof showConfirm === 'function') showConfirm({
+        title:'Ekspor DXF',
+        body:body,
+        confirmText:enough ? 'Ekspor' : 'Isi Ulang',
+        cancelText:'Batal',
+        danger:(aiLines + aiTxts) > 0,
+        checkboxLabel:'Jangan tanya lagi',
+        onConfirm:(checked)=>{
+          if(checked){ try{ localStorage.setItem('pp_export_skip_confirm','1'); }catch(_){} }
+          res(enough ? 'ok' : 'topup');
+        },
+        onCancel:()=>res('cancel')
+      });
+      else res(confirm(body) ? (enough ? 'ok' : 'topup') : 'cancel');
+    });
+    if(proceed === 'cancel') return;
+    if(proceed === 'topup'){ openTopupModal(); return; }
   }
 
   // 2. Server membuat DXF, memotong 1 token, lalu mengirim file
@@ -807,6 +852,7 @@ $('exp').onclick = async () => {
     } else {
       sToast(`Berhasil mengunduh DXF! 1 token telah dipotong. Sisa saldo token Anda: ${res.remaining} token.`,'success',6000);
     }
+    if(typeof showCoach === 'function') setTimeout(()=>showCoach('export',document.getElementById('chipFile')),800);
   }
 };
 

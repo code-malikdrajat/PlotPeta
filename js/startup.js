@@ -67,6 +67,8 @@ updateDropzone();
       }
       await putK(K_PRJ,s);
       lastJson=s;
+      window.__ppAutosaved=true;
+      if(typeof updateFileChip==='function')updateFileChip();
     }catch(_){}
     busy=false;
   }
@@ -78,6 +80,8 @@ updateDropzone();
   window.__ppSaved=async()=>{
     try{savedSnap=JSON.stringify(proj())}catch(_){savedSnap=null}
     lastJson='';imgStored=false;
+    window.__ppAutosaved=false;
+    if(typeof updateFileChip==='function')updateFileChip();
     try{await clearAll()}catch(_){}
   };
 
@@ -111,10 +115,18 @@ updateDropzone();
         lastJson=prj;
       }
       dirty=false;
+      window.__ppAutosaved=true;
+      if(typeof updateFileChip==='function')updateFileChip();
       draw();
       if(window.polyAutoSync)window.polyAutoSync();
       if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
-      toast('Peta dan pekerjaan terakhir Anda dipulihkan otomatis.');
+      const rb=$('restoreBanner');
+      if(rb){
+        $('restoreText').textContent='Pekerjaan terakhir dipulihkan pada '+new Date().toLocaleString('id-ID')+'.';
+        rb.classList.remove('hide');
+        clearTimeout(window.__ppRestoreTimer);
+        window.__ppRestoreTimer=setTimeout(()=>rb.classList.add('hide'),10000);
+      }
     }catch(e){
       console.warn('Pemulihan otomatis gagal:',e);
     }finally{

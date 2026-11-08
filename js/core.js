@@ -34,7 +34,7 @@ function uiPrompt(opts,nativeMsg,def){
 const num=s=>{s=String(s).trim();s=/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)?s.replace(/\./g,'').replace(',','.'):s.replace(',','.');return parseFloat(s)};
 const f2=n=>n.toLocaleString('id-ID',{maximumFractionDigits:2,minimumFractionDigits:2});
 const toReal=p=>{if(cal.mode==='local')return [p[0],(ih||0)-p[1]];if(!cal.ok||!cal.M)return null;const m=cal.M;return[m[0]*p[0]+m[1]*p[1]+m[2],m[3]*p[0]+m[4]*p[1]+m[5]]};
-function snapshot(){hist.push(JSON.stringify({lines,texts,cand,aiTexts}));if(hist.length>100)hist.shift();dirty=true;if(typeof updateFileChip==='function')updateFileChip()}
+function snapshot(){hist.push(JSON.stringify({lines,texts,cand,aiTexts}));if(hist.length>100)hist.shift();dirty=true;window.__ppAutosaved=false;if(typeof updateFileChip==='function')updateFileChip()}
 function toolName(){
   const names={'P':'Garis penuh','T':'Teks bidang','M':'Edit garis','A':'Deteksi cepat','E':'Hapus','pan':'Pan','TRIM':'Trim','EXT':'Extend','cal':'Kalibrasi','trim':'Potong segmen'};
   return names[tool]||(tool?tool:'Siap');
@@ -45,7 +45,19 @@ function updateFileChip(){
   if(img&&mapName){
     chip.hidden=false;
     nameEl.textContent=mapName;
-    dirtyEl.style.display=(typeof dirty!=='undefined'&&dirty)?'block':'none';
+    if(window.__ppAutosaved){
+      dirtyEl.style.display='block';
+      dirtyEl.classList.add('autosaved');
+      dirtyEl.title='Tersimpan otomatis di browser';
+    }else if(dirty){
+      dirtyEl.style.display='block';
+      dirtyEl.classList.remove('autosaved');
+      dirtyEl.title='Belum disimpan ke file. Ctrl+S untuk download JSON.';
+    }else{
+      dirtyEl.style.display='none';
+      dirtyEl.classList.remove('autosaved');
+      dirtyEl.title='Belum tersimpan';
+    }
   }else{
     chip.hidden=true;
   }
@@ -54,7 +66,19 @@ function undo(){if(mClickTimer){clearTimeout(mClickTimer);mClickTimer=null;mClic
 
 function updateDropzone(){
   const dz=$('dropzone');
-  if(dz) dz.style.display = img ? 'none' : 'flex';
+  const hasObj=lines.length+texts.length+polys.length>0;
+  if(dz) dz.style.display = (img||hasObj) ? 'none' : 'flex';
+  updateRelinkBanner();
+}
+function updateRelinkBanner(){
+  const b=$('relinkBanner');
+  if(!b)return;
+  const show=!img && (lines.length+texts.length+polys.length>0);
+  b.classList.toggle('hide',!show);
+  if(show){
+    const t=$('relinkText');
+    if(t)t.innerHTML='Proyek dimuat: <b>'+lines.length+' segmen</b>, <b>'+texts.length+' teks</b>, <b>'+polys.length+' poligon</b>. Pilih gambar peta yang sama.';
+  }
 }
 
 function loadImg(src){
@@ -723,6 +747,7 @@ const stat=()=>{
   $('cnt').textContent=lines.length+' rangkaian garis, '+(texts.length+(typeof aiTexts==='undefined'?0:aiTexts.length))+' teks';
   if(typeof updateSidebarForTool==='function')updateSidebarForTool();
   if(typeof updateOverview==='function')updateOverview();
+  if(typeof updateDropzone==='function')updateDropzone();
 };
 
 // Teks & ikon OCR: anchor tengah dari PlotPetaDrawer agar label pas di atas
@@ -1113,6 +1138,7 @@ $('btnClearMap').onclick=async()=>{
   setCoordMode('local'); crs(); tform(); stat();
   $('file').value='';
   setStatus('ready','Belum ada peta');
+  window.__ppAutosaved=false;
   updateFileChip();
   if(typeof updateSidebarForTool==='function')updateSidebarForTool();
   if(typeof updateOverview==='function')updateOverview();
@@ -1137,7 +1163,7 @@ $('sp').onclick=async()=>{
   }
   const o={v:1,nama,size:[iw,ih],coordinateMode:cal.mode,cal:cal.pts.map((p,i)=>({p,x:$('cx'+i).value,y:$('cy'+i).value})),lines,texts,polys,th:$('th').value,ly:['lP','lD','lSu','lM','lPoly'].map(i=>$(i).value)};
   const ok=await save(nama+'.json',JSON.stringify(o));
-  if(ok){dirty=false;updateFileChip();if(window.__ppSaved)await window.__ppSaved();}
+  if(ok){dirty=false;window.__ppAutosaved=false;updateFileChip();if(window.__ppSaved)await window.__ppSaved();}
   else uiToast('Simpan proyek tidak tersedia di tampilan ini.','error',8000);
 };
 $('op').onchange=e=>{
