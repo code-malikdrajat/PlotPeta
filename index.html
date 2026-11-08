@@ -14,7 +14,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<link rel="stylesheet" href="css/style.css?v=16">
+<link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
 
@@ -358,6 +358,23 @@
   <div id="wrap">
     <canvas id="plotCanvas"></canvas>
 
+    <div id="relinkBanner" class="pp-banner hide" role="status">
+      <div class="pp-banner-text" id="relinkText">Proyek dimuat tanpa gambar.</div>
+      <div class="pp-banner-actions">
+        <button type="button" class="btn pri" id="relinkPick">Pilih Gambar Peta</button>
+        <button type="button" class="btn" id="relinkExport" style="background:transparent;border-color:transparent;text-decoration:underline">Ekspor tanpa gambar</button>
+        <button type="button" class="pp-banner-close" id="relinkClose" aria-label="Tutup">×</button>
+      </div>
+    </div>
+
+    <div id="restoreBanner" class="pp-banner hide" role="status">
+      <div class="pp-banner-text" id="restoreText">Pekerjaan terakhir dipulihkan.</div>
+      <div class="pp-banner-actions">
+        <button type="button" class="btn pri" id="restoreKeep">Lanjutkan</button>
+        <button type="button" class="btn" id="restoreNew">Mulai baru</button>
+      </div>
+    </div>
+
     <div class="action-bar" id="actionBar" hidden>
       <button class="action-btn primary" id="btnFinish" hidden title="Selesai garis (Enter)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
@@ -425,6 +442,15 @@
           </svg>
           <span>Pilih Berkas Peta</span>
         </button>
+        <div class="pp-stepper" aria-label="Alur penggunaan">
+          <div class="pp-step active"><span class="pp-step-num">1</span><span>Buka peta</span></div>
+          <span class="pp-step-arrow" aria-hidden="true">›</span>
+          <div class="pp-step"><span class="pp-step-num">2</span><span>Digitasi</span><small>Kalibrasi opsional</small></div>
+          <span class="pp-step-arrow" aria-hidden="true">›</span>
+          <div class="pp-step"><span class="pp-step-num">3</span><span>Rapikan</span></div>
+          <span class="pp-step-arrow" aria-hidden="true">›</span>
+          <div class="pp-step"><span class="pp-step-num">4</span><span>Ekspor DXF</span><small>Butuh token</small></div>
+        </div>
         <div class="badge-group">
           <span class="fmt-badge">JPG / JPEG</span>
           <span class="fmt-badge">PNG</span>
@@ -737,8 +763,9 @@
         <div style="font-weight:700;font-size:13px;margin-bottom:10px">QR pembayaran sudah kedaluwarsa.</div>
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
           <button type="button" class="btn pri" id="btnRenewQr">Buat QR baru</button>
-          <button type="button" class="btn" id="btnExpiredProof">Saya sudah bayar, kirim bukti</button>
+          <button type="button" class="btn" id="btnExpiredProof">Saya sudah bayar QRIS — Kirim bukti</button>
         </div>
+        <div class="mu" style="font-size:10.5px;margin-top:8px">Kalau Anda bayar via transfer bank, pindah ke tab <b>TF</b> dulu.</div>
       </div>
       <div id="topupAutoAlert" class="form-alert"></div>
       <button type="button" class="btn pri" id="btnPayNow" style="width:100%;padding:10px;margin-bottom:6px">Bayar sekarang</button>
@@ -890,6 +917,10 @@
   <div class="modal-card" style="max-width:400px">
     <div class="modal-head"><h3 class="modal-title" id="confirmTitle">Konfirmasi</h3></div>
     <div id="confirmBody" style="font-size:13px;line-height:1.55;color:var(--text-main);margin:6px 0 14px"></div>
+    <label id="confirmCheckWrap" class="mu" style="display:none;align-items:center;gap:6px;font-size:11.5px;margin:-4px 0 10px">
+      <input type="checkbox" id="confirmCheck" style="width:auto">
+      <span id="confirmCheckLabel"></span>
+    </label>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button type="button" class="btn" id="confirmCancel">Batal</button>
       <button type="button" class="btn pri" id="confirmOk">OK</button>
@@ -909,15 +940,26 @@
   </div>
 </div>
 
+<div id="coachOverlay" class="coach-overlay hide">
+  <div class="coach-card" id="coachCard" role="dialog" aria-modal="false">
+    <div class="coach-text" id="coachText"></div>
+    <label class="coach-check"><input type="checkbox" id="coachNever"> Jangan tampilkan lagi</label>
+    <div class="coach-actions">
+      <button type="button" class="btn" id="coachSkip">Lewati</button>
+      <button type="button" class="btn pri" id="coachOk">Mengerti</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/cad-geom.js?v=2"></script>
 <script src="js/cad-tools.js?v=3"></script>
-<script src="js/core.js?v=28"></script>
+<script src="js/core.js?v=30"></script>
 <script src="js/detect.js?v=18"></script>
 <script src="js/mesin-jejak.js?v=7"></script>
-<script src="js/ui.js?v=13"></script>
-<script src="js/supabase.js?v=19"></script>
+<script src="js/ui.js?v=15"></script>
+<script src="js/supabase.js?v=21"></script>
 <script src="js/ai.js?v=13"></script>
-<script src="js/startup.js?v=9"></script>
+<script src="js/startup.js?v=11"></script>
 
 <script src="js/drawer.js?v=10"></script>
 
