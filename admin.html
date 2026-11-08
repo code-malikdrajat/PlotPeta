@@ -115,53 +115,6 @@ input:focus, textarea:focus { border-color: var(--border-focus); outline: none; 
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 
-/* QRIS Management Box */
-.qris-panel {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  background: var(--bg-input);
-  border: 1px dashed var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  margin-top: 10px;
-}
-.qris-preview-box {
-  width: 130px;
-  height: 130px;
-  border-radius: 10px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-  flex-shrink: 0;
-}
-.qris-preview-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #ffffff;
-}
-.qris-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-dim);
-  font-size: 11px;
-  text-align: center;
-  padding: 10px;
-}
-.qris-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-}
-
 /* Tables */
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px; }
@@ -297,6 +250,28 @@ th { white-space:nowrap; }
 .saldo-value.zero { color:var(--text-muted); }
 .saldo-sub { font-size:11px; color:var(--text-muted); margin-top:2px; }
 .saldo-warn { display:inline-block; margin-left:8px; padding:1px 7px; border-radius:999px; font-size:10px; font-weight:700; color:var(--warning); background:var(--warning-subtle); border:1px solid rgba(245,158,11,.35); vertical-align:middle; }
+
+/* Thin scrollbar untuk modal (Fase Cleanup) */
+.modal-box, .modal-card, #userDetailBody, #topupDetailBody, #adminSupportThread, #memberThread {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.modal-box::-webkit-scrollbar, .modal-card::-webkit-scrollbar,
+#userDetailBody::-webkit-scrollbar, #topupDetailBody::-webkit-scrollbar,
+#adminSupportThread::-webkit-scrollbar {
+  width: 6px; height: 6px;
+}
+.modal-box::-webkit-scrollbar-track, .modal-card::-webkit-scrollbar-track,
+#userDetailBody::-webkit-scrollbar-track, #topupDetailBody::-webkit-scrollbar-track,
+#adminSupportThread::-webkit-scrollbar-track { background: transparent; }
+.modal-box::-webkit-scrollbar-thumb, .modal-card::-webkit-scrollbar-thumb,
+#userDetailBody::-webkit-scrollbar-thumb, #topupDetailBody::-webkit-scrollbar-thumb,
+#adminSupportThread::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.modal-box::-webkit-scrollbar-thumb:hover, .modal-card::-webkit-scrollbar-thumb:hover,
+#userDetailBody::-webkit-scrollbar-thumb:hover, #topupDetailBody::-webkit-scrollbar-thumb:hover,
+#adminSupportThread::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+#userDetailModal .modal-box { max-width: min(700px, 95vw); max-height: 90vh; }
+#editAnnouncementModal .modal-box, #modalKoreksi .modal-box, #adminConfirm .modal-box, #adminPrompt .modal-box { max-height: 90vh; overflow: auto; }
 </style>
 </head>
 <body>
@@ -379,7 +354,7 @@ th { white-space:nowrap; }
           <div class="overview-head"><div><h2>Akses cepat</h2><p>Menu yang sering digunakan</p></div></div>
           <button class="quick-link" type="button" data-nav="panel-topups"><span class="quick-emoji">◷</span><span><b>Verifikasi top-up</b><small>Periksa bukti pembayaran pengguna</small></span><span class="quick-arrow">↗</span></button>
           <button class="quick-link" type="button" data-nav="panel-users"><span class="quick-emoji">♙</span><span><b>Kelola pengguna</b><small>Lihat akun dan saldo token</small></span><span class="quick-arrow">↗</span></button>
-          <button class="quick-link" type="button" data-nav="panel-payment"><span class="quick-emoji">▣</span><span><b>Metode pembayaran</b><small>Kelola rekening dan QRIS</small></span><span class="quick-arrow">↗</span></button>
+          <button class="quick-link" type="button" data-nav="panel-payment"><span class="quick-emoji">▣</span><span><b>Metode pembayaran</b><small>Kelola rekening dan e-wallet</small></span><span class="quick-arrow">↗</span></button>
           <button class="quick-link" type="button" data-nav="panel-token"><span class="quick-emoji">⚙</span><span><b>Pengaturan token</b><small>Atur harga dan masa berlaku</small></span><span class="quick-arrow">↗</span></button>
         </section>
       </div>
@@ -419,12 +394,12 @@ th { white-space:nowrap; }
       </div>
     </div>
 
-    <!-- Section 2: Informasi Pembayaran & Kelola QRIS Interaktif -->
+    <!-- Section 2: Informasi Pembayaran TF & E-Wallet -->
     <div class="card admin-section" id="panel-payment" data-panel="panel-payment">
       <div class="card-head">
         <h2 class="card-title">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
-          <span>Informasi Pembayaran TF &amp; Kelola Foto QRIS</span>
+          <span>Informasi Pembayaran TF &amp; E-Wallet</span>
         </h2>
         <button class="btn pri" id="btnSavePaymentSettings">Simpan Info Pembayaran</button>
       </div>
@@ -458,55 +433,6 @@ th { white-space:nowrap; }
         </div>
       </div>
 
-      <!-- Kelola QRIS Interaktif (Upload, Preview, Ganti, Hapus) -->
-      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
-        <label class="form-label" style="font-size:13px;font-weight:700">Foto QRIS Statis (Cadangan — saat ini tidak ditampilkan ke pengguna)</label>
-        <p class="mono" style="font-size:11px;color:var(--text-dim);margin:4px 0 8px">
-          ⓘ User sekarang memakai tab "QRIS Otomatis" (via KrisKu) atau transfer bank / e-wallet. Upload QRIS di sini hanya sebagai backup.
-        </p>
-        
-        <div class="qris-panel">
-          <!-- Thumbnail preview box -->
-          <div class="qris-preview-box" id="qrisThumbBox">
-            <div id="qrisEmptyView" class="qris-empty">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-              <span>Belum ada foto QRIS</span>
-            </div>
-            <img id="qrisImgView" class="qris-preview-img" style="display:none" alt="QRIS Aktif">
-          </div>
-
-          <!-- Controls -->
-          <div class="qris-controls">
-            <div id="qrisEmptyControls">
-              <button class="btn pri" onclick="$('qrisFileInput').click()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                <span>Upload Foto QRIS Baru</span>
-              </button>
-              <div class="mono" style="font-size:11px;color:var(--text-dim);margin-top:6px">Format JPG atau PNG (maks 2 MB).</div>
-            </div>
-
-            <div id="qrisActiveControls" style="display:none">
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn" onclick="previewQrisFull()">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                  <span>Tinjau / Preview</span>
-                </button>
-                <button class="btn" onclick="$('qrisFileInput').click()">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                  <span>Ganti Foto QRIS</span>
-                </button>
-                <button class="btn dan" onclick="deleteQris()">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                  <span>Hapus QRIS</span>
-                </button>
-              </div>
-              <div class="mono" style="font-size:11px;color:var(--success);margin-top:6px">&#10003; Foto QRIS aktif terpasang</div>
-            </div>
-
-            <input type="file" id="qrisFileInput" accept="image/png,image/jpeg,image/jpg" hidden onchange="handleQrisUpload(event)">
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Section 3: Pengaturan Token & Paket -->
@@ -673,7 +599,7 @@ th { white-space:nowrap; }
   </div>
 </div>
 
-<!-- Modal Preview Bukti Bayar / QRIS -->
+<!-- Modal Preview Bukti Bayar -->
 <div class="modal-overlay" id="modalPreview">
   <div class="modal-box">
     <button class="modal-close" onclick="$('modalPreview').classList.remove('open')">&times;</button>
@@ -712,10 +638,10 @@ th { white-space:nowrap; }
 </div>
 
 <div class="modal-overlay" id="userDetailModal">
-  <div class="modal-box" style="max-width:640px">
+  <div class="modal-box" style="max-width:min(700px,95vw);max-height:90vh">
     <button class="modal-close" onclick="$('userDetailModal').classList.remove('open')">&times;</button>
     <h3 style="margin-top:0" id="userDetailTitle">Detail Pengguna</h3>
-    <div id="userDetailBody" style="max-height:65vh;overflow:auto"></div>
+    <div id="userDetailBody" style="max-height:calc(90vh - 150px);overflow:auto;padding-right:8px"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
       <button class="btn pri" type="button" id="userDetailKoreksi">Koreksi Token</button>
       <button class="btn" type="button" onclick="$('userDetailModal').classList.remove('open')">Tutup</button>
@@ -748,7 +674,7 @@ th { white-space:nowrap; }
   <div class="modal-box" style="max-width:600px">
     <button class="modal-close" onclick="$('topupDetailModal').classList.remove('open')">&times;</button>
     <h3 style="margin-top:0" id="topupDetailTitle">Detail Top-up</h3>
-    <div id="topupDetailBody" style="max-height:65vh;overflow:auto"></div>
+    <div id="topupDetailBody" style="max-height:65vh;overflow:auto;padding-right:8px"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px" id="topupDetailActions">
       <button class="btn" type="button" onclick="$('topupDetailModal').classList.remove('open')">Tutup</button>
     </div>
@@ -883,7 +809,6 @@ document.addEventListener('keydown', e => {
 });
 
 let currentAdminUser = null;
-let currentQrisUrl = '';
 let selectedUserIdForKoreksi = null;
 const adminUserCache = {};
 const usersRaw = [];
@@ -1023,7 +948,7 @@ $('btnAdminLogout').onclick = async () => {
   window.location.reload();
 };
 
-// 2. KELOLA INFORMASI PEMBAYARAN & QRIS INTERAKTIF
+// 2. KELOLA INFORMASI PEMBAYARAN (BANK & E-WALLET)
 async function loadAllSettings() {
   const [{ data: settings, error: settingsError }, { data: payment, error: paymentError }] = await Promise.all([
     sb.from('settings').select('key,value'),
@@ -1052,124 +977,15 @@ async function loadAllSettings() {
   $('ewalletName').value = r.ewallet_name || '';
   $('ewalletNomor').value = r.ewallet_nomor || '';
   $('ewalletAn').value = r.ewallet_an || '';
-  currentQrisUrl = r.qris_url || '';
-  currentQrisPath = r.qris_path || pathFromQrisUrl(currentQrisUrl);
-  updateQrisUI();
 }
 
-function pathFromQrisUrl(url){
-  const marker = '/storage/v1/object/public/qris/';
-  const at = (url || '').indexOf(marker);
-  return at >= 0 ? decodeURIComponent(url.slice(at + marker.length).split('?')[0]) : '';
-}
 
-function updateQrisUI(){
-  if(currentQrisUrl){
-    $('qrisEmptyView').style.display = 'none';
-    $('qrisImgView').style.display = 'block';
-    $('qrisImgView').src = currentQrisUrl;
-    $('qrisEmptyControls').style.display = 'none';
-    $('qrisActiveControls').style.display = 'block';
-  } else {
-    $('qrisEmptyView').style.display = 'flex';
-    $('qrisImgView').style.display = 'none';
-    $('qrisImgView').removeAttribute('src');
-    $('qrisEmptyControls').style.display = 'block';
-    $('qrisActiveControls').style.display = 'none';
-  }
-}
 
-// QRIS disimpan di bucket publik khusus; bukti transfer tetap berada di bucket privat.
-let currentQrisPath = '';
-async function handleQrisUpload(e){
-  const input = e.target;
-  const file = input.files?.[0];
-  if(!file) return;
-  input.value = '';
-  if(!['image/png','image/jpeg'].includes(file.type)){
-    uiToast('Format QRIS harus JPG atau PNG.','warn'); return;
-  }
-  if(file.size > 2 * 1024 * 1024){
-    uiToast('Ukuran foto QRIS maksimal 2 MB.','warn'); return;
-  }
-  const oldUrl = currentQrisUrl;
-  const oldPath = currentQrisPath;
-  const ext = file.type === 'image/png' ? 'png' : 'jpg';
-  const newPath = `official/${Date.now()}_${crypto.randomUUID()}.${ext}`;
-  const button = document.querySelector('#qrisActiveControls button');
-  try {
-    input.disabled = true;
-    const { error: uploadError } = await sb.storage.from('qris').upload(newPath, file, {
-      cacheControl: '3600', upsert: false, contentType: file.type
-    });
-    if(uploadError) throw uploadError;
-    const { data: publicData } = sb.storage.from('qris').getPublicUrl(newPath);
-    const newUrl = publicData?.publicUrl;
-    if(!newUrl) throw new Error('URL foto QRIS tidak berhasil dibuat.');
 
-    currentQrisUrl = newUrl;
-    currentQrisPath = newPath;
-    const saved = await savePaymentInfo({ quiet: true });
-    if(!saved){
-      currentQrisUrl = oldUrl; currentQrisPath = oldPath;
-      await sb.storage.from('qris').remove([newPath]);
-      updateQrisUI();
-      return;
-    }
-    updateQrisUI();
-    // Hapus file lama hanya setelah URL baru tersimpan dengan sukses.
-    if(oldPath && oldPath !== newPath) {
-      const { error: removeError } = await sb.storage.from('qris').remove([oldPath]);
-      if(removeError) console.warn('QRIS lama tersimpan tetapi file lama gagal dibersihkan:', removeError.message);
-    }
-    uiToast(oldUrl ? 'Foto QRIS berhasil diganti.' : 'Foto QRIS berhasil diunggah.','success');
-  } catch(err) {
-    currentQrisUrl = oldUrl; currentQrisPath = oldPath;
-    updateQrisUI();
-    uiToast('Upload QRIS gagal: ' + (err.message || 'Kesalahan tidak diketahui.'),'error',8000);
-  } finally {
-    input.disabled = false;
-  }
-}
 
-function previewQrisFull(){
-  if(!currentQrisUrl) return;
-  $('previewTitle').textContent = 'Tinjau Foto QRIS';
-  $('previewContent').replaceChildren();
-  const img = document.createElement('img');
-  img.src = currentQrisUrl; img.alt = 'Preview QRIS aktif';
-  img.style.cssText = 'max-width:100%;max-height:480px;object-fit:contain;border-radius:10px;border:1px solid var(--border)';
-  const link = document.createElement('a');
-  link.href = currentQrisUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
-  link.className = 'btn'; link.style.marginTop = '10px'; link.textContent = 'Buka Ukuran Penuh';
-  $('previewContent').append(img, document.createElement('br'), link);
-  $('modalPreview').classList.add('open');
-}
+// Bukti transfer tetap berada di bucket privat.
 
-async function deleteQris(){
-  if(!currentQrisUrl) return;
-  const ok = await uiConfirm({
-    title:'Hapus foto QRIS?',
-    body:'Pengguna tidak akan melihat QRIS saat isi ulang token.',
-    confirmText:'Hapus', cancelText:'Batal', danger:true
-  });
-  if(!ok) return;
-  const oldUrl = currentQrisUrl;
-  const oldPath = currentQrisPath;
-  currentQrisUrl = ''; currentQrisPath = '';
-  const saved = await savePaymentInfo({ quiet: true });
-  if(!saved){
-    currentQrisUrl = oldUrl; currentQrisPath = oldPath; updateQrisUI();
-    uiToast('QRIS tidak dihapus karena perubahan gagal disimpan.','error',8000);
-    return;
-  }
-  updateQrisUI();
-  if(oldPath){
-    const { error } = await sb.storage.from('qris').remove([oldPath]);
-    if(error) console.warn('URL QRIS telah dihapus dari pengaturan, tetapi file lama gagal dibersihkan:', error.message);
-  }
-  uiToast('Foto QRIS berhasil dihapus.','success');
-}
+
 
 async function savePaymentInfo({ quiet = false } = {}){
   const rekObj = {
@@ -1178,9 +994,7 @@ async function savePaymentInfo({ quiet = false } = {}){
     bank_an: $('bankAn').value.trim(),
     ewallet_name: $('ewalletName').value.trim(),
     ewallet_nomor: $('ewalletNomor').value.trim(),
-    ewallet_an: $('ewalletAn').value.trim(),
-    qris_url: currentQrisUrl,
-    qris_path: currentQrisPath
+    ewallet_an: $('ewalletAn').value.trim()
   };
   const { error } = await sb.from('payment_settings').upsert({
     key: 'main', value: rekObj, updated_at: new Date().toISOString()
@@ -1198,7 +1012,7 @@ $('btnSavePaymentSettings').onclick = async () => {
   button.disabled = true;
   const saved = await savePaymentInfo();
   button.disabled = false;
-  if(saved) uiToast('Informasi rekening, dompet digital, dan QRIS berhasil disimpan.','success');
+  if(saved) uiToast('Informasi rekening bank dan dompet digital berhasil disimpan.','success');
 };
 
 $('btnSaveTokenSettings').onclick = async () => {
