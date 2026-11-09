@@ -113,16 +113,49 @@ async function aiErrorFromInvoke(error, fallback) {
   return e;
 }
 
-async function aiInvoke(action, body, fallbackMsg) {
+async function aiInvoke(action, body, fallbackMsg, retries = 2) {
+  // `start` memotong token dan tidak punya dedup di server, jadi retry bisa
+  // membuat token terpotong dobel. Aksi lain (tile/finish) aman diulang.
+  if (action === "start") retries = 0;
   const payload = Object.assign({ action }, body || {});
-  const { data, error } = await sb.functions.invoke("detect-ai", { body: payload });
-  if (error) throw await aiErrorFromInvoke(error, fallbackMsg);
-  if (!data || data.ok !== true) {
-    const e = new Error((data && data.message) || fallbackMsg);
-    e.status = 0;
-    throw e;
+  const maxAttempts = retries + 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const { data, error } = await sb.functions.invoke("detect-ai", { body: payload });
+    if (!error && data && data.ok === true) {
+      if (attempt > 1) console.info("[AI] detect-ai recovered on attempt " + attempt);
+      return data;
+    }
+
+    let status = 0;
+    let retryable = false;
+    if (error) {
+      const ctx = error.context;
+      status = (ctx && ctx.status) || 0;
+      const msg = String(error.message || "").toLowerCase();
+      const isNetwork = !status && (
+        error.name === "FunctionsFetchError" ||
+        /failed to fetch|failed to send a request|network|timeout|load failed/.test(msg)
+      );
+      // Hanya 5xx gateway sementara + kegagalan jaringan yang layak diulang.
+      retryable = status === 502 || status === 503 || status === 504 || isNetwork;
+    }
+
+    if (!retryable) {
+      if (error) throw await aiErrorFromInvoke(error, fallbackMsg);
+      const e = new Error((data && data.message) || fallbackMsg);
+      e.status = 0;
+      throw e;
+    }
+
+    const label = status || "network";
+    if (attempt >= maxAttempts) {
+      console.warn("[AI] detect-ai " + label + " attempt " + attempt + "/" + maxAttempts + " — giving up");
+      throw await aiErrorFromInvoke(error, fallbackMsg);
+    }
+    const delay = 1000 * Math.pow(2, attempt - 1);
+    console.warn("[AI] detect-ai " + label + " attempt " + attempt + "/" + maxAttempts + " — retry in " + delay + "ms");
+    await new Promise(resolve => setTimeout(resolve, delay));
   }
-  return data;
 }
 
 function aiPositions(start, total, size, step) {
