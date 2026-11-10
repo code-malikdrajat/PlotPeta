@@ -775,6 +775,7 @@ function ocrLabel(text,x,y,opts){
     const padX=3,padY=fs*0.18;
     ctx.fillStyle=o.background;
     ctx.fillRect(tx-tw/2-padX,ty-fs/2-padY,tw+padX*2,fs+padY*2);
+    ctx.fillStyle=o.color||'#111';
   }
   ctx.strokeText(text,tx,ty);ctx.fillText(text,tx,ty);
   ctx.restore();
@@ -924,8 +925,8 @@ function draw(){
     ctx.closePath();
     ctx.fillStyle='rgba(14,165,233,.14)';
     ctx.fill();
-    ctx.strokeStyle='rgba(14,165,233,.75)';
-    ctx.lineWidth=1.2;
+    ctx.strokeStyle='#1e3a8a';
+    ctx.lineWidth=1.6;
     ctx.stroke();
   });
   

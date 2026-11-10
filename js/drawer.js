@@ -148,6 +148,7 @@
       const padX = 3, padY = fs * 0.18;
       ctx.fillStyle = o.background;
       ctx.fillRect(tx - tw / 2 - padX, ty - fs / 2 - padY, tw + padX * 2, fs + padY * 2);
+      ctx.fillStyle = o.color || '#111';
     }
     ctx.strokeText(label, tx, ty);
     ctx.fillText(label, tx, ty);

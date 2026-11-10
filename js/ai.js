@@ -842,7 +842,7 @@ function aiPolyAnchor(ring, fallback) {
   }
   if (![x0, y0, x1, y1].every(Number.isFinite)) return fallback ? fallback.slice() : null;
 
-  const N = 17;
+  const N = 33;
   let best = null, bestD = -1;
   for (let iy = 0; iy < N; iy++) {
     for (let ix = 0; ix < N; ix++) {
@@ -854,6 +854,24 @@ function aiPolyAnchor(ring, fallback) {
         d = Math.min(d, aiPointSegDist([x, y], ring[i], ring[(i + 1) % ring.length]));
       }
       if (d > bestD) { bestD = d; best = [x, y]; }
+    }
+  }
+  if (best) {
+    const rw = (x1 - x0) / N, rh = (y1 - y0) / N;
+    const rx0 = Math.max(x0, best[0] - rw), rx1 = Math.min(x1, best[0] + rw);
+    const ry0 = Math.max(y0, best[1] - rh), ry1 = Math.min(y1, best[1] + rh);
+    const M = 9;
+    for (let iy = 0; iy < M; iy++) {
+      for (let ix = 0; ix < M; ix++) {
+        const x = rx0 + ((ix + 0.5) / M) * (rx1 - rx0);
+        const y = ry0 + ((iy + 0.5) / M) * (ry1 - ry0);
+        if (!aiPointInRing(x, y, ring)) continue;
+        let d = Infinity;
+        for (let i = 0; i < ring.length; i++) {
+          d = Math.min(d, aiPointSegDist([x, y], ring[i], ring[(i + 1) % ring.length]));
+        }
+        if (d > bestD) { bestD = d; best = [x, y]; }
+      }
     }
   }
   return best || (c ? c : (fallback ? fallback.slice() : null));
@@ -868,8 +886,11 @@ function aiAnchorItems(items, rings) {
     const it = aiNormalizeItem(raw);
     const p = aiItemPoint(it);
     if (!p) return it;
-    const ring = rs.find(r => aiPointInRing(p[0], p[1], r));
-    if (!ring) return it;
+    // Titik yang berada di dalam ring tetap memakai ring itu. Bila dekat tepi
+    // dan ada beberapa kandidat, jangan menebak ring lain.
+    const containing = rs.filter(r => aiPointInRing(p[0], p[1], r));
+    if (!containing.length) return it;
+    const ring = containing[0];
     let anchor = cache.get(ring);
     if (!anchor) {
       anchor = aiPolyAnchor(ring, p);
@@ -899,6 +920,8 @@ function aiLabelBoxHit(a, b, gap = 1) {
 // Geser label yang bertabrakan secara iteratif, dengan batas pergeseran.
 function aiResolveLabelCollisions(items, options = {}) {
   const obstacles = Array.isArray(options.obstacles) ? options.obstacles : [];
+  const rings = (Array.isArray(options.rings) ? options.rings : [])
+    .filter(r => Array.isArray(r) && r.length >= 3);
   const placed = [];
   for (const t of obstacles) {
     const p = aiItemPoint(t);
@@ -911,6 +934,8 @@ function aiResolveLabelCollisions(items, options = {}) {
     const it = aiNormalizeItem(raw);
     const origin = aiItemPoint(it);
     if (!origin) return it;
+    const originRing = rings.find(r => aiPointInRing(origin[0], origin[1], r)) || null;
+    const insideRing = (pt) => !originRing || aiPointInRing(pt[0], pt[1], originRing);
     const size = aiLabelSize(it);
     const h = Math.max(1, aiLabelHeight(it));
     const step = Math.max(2, h * 0.7);
@@ -931,8 +956,22 @@ function aiResolveLabelCollisions(items, options = {}) {
       } else {
         dx /= d; dy /= d;
       }
-      const next = [p[0] + dx * step, p[1] + dy * step];
-      if (Math.hypot(next[0] - origin[0], next[1] - origin[1]) > maxShift) break;
+
+      const tryMove = (vx, vy) => {
+        const next = [p[0] + vx * step, p[1] + vy * step];
+        if (Math.hypot(next[0] - origin[0], next[1] - origin[1]) > maxShift) return null;
+        if (!insideRing(next)) return null;
+        return next;
+      };
+
+      let next = tryMove(dx, dy);
+      if (!next) {
+        for (const [vx, vy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          next = tryMove(vx, vy);
+          if (next) break;
+        }
+      }
+      if (!next) break;
       p = next;
       box = aiLabelBoxAt(p, size);
     }
@@ -948,7 +987,7 @@ function aiPolishItems(items, options = {}) {
   let out = aiDedupAiItems(items, options.existingTexts, mult);
   out = aiMergeNoSuItems(out, mult);
   out = aiAnchorItems(out, options.rings);
-  out = aiResolveLabelCollisions(out, { obstacles: options.existingTexts });
+  out = aiResolveLabelCollisions(out, { obstacles: options.existingTexts, rings: options.rings });
   return out;
 }
 
@@ -993,6 +1032,10 @@ async function runAiText() {
   if (aiBusy) return;
   if (typeof sb === "undefined" || !sb || typeof currentUser === "undefined" || !currentUser) {
     aiSay("Masuk dulu untuk memakai Baca Teks (AI).");
+    return;
+  }
+  if (typeof polys === "undefined" || !Array.isArray(polys) || !polys.length) {
+    aiSay("Buat poligon bidang dulu (tombol Poligon), baru jalankan Baca Teks (AI) supaya label rapi di tengah bidang.");
     return;
   }
   const area = aiRefineArea();
@@ -1103,7 +1146,7 @@ async function runAiText() {
   const merged = aiMergeTexts(prev, gotTexts);
   const assignRings = aiRingsForAssign();
   const res = aiAssignTexts(merged, assignRings);
-  const polishRings = (typeof polys !== "undefined" && Array.isArray(polys)) ? polys : [];
+  const polishRings = aiRingsForAssign();
   const existingTexts = (typeof texts !== "undefined" && Array.isArray(texts)) ? texts : [];
   const polished = aiPolishItems(res.items, { existingTexts, rings: polishRings });
   const finNote = finErr ? " (Penutupan proses di server gagal; cek riwayat token untuk kepastian refund.)" : "";
@@ -1159,7 +1202,7 @@ if (typeof document !== "undefined" && typeof $ === "function") {
   if (clearBtn) clearBtn.onclick = () => {
     if (!aiTexts.length) { aiSay("Tidak ada teks AI yang perlu ditandai."); return; }
     if (typeof snapshot === "function") snapshot();
-    const rings = (typeof polys !== "undefined" && Array.isArray(polys)) ? polys : [];
+    const rings = aiRingsForAssign();
     const existing = (typeof texts !== "undefined" && Array.isArray(texts)) ? texts : [];
     const polished = aiPolishItems(aiTexts, { existingTexts: existing, rings });
     for (const t of polished) {
