@@ -6,6 +6,9 @@
 // dipotong di server saat aksi `start`, dikembalikan saat `finish` bila kosong.
 const AI_TILE = 1024, AI_OVERLAP = 0.12, AI_CONC = 3, AI_COORD = 1000, AI_MAX_TILES = 300;
 const AI_MIN_INK = 0.004, AI_TILE_EDGE = 0.015, AI_DEDUP_PX = 40;
+// Margin area baca di sekitar poligon (px gambar). 41 px kira-kira 1 sampai
+// 1,5 kali tinggi teks tulisan tangan pada peta scan tipikal.
+const AI_POLY_MARGIN = Math.max(16, Math.round(AI_TILE * 0.04));
 
 var aiTexts = [];
 let aiBusy = false, aiCancel = false;
@@ -45,9 +48,29 @@ function aiClampArea(r) {
   return { x, y, w: x1 - x, h: y1 - y };
 }
 
-// Area baca = kotak Deteksi Cepat terakhir bila ada, bila tidak seluruh gambar.
+// Area baca diambil dari poligon bidang yang sudah jadi, bukan Deteksi Cepat.
+function aiReadState() {
+  let rings = [];
+  try {
+    rings = typeof aiRingsForAssign === "function" ? aiRingsForAssign() : [];
+  } catch (_) { rings = []; }
+  const bounds = aiPolysBounds(rings, AI_POLY_MARGIN);
+  const area = bounds ? aiClampArea(bounds) : { x: 0, y: 0, w: iw, h: ih };
+  return { rings, area };
+}
+
 function aiRefineArea() {
-  return aiClampArea(typeof lastDetR !== "undefined" && lastDetR ? lastDetR : null);
+  return aiReadState().area;
+}
+
+// Satu sumber perhitungan untuk biaya di UI dan tile yang benar-benar diproses.
+function aiTilesForRead() {
+  const { rings, area } = aiReadState();
+  const allTiles = aiMakeTiles(area);
+  const tiles = allTiles
+    .filter(t => aiTileTouchesPolys(t, rings, AI_POLY_MARGIN))
+    .filter(t => aiInkRatio(t) >= AI_MIN_INK);
+  return { rings, area, allTiles, tiles };
 }
 
 function aiSetBalance(n) {
@@ -69,13 +92,12 @@ function aiUpdateCostUI() {
     aiUpdateTextUI();
     return;
   }
-  const area = aiRefineArea();
   let tiles = [];
-  try { tiles = aiMakeTiles(area).filter(t => aiInkRatio(t) >= AI_MIN_INK); } catch (_) { tiles = []; }
+  try { tiles = aiTilesForRead().tiles; } catch (_) { tiles = []; }
   const costN = aiBiayaUntuk(tiles.length);
   const perBlok = (typeof tokenBiaya === "object" && tokenBiaya && Number(tokenBiaya.tile_per_blok) >= 1)
     ? Number(tokenBiaya.tile_per_blok) : 20;
-  const where = (typeof lastDetR !== "undefined" && lastDetR) ? "kotak Deteksi Cepat terakhir" : "seluruh gambar";
+  const where = "poligon bidang";
   const saldo = typeof currentTokenBalance === "number" ? currentTokenBalance : "?";
   if (cost) {
     cost.textContent = "Area: " + where + ". " + tiles.length + " tile berisi tinta. Biaya: " +
@@ -227,8 +249,9 @@ function aiInkRatio(tile) {
   return ratio;
 }
 
-// Potong tile menjadi data URL PNG untuk dikirim ke server.
-function aiTileImage(tile) {
+// Potong tile menjadi data URL PNG untuk dikirim ke server. Bila rings diisi,
+// piksel di luar poligon + margin diputihkan hanya pada gambar yang dikirim.
+function aiTileImage(tile, rings, margin = AI_POLY_MARGIN) {
   const w = Math.max(1, Math.round(tile.w)), h = Math.max(1, Math.round(tile.h));
   const cv = document.createElement("canvas");
   cv.width = w;
@@ -237,6 +260,40 @@ function aiTileImage(tile) {
   cx.fillStyle = "#fff";
   cx.fillRect(0, 0, w, h);
   cx.drawImage(img, tile.x, tile.y, w, h, 0, 0, w, h);
+
+  const rs = (Array.isArray(rings) ? rings : []).filter(r => Array.isArray(r) && r.length >= 3);
+  if (rs.length) {
+    const raw = Number(margin);
+    const pad = Number.isFinite(raw) ? Math.max(0, raw) : 0;
+    const mask = document.createElement("canvas");
+    mask.width = w;
+    mask.height = h;
+    const mx = mask.getContext("2d");
+    mx.fillStyle = "#fff";
+    mx.strokeStyle = "#fff";
+    mx.lineWidth = Math.max(0, pad * 2);
+    mx.lineJoin = "round";
+    mx.lineCap = "round";
+    for (const ring of rs) {
+      const pts = aiRingPoints(ring);
+      if (pts.length < 2) continue;
+      mx.beginPath();
+      pts.forEach((p, i) => {
+        const x = p[0] - tile.x, y = p[1] - tile.y;
+        if (i) mx.lineTo(x, y); else mx.moveTo(x, y);
+      });
+      mx.closePath();
+      mx.fill();
+      if (mx.lineWidth > 0) mx.stroke();
+    }
+    cx.globalCompositeOperation = "destination-in";
+    cx.drawImage(mask, 0, 0);
+    cx.globalCompositeOperation = "destination-over";
+    cx.fillStyle = "#fff";
+    cx.fillRect(0, 0, w, h);
+    cx.globalCompositeOperation = "source-over";
+  }
+
   return { image: cv.toDataURL("image/png"), w, h };
 }
 
@@ -660,6 +717,149 @@ function aiDedupTexts(list) {
   return out;
 }
 
+// ===================== area baca & saringan tile (murni) =====================
+
+function aiRingPoints(ring) {
+  if (!Array.isArray(ring)) return [];
+  const out = [];
+  for (const p of ring) {
+    if (!Array.isArray(p) || p.length < 2) continue;
+    const x = Number(p[0]), y = Number(p[1]);
+    if (Number.isFinite(x) && Number.isFinite(y)) out.push([x, y]);
+  }
+  return out;
+}
+
+// Kotak pembatas semua ring, ditambah margin, dalam koordinat gambar.
+function aiPolysBounds(rings, margin = 0) {
+  const rs = Array.isArray(rings) ? rings : [];
+  const raw = Number(margin);
+  const pad = Number.isFinite(raw) ? Math.max(0, raw) : 0;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const ring of rs) {
+    const pts = aiRingPoints(ring);
+    if (pts.length < 3) continue;
+    for (const p of pts) {
+      x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]);
+      x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]);
+    }
+  }
+  if (![x0, y0, x1, y1].every(Number.isFinite)) return null;
+  return { x: x0 - pad, y: y0 - pad, w: (x1 - x0) + pad * 2, h: (y1 - y0) + pad * 2 };
+}
+
+let aiPolyGeomCacheKey = null;
+let aiPolyGeomCacheRings = [];
+
+function aiRingGeomKey(rings) {
+  const rs = Array.isArray(rings) ? rings : [];
+  let total = 0, sx = 0, sy = 0, sig = 0;
+  for (const ring of rs) {
+    for (const p of aiRingPoints(ring)) {
+      total++;
+      sx += p[0]; sy += p[1];
+      sig += p[0] * 13 + p[1] * 7;
+    }
+  }
+  const b = aiPolysBounds(rs, 0);
+  return [
+    rs.length, total, sx.toFixed(2), sy.toFixed(2), sig.toFixed(2),
+    b ? [b.x, b.y, b.w, b.h].join(",") : "none",
+  ].join("|");
+}
+
+function aiPolyGeom(rings) {
+  const rs = Array.isArray(rings) ? rings : [];
+  const key = aiRingGeomKey(rs);
+  if (aiPolyGeomCacheKey === key && aiPolyGeomCacheRings.length) return aiPolyGeomCacheRings;
+  const prepared = [];
+  for (const ring of rs) {
+    const pts = aiRingPoints(ring);
+    if (pts.length < 3) continue;
+    let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+    for (const p of pts) {
+      bx0 = Math.min(bx0, p[0]); by0 = Math.min(by0, p[1]);
+      bx1 = Math.max(bx1, p[0]); by1 = Math.max(by1, p[1]);
+    }
+    prepared.push({ pts, bbox: [bx0, by0, bx1, by1] });
+  }
+  aiPolyGeomCacheKey = key;
+  aiPolyGeomCacheRings = prepared;
+  return prepared;
+}
+
+function aiPointInRect(p, x0, y0, x1, y1) {
+  return p[0] >= x0 && p[0] <= x1 && p[1] >= y0 && p[1] <= y1;
+}
+
+function aiPointOnSegment(p, a, b) {
+  const cross = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+  if (Math.abs(cross) > 1e-9) return false;
+  const dot = (p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1]);
+  if (dot < 0) return false;
+  const len2 = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2;
+  return dot <= len2 + 1e-9;
+}
+
+function aiSegSegHit(a, b, c, d) {
+  const cross = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+  const o1 = cross(a, b, c), o2 = cross(a, b, d);
+  const o3 = cross(c, d, a), o4 = cross(c, d, b);
+  if (((o1 > 0 && o2 < 0) || (o1 < 0 && o2 > 0)) &&
+    ((o3 > 0 && o4 < 0) || (o3 < 0 && o4 > 0))) return true;
+  return aiPointOnSegment(c, a, b) || aiPointOnSegment(d, a, b) ||
+    aiPointOnSegment(a, c, d) || aiPointOnSegment(b, c, d);
+}
+
+function aiSegRectHit(a, b, x0, y0, x1, y1) {
+  if (aiPointInRect(a, x0, y0, x1, y1) || aiPointInRect(b, x0, y0, x1, y1)) return true;
+  return aiSegSegHit(a, b, [x0, y0], [x1, y0]) ||
+    aiSegSegHit(a, b, [x1, y0], [x1, y1]) ||
+    aiSegSegHit(a, b, [x1, y1], [x0, y1]) ||
+    aiSegSegHit(a, b, [x0, y1], [x0, y0]);
+}
+
+// Tile (diperluas margin) bersinggungan dengan minimal satu ring.
+function aiTileTouchesPolys(tile, rings, margin = AI_POLY_MARGIN) {
+  if (!tile) return false;
+  const w = Number(tile.w), h = Number(tile.h);
+  if (![Number(tile.x), Number(tile.y), w, h].every(Number.isFinite) || w <= 0 || h <= 0) return false;
+  const raw = Number(margin);
+  const pad = Number.isFinite(raw) ? Math.max(0, raw) : 0;
+  const x0 = Number(tile.x) - pad, y0 = Number(tile.y) - pad;
+  const x1 = Number(tile.x) + w + pad, y1 = Number(tile.y) + h + pad;
+  const corners = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+
+  for (const geom of aiPolyGeom(rings)) {
+    const b = geom.bbox;
+    if (b[2] < x0 || b[0] > x1 || b[3] < y0 || b[1] > y1) continue;
+
+    for (const p of geom.pts) {
+      if (aiPointInRect(p, x0, y0, x1, y1)) return true;
+    }
+    for (const c of corners) {
+      if (aiPointInRing(c[0], c[1], geom.pts)) return true;
+    }
+    for (let i = 0; i < geom.pts.length; i++) {
+      if (aiSegRectHit(geom.pts[i], geom.pts[(i + 1) % geom.pts.length], x0, y0, x1, y1)) return true;
+    }
+  }
+  return false;
+}
+
+function aiFilterInsideRings(items, rings) {
+  const list = Array.isArray(items) ? items : [];
+  const rs = (Array.isArray(rings) ? rings : []).filter(r => Array.isArray(r) && r.length >= 3);
+  if (!rs.length) return { kept: list.slice(), dropped: [] };
+  const kept = [], dropped = [];
+  for (const item of list) {
+    const p = aiItemPoint(item);
+    if (p && rs.some(r => aiPointInRing(p[0], p[1], r))) kept.push(item);
+    else dropped.push(item);
+  }
+  return { kept, dropped };
+}
+
 // ===================== perapian hasil teks AI (murni) =====================
 
 // Normalisasi format nomor hak/su: huruf besar, spasi dirapikan, titik dan
@@ -1025,7 +1225,7 @@ function aiMergeTexts(prev, got) {
   return aiDedupTexts((Array.isArray(prev) ? prev : []).concat(Array.isArray(got) ? got : []));
 }
 
-// Baca teks pada area (kotak Deteksi Cepat terakhir atau seluruh gambar).
+// Baca teks pada area poligon bidang yang sudah jadi.
 // Hasil masuk `aiTexts` sebagai review ungu; `lines`/`cand` tidak diubah.
 async function runAiText() {
   if (!img) { aiSay("Buka peta dulu."); return; }
@@ -1038,16 +1238,14 @@ async function runAiText() {
     aiSay("Buat poligon bidang dulu (tombol Poligon), baru jalankan Baca Teks (AI) supaya label rapi di tengah bidang.");
     return;
   }
-  const area = aiRefineArea();
-  const allTiles = aiMakeTiles(area);
-  const tiles = allTiles.filter(t => aiInkRatio(t) >= AI_MIN_INK);
-  if (!tiles.length) { aiSay("Tidak ada tulisan atau tinta pada area baca."); return; }
+  const { rings, area, allTiles, tiles } = aiTilesForRead();
+  if (!tiles.length) { aiSay("Tidak ada tulisan atau tinta pada area poligon bidang."); return; }
   if (tiles.length > AI_MAX_TILES) {
-    aiSay("Area terlalu luas: " + tiles.length + " tile (maks " + AI_MAX_TILES + "). Perkecil area Deteksi Cepat.");
+    aiSay("Area terlalu luas: " + tiles.length + " tile (maks " + AI_MAX_TILES + "). Bagi pekerjaan per kelompok bidang.");
     return;
   }
   const cost = aiBiayaUntuk(tiles.length);
-  const where = (typeof lastDetR !== "undefined" && lastDetR) ? "kotak Deteksi Cepat terakhir" : "seluruh gambar";
+  const where = "poligon bidang";
   const confirmMsg =
     "Baca Teks (AI)\nArea: " + where + " (" + Math.round(area.w) + " × " + Math.round(area.h) + " px)\n" +
     "Tile: " + tiles.length + " dari " + allTiles.length + "\nBiaya: " + cost + " token\n\n" +
@@ -1087,7 +1285,7 @@ async function runAiText() {
     let done = 0;
     await aiConcurrent(tiles, AI_CONC, async tile => {
       if (aiCancel) return;
-      const pic = aiTileImage(tile);
+      const pic = aiTileImage(tile, rings, AI_POLY_MARGIN);
       try {
         const data = await aiInvoke("tile", {
           run_id: runId,
@@ -1146,9 +1344,10 @@ async function runAiText() {
   const merged = aiMergeTexts(prev, gotTexts);
   const assignRings = aiRingsForAssign();
   const res = aiAssignTexts(merged, assignRings);
-  const polishRings = aiRingsForAssign();
+  const insideRes = aiFilterInsideRings(res.items, assignRings);
+  const droppedOutside = insideRes.dropped.length;
   const existingTexts = (typeof texts !== "undefined" && Array.isArray(texts)) ? texts : [];
-  const polished = aiPolishItems(res.items, { existingTexts, rings: polishRings });
+  const polished = aiPolishItems(insideRes.kept, { existingTexts, rings: assignRings });
   const finNote = finErr ? " (Penutupan proses di server gagal; cek riwayat token untuk kepastian refund.)" : "";
   if (!okTiles) {
     aiTexts = prev;
@@ -1163,7 +1362,11 @@ async function runAiText() {
     aiSay("Baca Teks (AI): tidak ada teks baru ditemukan. Token dikembalikan." + finNote);
   } else if (!polished.length) {
     aiTexts = prev;
-    aiSay("Baca Teks (AI): semua teks sudah ada atau duplikat. Tidak ada teks baru." + finNote);
+    aiSay(
+      "Baca Teks (AI): tidak ada teks yang bisa dipakai" +
+      (droppedOutside ? " (" + droppedOutside + " teks di luar bidang diabaikan)" : "") +
+      ". Tidak ada teks baru." + finNote
+    );
   } else {
     if (typeof snapshot === "function") snapshot();
     aiTexts = polished;
@@ -1174,10 +1377,11 @@ async function runAiText() {
     s.texts = polished.length;
     s.pairs = polished.filter(t => t.no && t.su).length;
     s.noNumber = polished.filter(t => !t.no && t.su).length;
+    s.outside = droppedOutside;
     aiSay(
       "Baca Teks (AI): " + s.texts + " teks (" + s.pairs + " pasangan), " + s.fields + " bidang, " +
       s.noNumber + " tanpa nomor, " + s.multiHak + " hak ganda, " + s.outside +
-      " teks di luar bidang. Tile berhasil " + okTiles + "/" + tiles.length + "."
+      " teks di luar bidang diabaikan. Tile berhasil " + okTiles + "/" + tiles.length + "."
     );
   }
   aiBusy = false;
@@ -1226,5 +1430,6 @@ if (typeof module === "object" && module.exports) {
     aiAssignTexts, aiBuildTexts, aiFitTextBox, aiMergeTexts, aiTextFromTile,
     aiNormalizeText, aiDedupAiItems, aiMergeNoSuItems, aiAnchorItems, aiPolyAnchor,
     aiResolveLabelCollisions, aiPolishItems, aiLabelParts,
+    aiPolysBounds, aiTileTouchesPolys, aiFilterInsideRings,
   };
 }
