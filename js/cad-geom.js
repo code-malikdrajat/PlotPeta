@@ -19,6 +19,7 @@
     root.cadRayRayHit = api.cadRayRayHit;
     root.cadExtendRay = api.cadExtendRay;
     root.cadExtend = api.cadExtend;
+    root.textDragPosition = api.textDragPosition;
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
@@ -536,6 +537,51 @@
     };
   }
 
+  /**
+   * Hitung posisi teks setelah digeser (dx, dy) dalam koordinat gambar.
+   * p dibatasi ke [0, iw] x [0, ih]. Bila box ada, box digeser dengan
+   * selisih yang sama dan ikut dibatasi agar tetap di dalam gambar.
+   * Fungsi murni, tanpa DOM.
+   */
+  function textDragPosition(origP, origBox, dx, dy, iw, ih) {
+    var px = origP && isFinite(+origP[0]) ? +origP[0] : 0;
+    var py = origP && isFinite(+origP[1]) ? +origP[1] : 0;
+    var maxX = isFinite(+iw) && +iw > 0 ? +iw : 0;
+    var maxY = isFinite(+ih) && +ih > 0 ? +ih : 0;
+    var sx = isFinite(+dx) ? +dx : 0;
+    var sy = isFinite(+dy) ? +dy : 0;
+
+    var box = null;
+    var hasBox = Array.isArray(origBox) && origBox.length >= 4;
+    var b = null;
+    if (hasBox) {
+      b = [+origBox[0], +origBox[1], +origBox[2], +origBox[3]];
+      if (!b.every(function (v) { return isFinite(v); })) {
+        hasBox = false;
+        b = null;
+      }
+    }
+
+    var lowX = -px, highX = maxX - px;
+    var lowY = -py, highY = maxY - py;
+    if (hasBox) {
+      var bx0 = Math.min(b[0], b[2]), bx1 = Math.max(b[0], b[2]);
+      var by0 = Math.min(b[1], b[3]), by1 = Math.max(b[1], b[3]);
+      lowX = Math.max(lowX, -bx0);
+      highX = Math.min(highX, maxX - bx1);
+      lowY = Math.max(lowY, -by0);
+      highY = Math.min(highY, maxY - by1);
+    }
+    sx = Math.max(lowX, Math.min(highX, sx));
+    sy = Math.max(lowY, Math.min(highY, sy));
+
+    var p = [px + sx, py + sy];
+    if (hasBox) {
+      box = [b[0] + sx, b[1] + sy, b[2] + sx, b[3] + sy];
+    }
+    return { p: p, box: box };
+  }
+
   return {
     cadParamModel: cadParamModel,
     cadCutParams: cadCutParams,
@@ -545,6 +591,7 @@
     cadRayRayHit: cadRayRayHit,
     cadExtendRay: cadExtendRay,
     cadExtend: cadExtend,
+    textDragPosition: textDragPosition,
     _internal: {
       segmentsOf: segmentsOf,
       chainsOf: chainsOf,

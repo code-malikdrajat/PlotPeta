@@ -3,7 +3,7 @@
 const $=id=>document.getElementById(id);
 const plotCanvas=$('plotCanvas'),ctx=plotCanvas.getContext('2d');
 const LN={get P(){return $('lP').value.trim()||'020100'},get D(){return $('lD').value.trim()||'020300'}};
-let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=-1,mouse=null,drag=null,dirty=false,hist=[],erasePick=null,mClickTimer=null,mClickPt=null,mvStart=null,mvMoved=false,addLinePick=null;
+let img=null,iw=0,ih=0,V={s:1,x:0,y:0},tool='pan',lines=[],texts=[],cur=[],selT=-1,mouse=null,drag=null,textDrag=null,dirty=false,hist=[],erasePick=null,mClickTimer=null,mClickPt=null,mvStart=null,mvMoved=false,addLinePick=null;
 let cal={pts:[],ok:false,M:null,mode:'local'};
 let cand=[],box=null,mv=null,polys=[],gaps=[],mapLocked=false;
 let candDropped=[],lastDetR=null;
@@ -367,6 +367,10 @@ function click(sp,ev){
 $('fin').onclick=finish;
 $('undo').onclick=undo;
 
+function restoreCanvasCursor(){
+  plotCanvas.style.cursor=mapLocked&&tool==='pan'?'not-allowed':tool==='pan'?'grab':'crosshair';
+}
+
 plotCanvas.addEventListener('pointerdown',e=>{
   const sp=[e.offsetX,e.offsetY];
   const freehandMode = (tool==='A' && detectModeEl?.value==='poly') || (tool==='E' && eraseModeEl?.value==='poly');
@@ -399,18 +403,36 @@ plotCanvas.addEventListener('pointerdown',e=>{
       if(Math.hypot(s[0]-sp[0], s[1]-sp[1]) < 18) hitT = i;
     });
     if(hitA >= 0 && (tool === 'pan' || tool === 'T')){
+      const item = aiTexts[hitA];
       aiSel = hitA;
       selT = -1;
       tform(true);
-      showTextEditPopover(hitA, true);
+      closeTextEditPopover();
+      textDrag = {
+        ai: true,
+        idx: hitA,
+        startSp: sp.slice(),
+        origP: item.p.slice(),
+        origBox: Array.isArray(item.box) ? item.box.slice() : null,
+        moved: false,
+      };
       draw();
       return;
     }
     if(hitT >= 0 && (tool === 'pan' || tool === 'T')){
+      const item = texts[hitT];
       aiSel = -1;
       selT = hitT;
       tform(true);
-      showTextEditPopover(hitT);
+      closeTextEditPopover();
+      textDrag = {
+        ai: false,
+        idx: hitT,
+        startSp: sp.slice(),
+        origP: item.p.slice(),
+        origBox: Array.isArray(item.box) ? item.box.slice() : null,
+        moved: false,
+      };
       draw();
       return;
     }
@@ -444,6 +466,27 @@ plotCanvas.addEventListener('pointermove',e=>{
     if(!last || Math.hypot(next[0]-last[0],next[1]-last[1])>=2) selectionPoly.push(next);
     draw(); return;
   }
+  if(textDrag){
+    if(!textDrag.moved && Math.hypot(mouse[0]-textDrag.startSp[0],mouse[1]-textDrag.startSp[1])>4){
+      textDrag.moved = true;
+      snapshot();
+      closeTextEditPopover();
+      plotCanvas.style.cursor = 'grabbing';
+    }
+    if(textDrag.moved){
+      const a = toI(textDrag.startSp);
+      const b = toI(mouse);
+      const pos = textDragPosition(textDrag.origP, textDrag.origBox, b[0]-a[0], b[1]-a[1], iw, ih);
+      const list = textDrag.ai ? aiTexts : texts;
+      const item = list[textDrag.idx];
+      if(item){
+        item.p = pos.p;
+        if(pos.box) item.box = pos.box;
+      }
+      draw();
+    }
+    return;
+  }
   if(mv){
     if(!mvMoved && mvStart && Math.hypot(mouse[0]-mvStart[0],mouse[1]-mvStart[1])>4){mvMoved=true;snapshot();}
     if(mvMoved)movePt(mouse);
@@ -470,6 +513,19 @@ plotCanvas.addEventListener('pointerup',e=>{
     else { selectionPoly=[]; draw(); }
     return;
   }
+  if(textDrag){
+    const td = textDrag;
+    textDrag = null;
+    restoreCanvasCursor();
+    if(td.moved){
+      dirty = true;
+      stat();
+      draw();
+    }else{
+      showTextEditPopover(td.idx, td.ai);
+    }
+    return;
+  }
   if(mv){
     const wasMoved=mvMoved;
     mv=null;mvStart=null;mvMoved=false;
@@ -493,6 +549,17 @@ plotCanvas.addEventListener('pointerup',e=>{
   // Alat Trim/Extend: klik dihitung dari titik lepas mouse (geser tidak menjadi pan).
   if(drag&&drag.btn===0&&(!drag.moved||cadTool()))click([e.offsetX,e.offsetY],e);
   drag=null;
+});
+plotCanvas.addEventListener('pointercancel',()=>{
+  if(!textDrag)return;
+  const moved = textDrag.moved;
+  textDrag = null;
+  restoreCanvasCursor();
+  if(moved){
+    dirty = true;
+    stat();
+    draw();
+  }
 });
 plotCanvas.addEventListener('dblclick',e=>{
   if(img){
@@ -1163,7 +1230,7 @@ $('btnClearMap').onclick=async()=>{
   img=null; iw=0; ih=0; mapName='';
   lines=[]; texts=[]; polys=[]; gaps=[]; cand=[]; cur=[]; hist=[];  aiTexts=[]; aiRaw=[];
   candDropped=[]; lastDetR=null;
-  selT=-1; aiSel=-1; dirty=false; box=null; mv=null; drag=null; mouse=null; erasePick=null;addLinePick=null;
+  selT=-1; aiSel=-1; dirty=false; box=null; mv=null; drag=null; textDrag=null; mouse=null; erasePick=null;addLinePick=null;
   cal.pts=[]; cal.ok=false; cal.M=null;
   ['cx0','cy0','cx1','cy1','cx2','cy2','cx3','cy3'].forEach(id=>{ if($(id)) $(id).value=''; });
   setCoordMode('local'); crs(); tform(); stat();
