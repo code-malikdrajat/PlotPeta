@@ -97,6 +97,7 @@ function aiUpdateTextUI() {
 
 async function aiErrorFromInvoke(error, fallback) {
   let msg = "";
+  let reason = "";
   let status = 0;
   const ctx = error && error.context;
   if (ctx) {
@@ -105,11 +106,13 @@ async function aiErrorFromInvoke(error, fallback) {
       try {
         const j = await ctx.json();
         if (j && j.message) msg = j.message;
+        if (j && typeof j.reason === "string") reason = j.reason;
       } catch (_) { /* abaikan */ }
     }
   }
   const e = new Error(msg || fallback);
   e.status = status;
+  if (reason) e.reason = reason;
   return e;
 }
 
@@ -136,14 +139,17 @@ async function aiInvoke(action, body, fallbackMsg, retries = 2) {
         error.name === "FunctionsFetchError" ||
         /failed to fetch|failed to send a request|network|timeout|load failed/.test(msg)
       );
-      // Hanya 5xx gateway sementara + kegagalan jaringan yang layak diulang.
-      retryable = status === 502 || status === 503 || status === 504 || isNetwork;
+      // Action "tile": hanya kegagalan jaringan yang layak diulang. Retry 502/503/504
+      // akan memanggil ai_run_take_tile lagi di server dan menghabiskan kuota run.
+      // Action lain (finish) boleh mengulang 5xx gateway sementara.
+      retryable = action === "tile" ? isNetwork : (status === 502 || status === 503 || status === 504 || isNetwork);
     }
 
     if (!retryable) {
       if (error) throw await aiErrorFromInvoke(error, fallbackMsg);
       const e = new Error((data && data.message) || fallbackMsg);
       e.status = 0;
+      if (data && typeof data.reason === "string") e.reason = data.reason;
       throw e;
     }
 
@@ -720,6 +726,7 @@ async function runAiText() {
 
   let runId = null, finished = false, okTiles = 0, refunded = false;
   let gotTexts = [];
+  let firstTileErr = null;
   let finErr = null;   // kegagalan finish tercatat terpisah; tidak membuang hasil tile
   try {
     const st = await aiInvoke("start", { tiles: tiles.length }, "Gagal memulai Baca Teks (AI).");
@@ -746,8 +753,9 @@ async function runAiText() {
             if (ent) gotTexts.push(ent);
           }
         }
-      } catch (_) {
-        // tile gagal: biarkan tile lain selesai
+      } catch (e) {
+        // tile gagal: biarkan tile lain selesai, simpan penyebab pertama untuk pesan akhir
+        if (!firstTileErr) firstTileErr = e;
       }
       done++;
       if (!aiCancel) aiSay("Baca Teks (AI): memproses " + done + "/" + tiles.length + " tile…");
@@ -790,7 +798,11 @@ async function runAiText() {
   const finNote = finErr ? " (Penutupan proses di server gagal; cek riwayat token untuk kepastian refund.)" : "";
   if (!okTiles) {
     aiTexts = prev;
-    aiSay("Baca Teks (AI) gagal: tidak ada tile yang berhasil. Token dikembalikan." + finNote);
+    const why = firstTileErr
+      ? " Penyebab tile pertama: " + (firstTileErr.message || "tidak diketahui") +
+        (firstTileErr.reason ? " [" + firstTileErr.reason + "]" : "") + "."
+      : "";
+    aiSay("Baca Teks (AI) gagal: tidak ada tile yang berhasil." + why + " Token dikembalikan." + finNote);
   } else if (refunded || !res.items.length) {
     // Proses tanpa teks: pulihkan teks AI yang sudah ada, jangan dikosongkan.
     aiTexts = prev;
