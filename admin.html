@@ -569,6 +569,7 @@ th { white-space:nowrap; }
           </tbody>
         </table>
       </div>
+      <div class="mu" id="pendingLimitNotice" style="font-size:11px;margin-top:8px" hidden>Menampilkan 200 permintaan terlama saja. Permintaan lainnya tidak dimuat.</div>
     </div>
 
     <!-- Section 2: Informasi Pembayaran TF & E-Wallet -->
@@ -1369,13 +1370,15 @@ async function loadPendingTopups() {
   const { data, error } = await sb.from('topups')
     .select('*, profiles!topups_user_id_fkey(nama, email)')
     .eq('status', 'menunggu')
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: true })
+    .limit(200);
 
   if (error) {
     console.error('Gagal mengambil data top-up:', error);
     tableError(tb, 8, 'Gagal memuat permintaan top-up: ' + error.message, 'loadPendingTopups');
     return;
   }
+  if ($('pendingLimitNotice')) $('pendingLimitNotice').hidden = !(data && data.length >= 200);
 
   if (!data || data.length === 0) {
     tb.innerHTML = `
@@ -2660,12 +2663,14 @@ checkAdminSession();
   let adminAutoRefreshBusy = false;
   async function autoRefreshAdminChat(){
     if(adminAutoRefreshBusy || typeof sb === 'undefined' || !sb) return;
+    // Hemat kuota: jangan panggil API saat tab tersembunyi atau panel chat tidak aktif.
+    if (document.hidden) return;
+    const supportPanel = document.getElementById('panel-support');
+    if (!supportPanel || getComputedStyle(supportPanel).display === 'none') return;
     adminAutoRefreshBusy = true;
     try {
       if(typeof loadAdminSupport === 'function') await loadAdminSupport();
-      const supportPanel = document.getElementById('panel-support');
-      const isSupportVisible = supportPanel && getComputedStyle(supportPanel).display !== 'none';
-      if(isSupportVisible && typeof supportSelectedUserId !== 'undefined' && supportSelectedUserId && typeof openAdminSupport === 'function') {
+      if(typeof supportSelectedUserId !== 'undefined' && supportSelectedUserId && typeof openAdminSupport === 'function') {
         await openAdminSupport(supportSelectedUserId);
       }
     } catch(err) { console.warn('Auto-refresh chat gagal:', err); }
