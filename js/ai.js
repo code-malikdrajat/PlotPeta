@@ -660,6 +660,313 @@ function aiDedupTexts(list) {
   return out;
 }
 
+// ===================== perapian hasil teks AI (murni) =====================
+
+// Normalisasi format nomor hak/su: huruf besar, spasi dirapikan, titik dan
+// garis miring konsisten. Contoh: " m . 317 " -> "M.317".
+function aiNormalizeText(value) {
+  let s = String(value == null ? "" : value).toUpperCase().trim();
+  if (!s) return "";
+  s = s.replace(/\s+/g, " ");
+  s = s.replace(/\s*\.\s*/g, ".");
+  s = s.replace(/\s*\/\s*/g, "/");
+  s = s.replace(/\.{2,}/g, ".");
+  s = s.replace(/^(HGB|HGU|HPL|HM|HP|SU|S\.U|M|C)\.?\s*(\d)/, (_m, prefix, digit) =>
+    prefix.replace(/\./g, "") + "." + digit
+  );
+  return s.replace(/\s+/g, " ").trim();
+}
+
+function aiLabelHeight(item) {
+  const b = item && item.box;
+  if (Array.isArray(b) && b.length >= 4) {
+    const h = Math.abs(Number(b[3]) - Number(b[1]));
+    if (Number.isFinite(h) && h > 0) return h;
+  }
+  return 20;
+}
+
+function aiItemPoint(item) {
+  if (!item) return null;
+  if (Array.isArray(item.p) && item.p.length >= 2) {
+    const x = Number(item.p[0]), y = Number(item.p[1]);
+    if (Number.isFinite(x) && Number.isFinite(y)) return [x, y];
+  }
+  return aiCenterOf(item);
+}
+
+function aiItemDistance(a, b) {
+  const pa = aiItemPoint(a), pb = aiItemPoint(b);
+  if (!pa || !pb) return Infinity;
+  return Math.hypot(pa[0] - pb[0], pa[1] - pb[1]);
+}
+
+function aiNearItems(a, b, mult = 1.5) {
+  const d = aiItemDistance(a, b);
+  if (!Number.isFinite(d)) return false;
+  return d <= Math.max(8, mult * Math.max(aiLabelHeight(a), aiLabelHeight(b)));
+}
+
+function aiTextTokens(item) {
+  const out = [];
+  const no = aiNormalizeText(item && item.no);
+  const su = aiNormalizeText(item && item.su);
+  if (no) out.push(no);
+  if (su) out.push(su);
+  return out;
+}
+
+function aiNormalizeItem(item) {
+  const out = Object.assign({}, item);
+  if (Array.isArray(item && item.p)) out.p = item.p.slice();
+  if (Array.isArray(item && item.box)) out.box = item.box.slice();
+  out.no = aiNormalizeText(item && item.no);
+  out.su = aiNormalizeText(item && item.su);
+  if (!out.no) delete out.no;
+  if (!out.su) delete out.su;
+  return out;
+}
+
+// Buang duplikat antar tile dan terhadap teks yang sudah ada di texts[].
+function aiDedupAiItems(items, existingTexts = [], mult = 1.5) {
+  const kept = [];
+  const existing = (Array.isArray(existingTexts) ? existingTexts : []).filter(t => t && (t.no || t.su));
+  for (const raw of Array.isArray(items) ? items : []) {
+    const it = aiNormalizeItem(raw);
+    if (!it.no && !it.su) continue;
+    const tokens = aiTextTokens(it);
+
+    const duplicateExisting = existing.some(e => {
+      if (!aiNearItems(it, e, mult)) return false;
+      return aiTextTokens(e).some(t => tokens.includes(t));
+    });
+    if (duplicateExisting) continue;
+
+    const near = kept.find(k => {
+      if (!aiNearItems(it, k, mult)) return false;
+      return aiTextTokens(k).some(t => tokens.includes(t));
+    });
+    if (near) {
+      if (!near.no && it.no) near.no = it.no;
+      if (!near.su && it.su) near.su = it.su;
+      if (!near.box && it.box) near.box = it.box;
+      if (!near.angle && it.angle) near.angle = it.angle;
+      if (it.luarBidang) near.luarBidang = true;
+      if (it.banyakHak) near.banyakHak = true;
+      continue;
+    }
+    kept.push(it);
+  }
+  return kept;
+}
+
+// Gabungkan entri no-only dan su-only yang berdekatan menjadi satu label.
+function aiMergeNoSuItems(items, mult = 1.5) {
+  const list = (Array.isArray(items) ? items : []).map(aiNormalizeItem);
+  const used = new Set();
+  const out = [];
+
+  for (let i = 0; i < list.length; i++) {
+    const it = list[i];
+    if (used.has(i) || !it.no || it.su) continue;
+    let best = -1;
+    let bestD = Infinity;
+    for (let j = 0; j < list.length; j++) {
+      if (i === j || used.has(j)) continue;
+      const other = list[j];
+      if (!other.su || other.no || !aiNearItems(it, other, mult)) continue;
+      const d = aiItemDistance(it, other);
+      if (d < bestD) { bestD = d; best = j; }
+    }
+    if (best >= 0) {
+      const other = list[best];
+      it.su = other.su;
+      if (it.box && other.box) {
+        const box = aiUnionBox(it.box, other.box);
+        if (box) {
+          it.box = box;
+          it.p = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
+        }
+      } else if (!it.box && other.box) {
+        it.box = other.box.slice();
+      } else if (it.p && other.p) {
+        it.p = [(it.p[0] + other.p[0]) / 2, (it.p[1] + other.p[1]) / 2];
+      }
+      used.add(best);
+    }
+    used.add(i);
+    out.push(it);
+  }
+
+  for (let i = 0; i < list.length; i++) {
+    if (!used.has(i)) out.push(list[i]);
+  }
+  return out;
+}
+
+function aiRingCentroid(ring) {
+  let a = 0, cx = 0, cy = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const p = ring[i], q = ring[(i + 1) % ring.length];
+    const x0 = Number(p[0]), y0 = Number(p[1]), x1 = Number(q[0]), y1 = Number(q[1]);
+    if (![x0, y0, x1, y1].every(Number.isFinite)) continue;
+    const cross = x0 * y1 - x1 * y0;
+    a += cross;
+    cx += (x0 + x1) * cross;
+    cy += (y0 + y1) * cross;
+  }
+  if (Math.abs(a) < 1e-9) {
+    let sx = 0, sy = 0, n = 0;
+    for (const p of ring) {
+      const x = Number(p[0]), y = Number(p[1]);
+      if (Number.isFinite(x) && Number.isFinite(y)) { sx += x; sy += y; n++; }
+    }
+    return n ? [sx / n, sy / n] : null;
+  }
+  return [cx / (3 * a), cy / (3 * a)];
+}
+
+// Titik anchor di dalam cincin: centroid bila di dalam, jika tidak memakai
+// kira-kira pole of inaccessibility dari sampel grid.
+function aiPolyAnchor(ring, fallback) {
+  if (!Array.isArray(ring) || ring.length < 3) return fallback ? fallback.slice() : null;
+  const c = aiRingCentroid(ring);
+  if (c && aiPointInRing(c[0], c[1], ring)) return c;
+
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of ring) {
+    const x = Number(p[0]), y = Number(p[1]);
+    if (![x, y].every(Number.isFinite)) continue;
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y);
+    x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+  }
+  if (![x0, y0, x1, y1].every(Number.isFinite)) return fallback ? fallback.slice() : null;
+
+  const N = 17;
+  let best = null, bestD = -1;
+  for (let iy = 0; iy < N; iy++) {
+    for (let ix = 0; ix < N; ix++) {
+      const x = x0 + ((ix + 0.5) / N) * (x1 - x0);
+      const y = y0 + ((iy + 0.5) / N) * (y1 - y0);
+      if (!aiPointInRing(x, y, ring)) continue;
+      let d = Infinity;
+      for (let i = 0; i < ring.length; i++) {
+        d = Math.min(d, aiPointSegDist([x, y], ring[i], ring[(i + 1) % ring.length]));
+      }
+      if (d > bestD) { bestD = d; best = [x, y]; }
+    }
+  }
+  return best || (c ? c : (fallback ? fallback.slice() : null));
+}
+
+function aiAnchorItems(items, rings) {
+  const list = Array.isArray(items) ? items : [];
+  const rs = (Array.isArray(rings) ? rings : []).filter(r => Array.isArray(r) && r.length >= 3);
+  if (!rs.length) return list.map(it => aiNormalizeItem(it));
+  const cache = new Map();
+  return list.map(raw => {
+    const it = aiNormalizeItem(raw);
+    const p = aiItemPoint(it);
+    if (!p) return it;
+    const ring = rs.find(r => aiPointInRing(p[0], p[1], r));
+    if (!ring) return it;
+    let anchor = cache.get(ring);
+    if (!anchor) {
+      anchor = aiPolyAnchor(ring, p);
+      cache.set(ring, anchor);
+    }
+    if (anchor) it.p = [anchor[0], anchor[1]];
+    return it;
+  });
+}
+
+function aiLabelSize(item) {
+  const h = Math.max(1, aiLabelHeight(item));
+  const lines = (item.no ? 1 : 0) + (item.su ? 1 : 0);
+  const chars = Math.max(String(item.no || "").length, String(item.su || "").length, 1);
+  return { w: Math.max(h * 1.4, chars * h * 0.62), h: h * Math.max(1, lines) };
+}
+
+function aiLabelBoxAt(p, size) {
+  return { x: p[0] - size.w / 2, y: p[1] - size.h / 2, w: size.w, h: size.h };
+}
+
+function aiLabelBoxHit(a, b, gap = 1) {
+  return a.x < b.x + b.w + gap && b.x < a.x + a.w + gap &&
+    a.y < b.y + b.h + gap && b.y < a.y + a.h + gap;
+}
+
+// Geser label yang bertabrakan secara iteratif, dengan batas pergeseran.
+function aiResolveLabelCollisions(items, options = {}) {
+  const obstacles = Array.isArray(options.obstacles) ? options.obstacles : [];
+  const placed = [];
+  for (const t of obstacles) {
+    const p = aiItemPoint(t);
+    if (!p) continue;
+    const size = aiLabelSize(t);
+    placed.push(Object.assign(aiLabelBoxAt(p, size), { cx: p[0], cy: p[1] }));
+  }
+
+  return (Array.isArray(items) ? items : []).map(raw => {
+    const it = aiNormalizeItem(raw);
+    const origin = aiItemPoint(it);
+    if (!origin) return it;
+    const size = aiLabelSize(it);
+    const h = Math.max(1, aiLabelHeight(it));
+    const step = Math.max(2, h * 0.7);
+    const maxShift = Math.max(step, h * 4);
+    let p = origin.slice();
+    let box = aiLabelBoxAt(p, size);
+
+    for (let iter = 0; iter < 16; iter++) {
+      const hit = placed.find(o => aiLabelBoxHit(box, o));
+      if (!hit) break;
+      let dx = p[0] - hit.cx;
+      let dy = p[1] - hit.cy;
+      const d = Math.hypot(dx, dy);
+      if (d < 1e-6) {
+        const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+        const dir = dirs[iter % dirs.length];
+        dx = dir[0]; dy = dir[1];
+      } else {
+        dx /= d; dy /= d;
+      }
+      const next = [p[0] + dx * step, p[1] + dy * step];
+      if (Math.hypot(next[0] - origin[0], next[1] - origin[1]) > maxShift) break;
+      p = next;
+      box = aiLabelBoxAt(p, size);
+    }
+
+    it.p = p;
+    placed.push(Object.assign({}, box, { cx: p[0], cy: p[1] }));
+    return it;
+  });
+}
+
+function aiPolishItems(items, options = {}) {
+  const mult = Number(options.mult) > 0 ? Number(options.mult) : 1.5;
+  let out = aiDedupAiItems(items, options.existingTexts, mult);
+  out = aiMergeNoSuItems(out, mult);
+  out = aiAnchorItems(out, options.rings);
+  out = aiResolveLabelCollisions(out, { obstacles: options.existingTexts });
+  return out;
+}
+
+// Bagian label untuk draw(): no kosong tidak boleh menjadi "(no)".
+function aiLabelParts(item, isAI = false) {
+  const no = String((item && item.no) || "").trim();
+  const su = String((item && item.su) || "").trim();
+  const warn = !!(item && item.fmtWarn);
+  const marker = isAI ? "◆ " : "";
+  return {
+    no,
+    su,
+    twoLine: !!(no && su),
+    empty: !no && !su,
+    label: (warn ? "⚠ " : "") + marker + (no || su || ""),
+  };
+}
+
 function aiRingsForAssign() {
   try {
     if (typeof polys !== "undefined" && Array.isArray(polys) && polys.length) return polys;
@@ -794,7 +1101,11 @@ async function runAiText() {
   // Gabungkan hasil proses sebelumnya dengan hasil proses ini (proses kedua
   // tidak menimpa yang pertama), lalu pasangkan ulang agar hak/su tetap benar.
   const merged = aiMergeTexts(prev, gotTexts);
-  const res = aiAssignTexts(merged, aiRingsForAssign());
+  const assignRings = aiRingsForAssign();
+  const res = aiAssignTexts(merged, assignRings);
+  const polishRings = (typeof polys !== "undefined" && Array.isArray(polys)) ? polys : [];
+  const existingTexts = (typeof texts !== "undefined" && Array.isArray(texts)) ? texts : [];
+  const polished = aiPolishItems(res.items, { existingTexts, rings: polishRings });
   const finNote = finErr ? " (Penutupan proses di server gagal; cek riwayat token untuk kepastian refund.)" : "";
   if (!okTiles) {
     aiTexts = prev;
@@ -807,13 +1118,19 @@ async function runAiText() {
     // Proses tanpa teks: pulihkan teks AI yang sudah ada, jangan dikosongkan.
     aiTexts = prev;
     aiSay("Baca Teks (AI): tidak ada teks baru ditemukan. Token dikembalikan." + finNote);
+  } else if (!polished.length) {
+    aiTexts = prev;
+    aiSay("Baca Teks (AI): semua teks sudah ada atau duplikat. Tidak ada teks baru." + finNote);
   } else {
     if (typeof snapshot === "function") snapshot();
-    aiTexts = res.items;
+    aiTexts = polished;
     try { aiSel = -1; selT = -1; } catch (_) { /* abaikan */ }
     if (typeof stat === "function") stat();
     if (typeof draw === "function") draw();
     const s = res.stats;
+    s.texts = polished.length;
+    s.pairs = polished.filter(t => t.no && t.su).length;
+    s.noNumber = polished.filter(t => !t.no && t.su).length;
     aiSay(
       "Baca Teks (AI): " + s.texts + " teks (" + s.pairs + " pasangan), " + s.fields + " bidang, " +
       s.noNumber + " tanpa nomor, " + s.multiHak + " hak ganda, " + s.outside +
@@ -842,7 +1159,10 @@ if (typeof document !== "undefined" && typeof $ === "function") {
   if (clearBtn) clearBtn.onclick = () => {
     if (!aiTexts.length) { aiSay("Tidak ada teks AI yang perlu ditandai."); return; }
     if (typeof snapshot === "function") snapshot();
-    for (const t of aiTexts) {
+    const rings = (typeof polys !== "undefined" && Array.isArray(polys)) ? polys : [];
+    const existing = (typeof texts !== "undefined" && Array.isArray(texts)) ? texts : [];
+    const polished = aiPolishItems(aiTexts, { existingTexts: existing, rings });
+    for (const t of polished) {
       delete t.ai;
       delete t.fmtWarn;
       delete t.luarBidang;
@@ -859,5 +1179,9 @@ if (typeof document !== "undefined" && typeof $ === "function") {
 
 // Ekspor untuk tes Node murni (aiAssignTexts tidak memakai DOM).
 if (typeof module === "object" && module.exports) {
-  module.exports = { aiAssignTexts, aiBuildTexts, aiFitTextBox, aiMergeTexts, aiTextFromTile };
+  module.exports = {
+    aiAssignTexts, aiBuildTexts, aiFitTextBox, aiMergeTexts, aiTextFromTile,
+    aiNormalizeText, aiDedupAiItems, aiMergeNoSuItems, aiAnchorItems, aiPolyAnchor,
+    aiResolveLabelCollisions, aiPolishItems, aiLabelParts,
+  };
 }

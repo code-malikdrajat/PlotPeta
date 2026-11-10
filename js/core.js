@@ -769,6 +769,13 @@ function ocrLabel(text,x,y,opts){
     ctx.rotate(ang*Math.PI/180);
     tx=0;ty=0;
   }
+  if(o.background){
+    const fs=Number((/([0-9.]+)px/.exec(ctx.font)||[])[1])||12;
+    const tw=ctx.measureText(text).width;
+    const padX=3,padY=fs*0.18;
+    ctx.fillStyle=o.background;
+    ctx.fillRect(tx-tw/2-padX,ty-fs/2-padY,tw+padX*2,fs+padY*2);
+  }
   ctx.strokeText(text,tx,ty);ctx.fillText(text,tx,ty);
   ctx.restore();
 }
@@ -808,12 +815,18 @@ function draw(){
     ctx.setLineDash([]);
   });
   // Teks AI ber-box: ukuran mengikuti tinggi tulisan di layar, diputar sesuai angle.
+  const labelBg='rgba(255,255,255,.72)';
+  const labelParts=(t,isAI)=>{
+    if(typeof aiLabelParts==='function')return aiLabelParts(t,isAI);
+    const no=String(t&&t.no||'').trim(),su=String(t&&t.su||'').trim();
+    return {no,su,twoLine:!!(no&&su),empty:!no&&!su,label:(isAI?'◆ ':'')+(no||su||'')};
+  };
   const drawTextBoxed=(t,color,label,twoLine)=>{
     const s=toS(t.p);
     const box=t.box;
     const hs=Math.max(1,(Number(box[3])-Number(box[1]))*V.s);
     const n=twoLine?2:1;
-    const f=Math.max(9,Math.min(24,hs/(n*1.25)));
+    const f=Math.max(9,Math.min(16,hs/(n*1.25)));
     const fam='"Plus Jakarta Sans", system-ui, sans-serif';
     const lh=f*1.15;
     const off=twoLine?lh/2:0;
@@ -821,42 +834,58 @@ function draw(){
     ctx.save();
     ctx.translate(s[0],s[1]);
     ctx.rotate(ang);
-    ocrLabel(label,0,-off,{color,font:'bold '+f.toFixed(1)+'px '+fam});
-    if(twoLine)ocrLabel(t.su,0,off,{color,font:(f*0.92).toFixed(1)+'px '+fam});
+    ocrLabel(label,0,-off,{color,font:'bold '+f.toFixed(1)+'px '+fam,background:labelBg});
+    if(twoLine)ocrLabel(t.su,0,off,{color,font:(f*0.92).toFixed(1)+'px '+fam,background:labelBg});
     ocrSymbol(0,0,{kind:'diamond',size:3.5,color});
     ctx.restore();
   };
+  const totalLabels=texts.length+(typeof aiTexts==='undefined'?0:aiTexts.length);
+  const hideLabels=V.s<0.35&&totalLabels>150;
+  const labelFont=Math.max(9,Math.min(16,14*(V.s||1)));
   texts.forEach((t,i)=>{
+    if(hideLabels&&i!==selT)return;
     const s=toS(t.p);
     const isAI=!!t.ai;
     const color=i===selT?(isAI?'#7c3aed':'#0ea5e9'):(isAI?'#a855f7':'#111');
-    const label=isAI?('◆ '+(t.no||t.su||'(teks)')):(t.no||'(no)');
-    // Dua baris (no + su) ditumpuk simetris di sekitar titik anchor OCR.
-    const twoLine=!!(t.su&&(t.no||!isAI));
-    if(t.box&&t.box.length>=4){drawTextBoxed(t,color,label,twoLine);return;}
-    ocrLabel(label,s[0],s[1]+(twoLine?-6:0),{
-      color,font:'bold 12px "Plus Jakarta Sans", system-ui, sans-serif',
-    });
-    if(twoLine){
-      ocrLabel(t.su,s[0],s[1]+8,{
-        color,font:'11px "Plus Jakarta Sans", system-ui, sans-serif',
+    const parts=labelParts(t,isAI);
+    const twoLine=parts.twoLine;
+    if(t.box&&t.box.length>=4){
+      if(!parts.empty)drawTextBoxed(t,color,parts.label,twoLine);
+      else ocrSymbol(s[0],s[1],{kind:'diamond',size:3.5,color:isAI?'#a855f7':'#0ea5e9'});
+      return;
+    }
+    if(!parts.empty){
+      ocrLabel(parts.label,s[0],s[1]+(twoLine?-6:0),{
+        color,font:'bold '+labelFont.toFixed(1)+'px "Plus Jakarta Sans", system-ui, sans-serif',background:labelBg,
       });
+      if(twoLine){
+        ocrLabel(parts.su,s[0],s[1]+8,{
+          color,font:(labelFont*0.92).toFixed(1)+'px "Plus Jakarta Sans", system-ui, sans-serif',background:labelBg,
+        });
+      }
     }
     ocrSymbol(s[0],s[1],{kind:'diamond',size:3.5,color:isAI?'#a855f7':'#0ea5e9'});
   });
   (typeof aiTexts==='undefined'?[]:aiTexts).forEach((t,i)=>{
+    if(hideLabels&&i!==aiSel)return;
     const s=toS(t.p);
     const color=i===aiSel?'#7c3aed':'#a855f7';
-    const label=(t.fmtWarn?'⚠ ':'')+'◆ '+(t.no||t.su||'(teks)');
-    const twoLine=!!(t.su&&t.no);
-    if(t.box&&t.box.length>=4){drawTextBoxed(t,color,label,twoLine);return;}
-    ocrLabel(label,s[0],s[1]+(twoLine?-6:0),{
-      color,font:'bold 12px "Plus Jakarta Sans", system-ui, sans-serif',
-    });
-    if(twoLine){
-      ocrLabel(t.su,s[0],s[1]+8,{
-        color,font:'11px "Plus Jakarta Sans", system-ui, sans-serif',
+    const parts=labelParts(t,true);
+    const twoLine=parts.twoLine;
+    if(t.box&&t.box.length>=4){
+      if(!parts.empty)drawTextBoxed(t,color,parts.label,twoLine);
+      else ocrSymbol(s[0],s[1],{kind:'diamond',size:3.5,color:'#a855f7'});
+      return;
+    }
+    if(!parts.empty){
+      ocrLabel(parts.label,s[0],s[1]+(twoLine?-6:0),{
+        color,font:'bold '+labelFont.toFixed(1)+'px "Plus Jakarta Sans", system-ui, sans-serif',background:labelBg,
       });
+      if(twoLine){
+        ocrLabel(parts.su,s[0],s[1]+8,{
+          color,font:(labelFont*0.92).toFixed(1)+'px "Plus Jakarta Sans", system-ui, sans-serif',background:labelBg,
+        });
+      }
     }
     ocrSymbol(s[0],s[1],{kind:'diamond',size:3.5,color:'#a855f7'});
   });

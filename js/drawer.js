@@ -142,6 +142,13 @@
       tx = 0;
       ty = 0;
     }
+    if (o.background) {
+      const fs = Number((/([0-9.]+)px/.exec(ctx.font) || [])[1]) || 12;
+      const tw = ctx.measureText(label).width;
+      const padX = 3, padY = fs * 0.18;
+      ctx.fillStyle = o.background;
+      ctx.fillRect(tx - tw / 2 - padX, ty - fs / 2 - padY, tw + padX * 2, fs + padY * 2);
+    }
     ctx.strokeText(label, tx, ty);
     ctx.fillText(label, tx, ty);
     ctx.restore();
