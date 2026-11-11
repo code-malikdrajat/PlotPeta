@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-65.8 69.7 631.5 631.5">
+  <title>PlotPeta</title>
+  <style>
+    .a{stroke:#0B3D91} .b{stroke:#1E88E5} .c{fill:#0B3D91}
+    @media (prefers-color-scheme: dark){.a{stroke:#8DB7FF} .b{stroke:#4FA3F7} .c{fill:#8DB7FF}}
+  </style>
+  <path class="a" d="M250,650 L114,385 V114 H216 V249 H114" fill="none" stroke-width="40" stroke-linejoin="miter" stroke-miterlimit="10"/>
+  <path class="b" d="M250,650 L386,385 V114 H284 V249 H386" fill="none" stroke-width="40" stroke-linejoin="miter" stroke-miterlimit="10"/>
+  <circle class="c" cx="250" cy="652" r="28"/>
+</svg>
