@@ -1953,3 +1953,85 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 .chip-file .dot.autosaved { background:var(--success); }
 #tokenPill.token-warn { background:var(--warning-subtle); border-color:rgba(245,158,11,.45); }
 #tokenPill.token-empty { background:var(--danger-subtle); border-color:rgba(239,68,68,.4); }
+/* ==================== Layar loading global ==================== */
+.pp-busy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(6, 10, 18, .6);
+  pointer-events: auto;
+  touch-action: none;
+  animation: ppBusyFade .12s ease-out;
+}
+.pp-busy-overlay[hidden] { display: none !important; }
+.pp-busy-card {
+  box-sizing: border-box;
+  min-width: 260px;
+  max-width: 86vw;
+  padding: 22px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  background: var(--bg-panel);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg, 0 18px 50px rgba(0,0,0,.45));
+}
+.pp-busy-card:focus { outline: none; }
+.pp-busy-spinner {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  border: 4px solid rgba(30, 136, 229, .22);
+  border-top-color: #1E88E5;
+  animation: ppBusySpin .9s linear infinite;
+  will-change: transform;
+}
+.pp-busy-title { font-weight: 700; font-size: 14px; line-height: 1.35; }
+.pp-busy-detail { font-size: 12px; line-height: 1.5; color: var(--text-muted); overflow-wrap: anywhere; }
+.pp-busy-progress {
+  width: 100%;
+  height: 6px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--border);
+}
+.pp-busy-progress[hidden] { display: none !important; }
+.pp-busy-bar {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: #1E88E5;
+  transition: width .18s ease;
+}
+.pp-busy-cancel {
+  margin-top: 2px;
+  min-height: 36px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.pp-busy-cancel:hover { background: var(--bg-input); }
+.pp-busy-cancel[hidden] { display: none !important; }
+@keyframes ppBusySpin { to { transform: rotate(360deg); } }
+@keyframes ppBusyFade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .pp-busy-overlay { animation: none; }
+  .pp-busy-spinner { animation: none; }
+  .pp-busy-bar { transition: none; }
+}
