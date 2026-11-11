@@ -1272,6 +1272,35 @@ async function runAiText() {
   aiCancel = false;
   aiUpdateTextUI();
 
+  const busy = (typeof window !== "undefined") ? window.PlotPetaBusy : null;
+  const busyText = (d, t) => (busy && typeof busy.progressText === "function")
+    ? busy.progressText(d, t)
+    : ("Tile " + d + " dari " + t);
+  let busyShown = false;
+  if (busy && typeof busy.show === "function") {
+    try {
+      busy.show({
+        title: "Membaca teks (AI)…",
+        detail: busyText(0, tiles.length),
+        cancelable: true,
+        total: tiles.length,
+        onCancel: () => {
+          if (!aiBusy) return;
+          aiCancel = true;
+          aiSay("Membatalkan Baca Teks (AI)…");
+          if (busyShown && busy && typeof busy.hide === "function") {
+            busy.hide();
+            busyShown = false;
+          }
+        },
+      });
+      busyShown = true;
+    } catch (_) {
+      busyShown = false;
+    }
+  }
+
+  try {
   let runId = null, finished = false, okTiles = 0, refunded = false;
   let gotTexts = [];
   let firstTileErr = null;
@@ -1306,6 +1335,9 @@ async function runAiText() {
         if (!firstTileErr) firstTileErr = e;
       }
       done++;
+      if (busyShown && busy && typeof busy.update === "function") {
+        busy.update({ done, total: tiles.length, detail: busyText(done, tiles.length) });
+      }
       if (!aiCancel) aiSay("Baca Teks (AI): memproses " + done + "/" + tiles.length + " tile…");
     });
 
@@ -1332,11 +1364,13 @@ async function runAiText() {
     }
     if (!okTiles) aiTexts = prev;
     aiSay("Baca Teks (AI) gagal: " + (e && e.message ? e.message : "coba lagi"));
-    aiBusy = false;
-    aiUpdateTextUI();
     if (typeof stat === "function") stat();
     if (typeof draw === "function") draw();
     return;
+  }
+
+  if (busyShown && busy && typeof busy.update === "function") {
+    busy.update({ done: tiles.length, total: tiles.length, detail: "Merapikan label…" });
   }
 
   // Gabungkan hasil proses sebelumnya dengan hasil proses ini (proses kedua
@@ -1390,6 +1424,11 @@ async function runAiText() {
   if (typeof updateSidebarForTool === "function") updateSidebarForTool();
   if (typeof updateOverview === "function") updateOverview();
   if (refunded && typeof fetchUserTokens === "function") fetchUserTokens();
+  } finally {
+    aiBusy = false;
+    aiUpdateTextUI();
+    if (busyShown && busy && typeof busy.hide === "function") busy.hide();
+  }
 }
 
 // ============================ pemasangan tombol ============================

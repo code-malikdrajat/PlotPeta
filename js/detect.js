@@ -702,66 +702,93 @@ function runDet(R,poly=null){
   if(!img||R.w<20||R.h<20)return;
   candDropped=[];
   lastDetR=R;
-  $('dMsg').textContent='Mendeteksi...';
+  const busy=window.PlotPetaBusy;
+  let busyShown=false;
+  function detSay(msg){
+    $('dMsg').textContent=msg;
+    if(busyShown&&busy&&typeof busy.update==='function')busy.update({detail:msg});
+  }
+  function waitPaint(){
+    return new Promise(resolve=>{
+      let done=false;
+      const fin=()=>{if(done)return;done=true;resolve()};
+      if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>requestAnimationFrame(fin));
+      setTimeout(fin,120);
+    });
+  }
+  detSay('Menyiapkan deteksi...');
   if(typeof setStatus==='function')setStatus('busy','Mendeteksi...');
+  if(busy&&typeof busy.show==='function'){
+    try{
+      busy.show({title:'Mendeteksi garis…',detail:'Menyiapkan deteksi...',cancelable:false});
+      busyShown=true;
+    }catch(_){busyShown=false}
+  }
   setTimeout(async()=>{
     try{
-      const engine=$('detectEngineDrawer')?.value==='hough'?'hough':'trace';
-      const p=analyzeRegion(R);
-      const params={T:p.dT,minL:p.dL,gapF:p.dG,magR:p.magR,linkMax:p.linkMax,medRun:p.medRun||2,autoMag:true};
-      cand=[];
-      syncCandClean();
-      let helperUsed=false;
-      if(engine==='trace'){
-        // Mesin jejak: raster -> kerangka 1 px -> graf -> garis dipasang ulang.
-        if(typeof detectTrace!=='function') throw new Error('Mesin jejak belum termuat. Muat ulang halaman.');
-        $('dMsg').textContent='Menelusuri batas bidang dengan mesin jejak...';
-        await new Promise(r=>setTimeout(r,10));
-        cand=detectTrace(R,{minLen:params.minL,linkMax:params.linkMax});
-        candDropped=(cand.dropped||[]);
-      }else{
-        // Hough: gambar bantu (latar dihapus, teks dibuang) selalu dicoba; gagal -> gambar asli.
-        $('dMsg').textContent='Menyiapkan gambar bantu...';
-        await new Promise(r=>setTimeout(r,10));
-        try{
-          const hd=buildHelperData(R,params,{preview:false});
-          params.source=hd.lineOnly;
-          helperUsed=true;
-        }catch(e){
-          $('dMsg').textContent='Gambar bantu gagal, memakai gambar asli...';
+      await waitPaint();
+      try{
+        const engine=$('detectEngineDrawer')?.value==='hough'?'hough':'trace';
+        detSay('Mendeteksi...');
+        const p=analyzeRegion(R);
+        const params={T:p.dT,minL:p.dL,gapF:p.dG,magR:p.magR,linkMax:p.linkMax,medRun:p.medRun||2,autoMag:true};
+        cand=[];
+        syncCandClean();
+        let helperUsed=false;
+        if(engine==='trace'){
+          // Mesin jejak: raster -> kerangka 1 px -> graf -> garis dipasang ulang.
+          if(typeof detectTrace!=='function') throw new Error('Mesin jejak belum termuat. Muat ulang halaman.');
+          detSay('Menelusuri batas bidang dengan mesin jejak...');
           await new Promise(r=>setTimeout(r,10));
+          cand=detectTrace(R,{minLen:params.minL,linkMax:params.linkMax});
+          candDropped=(cand.dropped||[]);
+        }else{
+          // Hough: gambar bantu (latar dihapus, teks dibuang) selalu dicoba; gagal -> gambar asli.
+          detSay('Menyiapkan gambar bantu...');
+          await new Promise(r=>setTimeout(r,10));
+          try{
+            const hd=buildHelperData(R,params,{preview:false});
+            params.source=hd.lineOnly;
+            helperUsed=true;
+          }catch(e){
+            detSay('Gambar bantu gagal, memakai gambar asli...');
+            await new Promise(r=>setTimeout(r,10));
+          }
+          detSay('Mendeteksi...');
+          cand=detect(R,params);
         }
-        $('dMsg').textContent='Mendeteksi...';
-        cand=detect(R,params);
-      }
-      // Filter berdasarkan area poligon jika ada
-      if(poly&&poly.length>=3) cand=cand.filter(c=>{
-        let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;
-        return n>=c.pts.length/2;
-      });
-      let topoNote='';
-      if(cand.length){
-        try{
-          const tr=cleanTopologyChains(cand,{mode:'all',tol:16});
-          cand=tr.chains;
-          topoNote=' Topologi dirapikan ('+tr.stats.joins+' join, '+tr.stats.extends+' extend, '+tr.stats.trims+' trim).';
-        }catch(e){console.warn('Rapikan topologi otomatis gagal:',e)}
-      }
-      ensureCandIds(cand);
-      if(cand.length&&cand[0].free) plotPetaNumberEnds(cand);
-      const nEnd=cand.reduce((z,c)=>z+((c.nums||[]).filter(Boolean).length),0);
-      const engineNote=engine==='hough'?' Metode Hough dipakai.':'';
-      $('dMsg').textContent=
-        cand.length+' jalur kandidat'
-        +(nEnd?(', '+nEnd+' ujung bebas.'):'.')
-        +' Persilangan & duplikat sudah dibersihkan.'+(helperUsed?' Gambar bantu dipakai.':'')+topoNote+engineNote+(candDropped.length?' '+candDropped.length+' coretan dibuang otomatis.':'')+' Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.';
-      if(typeof setStatus==='function')setStatus('ready','Deteksi selesai: '+cand.length+' jalur');
-    }catch(x){cand=[];candDropped=[];$('dMsg').textContent='Deteksi gagal: '+x.message;if(typeof setStatus==='function')setStatus('error','Deteksi gagal: '+x.message)}
-    draw();
-    syncCandClean();
-    if(typeof updateSidebarForTool==='function')updateSidebarForTool();
-    if(typeof updateOverview==='function')updateOverview();
-    if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
+        // Filter berdasarkan area poligon jika ada
+        if(poly&&poly.length>=3) cand=cand.filter(c=>{
+          let n=0;for(const q of c.pts)if(pointInPolygon(q,poly))n++;
+          return n>=c.pts.length/2;
+        });
+        let topoNote='';
+        if(cand.length){
+          try{
+            const tr=cleanTopologyChains(cand,{mode:'all',tol:16});
+            cand=tr.chains;
+            topoNote=' Topologi dirapikan ('+tr.stats.joins+' join, '+tr.stats.extends+' extend, '+tr.stats.trims+' trim).';
+          }catch(e){console.warn('Rapikan topologi otomatis gagal:',e)}
+        }
+        ensureCandIds(cand);
+        if(cand.length&&cand[0].free) plotPetaNumberEnds(cand);
+        const nEnd=cand.reduce((z,c)=>z+((c.nums||[]).filter(Boolean).length),0);
+        const engineNote=engine==='hough'?' Metode Hough dipakai.':'';
+        detSay(
+          cand.length+' jalur kandidat'
+          +(nEnd?(', '+nEnd+' ujung bebas.'):'.')
+          +' Persilangan & duplikat sudah dibersihkan.'+(helperUsed?' Gambar bantu dipakai.':'')+topoNote+engineNote+(candDropped.length?' '+candDropped.length+' coretan dibuang otomatis.':'')+' Kandidat bisa diedit dengan Edit Garis/Hapus sebelum diterima.'
+        );
+        if(typeof setStatus==='function')setStatus('ready','Deteksi selesai: '+cand.length+' jalur');
+      }catch(x){cand=[];candDropped=[];detSay('Deteksi gagal: '+x.message);if(typeof setStatus==='function')setStatus('error','Deteksi gagal: '+x.message)}
+      draw();
+      syncCandClean();
+      if(typeof updateSidebarForTool==='function')updateSidebarForTool();
+      if(typeof updateOverview==='function')updateOverview();
+      if(typeof aiUpdateCostUI==='function')aiUpdateCostUI();
+    }finally{
+      if(busyShown&&busy&&typeof busy.hide==='function')busy.hide();
+    }
   },40);
 }
 
