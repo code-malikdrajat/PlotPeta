@@ -1450,7 +1450,7 @@ body { background: var(--bg-app); }
 }
 #bar .brand { color: #f4f8fc; }
 #bar .brand-name { background: none; -webkit-text-fill-color: #f4f8fc; color: #f4f8fc; font-size: 18px; letter-spacing: -.45px; }
-#bar .brand-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--accent-solid); box-shadow: none; }
+#bar .brand-icon { width: 38px; height: 38px; border-radius: 10px; background: #f4f8fc; box-shadow: none; }
 #bar .brand-badge { background: rgba(7,135,207,.16); color: #55baff; border: 0; border-radius: 999px; }
 #bar .bar-left, #bar .bar-center, #bar .bar-right { gap: 7px; }
 #bar .bar-div { background: #405168; }
