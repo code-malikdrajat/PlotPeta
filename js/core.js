@@ -226,6 +226,13 @@ function setTool(t){
   if(cur.length&&(t==='P'||t==='D'))finish();
   else cur=[];
   tool=t;
+  if(t!=='T'){
+    closeTextEditPopover();
+    if(textDrag){
+      if(textDrag.moved)dirty=true;
+      textDrag=null;
+    }
+  }
   erasePick=null;addLinePick=null;hoverSeg=null;
   if(typeof cadResetHover==='function')cadResetHover();
   selectionPoly=[]; box=null;
@@ -353,7 +360,7 @@ function click(sp,ev){
     }
     return;
   }
-  if(tool==='pan'||tool==='T'){
+  if(tool==='T'){
     let hit=-1;
     aiSel=-1;
     texts.forEach((t,i)=>{const s=toS(t.p);if(Math.hypot(s[0]-sp[0],s[1]-sp[1])<18)hit=i});
@@ -391,7 +398,7 @@ plotCanvas.addEventListener('pointerdown',e=>{
         mv=h;mvStart=sp.slice();mvMoved=false;return;
       }
     }
-    // Jika mengklik langsung pada titik teks bidang yang ada di peta
+    // Pada alat Teks bidang, klik/geser titik teks yang ada di peta.
     let hitA = -1;
     aiTexts.forEach((t,i)=>{
       const s = toS(t.p);
@@ -402,7 +409,7 @@ plotCanvas.addEventListener('pointerdown',e=>{
       const s = toS(t.p);
       if(Math.hypot(s[0]-sp[0], s[1]-sp[1]) < 18) hitT = i;
     });
-    if(hitA >= 0 && (tool === 'pan' || tool === 'T')){
+    if(hitA >= 0 && tool === 'T'){
       const item = aiTexts[hitA];
       aiSel = hitA;
       selT = -1;
@@ -419,7 +426,7 @@ plotCanvas.addEventListener('pointerdown',e=>{
       draw();
       return;
     }
-    if(hitT >= 0 && (tool === 'pan' || tool === 'T')){
+    if(hitT >= 0 && tool === 'T'){
       const item = texts[hitT];
       aiSel = -1;
       selT = hitT;
@@ -562,7 +569,7 @@ plotCanvas.addEventListener('pointercancel',()=>{
   }
 });
 plotCanvas.addEventListener('dblclick',e=>{
-  if(img){
+  if(tool==='T' && img){
     const sp=[e.offsetX,e.offsetY];
     let hitT=-1;
     texts.forEach((t,i)=>{const s=toS(t.p);if(Math.hypot(s[0]-sp[0],s[1]-sp[1])<18)hitT=i});
