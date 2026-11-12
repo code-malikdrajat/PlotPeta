@@ -1502,9 +1502,16 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
   #bar .bar-left { gap: 5px; }
   #bar .bar-left > .btn, #bar .bar-left > button { padding: 7px 9px; }
   #side { height: 45%; }
-  .dropzone-box { padding: 24px 18px; }
+  .dropzone-box { padding: 18px 14px; }
+  .dropzone-icon { width: 44px; height: 44px; margin-bottom: 10px; }
+  .dropzone-title { font-size: 16px; }
+  .dropzone-sub { font-size: 12px; margin-bottom: 12px; }
+  .pp-stepper { gap: 6px; margin-top: 10px; }
+  .pp-step { min-width: 0; padding: 4px 6px; }
+  .badge-group { margin-top: 10px; }
   /* Panel kontrol kanan menutupi dropzone; sisakan ruang di kanan. */
-  .dropzone-overlay { padding: 16px 62px 16px 16px; }
+  .dropzone-overlay { padding: 12px 62px 12px 12px; }
+  #wrap { min-height: 360px; }
 }
 /* Left drawer tool layout */
 .tool-drawer { padding: 2px 0 14px; border-bottom: 1px solid var(--border); }
@@ -1544,7 +1551,9 @@ button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visi
 }
 @media (max-width:680px) {
   #main { flex-direction:column !important; overflow:auto; }
-  #toolDrawer { order:0 !important; flex:0 0 auto; width:100%; min-width:0; max-height:190px; border-right:0; border-bottom:1px solid var(--border); padding:8px; }
+  #toolDrawer { order:0 !important; flex:0 0 auto; width:100%; min-width:0; max-height:240px; border-right:0; border-bottom:1px solid var(--border); padding:8px; }
+  /* Di mobile laci selebar layar: tampilkan nama alat, jangan hanya ikon. */
+  #toolDrawer .tool-drawer-list button[data-tool] span:not(.tool-fav-star) { display:inline; }
   #toolDrawer .tool-drawer-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
   #wrap { order:1 !important; flex:1 0 320px; min-height:320px; }
   #side { order:2 !important; flex:0 0 auto; width:100%; min-width:0; max-height:42vh; border-left:0; border-top:1px solid var(--border); }
