@@ -521,7 +521,7 @@
   <div id="side" class="side-hidden">
     <div id="settingsTopbar">
       <span class="settings-title">PENGATURAN</span>
-
+      <button type="button" id="btnSideSheetClose" class="side-sheet-close" aria-label="Tutup pengaturan">&times;</button>
     </div>
 
     <!-- Overview card (idle) -->
@@ -554,6 +554,7 @@
         </select>
       </label>
       <div class="mu" id="coordHint" style="padding:9px;border-radius:8px;background:var(--bg-soft);margin-bottom:8px">Mode lokal: DXF memakai titik awal lokal (0,0). Satuan mengikuti piksel gambar; bukan koordinat geografis. Cocok untuk membuka gambar di AutoCAD lalu menyesuaikan skala.</div>
+      <button type="button" class="btn mobile-only" id="btnPickCal" style="margin-bottom:8px">Pilih titik kalibrasi di peta</button>
       <div id="crs"></div>
       <div class="g2">
         <button class="pri" id="apply">Terapkan</button>
@@ -1019,6 +1020,145 @@
   </button>
 </div>
 <script src="js/support.js?v=7"></script>
+
+<!-- Navigasi bawah khusus mobile -->
+<nav id="mobileNav" class="mobile-nav" aria-label="Navigasi utama">
+  <button type="button" data-mnav="draw" aria-label="Alat gambar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+    <span>Gambar</span>
+  </button>
+  <button type="button" data-mnav="modify" aria-label="Alat rapikan">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+    <span>Rapikan</span>
+  </button>
+  <button type="button" data-mnav="label" aria-label="Alat label">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+    <span>Label</span>
+  </button>
+  <button type="button" data-mnav="settings" aria-label="Pengaturan">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    <span>Atur</span>
+  </button>
+  <button type="button" data-mnav="file" aria-label="Berkas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    <span>File</span>
+  </button>
+</nav>
+
+<div id="mobileSheetBackdrop" class="sheet-backdrop"></div>
+<section id="toolSheet" class="tool-sheet" role="dialog" aria-modal="true" aria-labelledby="toolSheetTitle">
+  <div class="tool-sheet-head">
+    <b id="toolSheetTitle">Alat</b>
+    <button type="button" id="toolSheetClose" class="tool-sheet-close" aria-label="Tutup">&times;</button>
+  </div>
+  <div id="toolSheetBody" class="tool-sheet-body"></div>
+</section>
+
+<script>
+(function(){
+  const nav = document.getElementById('mobileNav');
+  if (!nav) return;
+  const sheet = document.getElementById('toolSheet');
+  const sheetBody = document.getElementById('toolSheetBody');
+  const sheetTitle = document.getElementById('toolSheetTitle');
+  const backdrop = document.getElementById('mobileSheetBackdrop');
+  const side = document.getElementById('side');
+  const groups = {
+    draw: { title: 'Gambar', tools: ['A', 'P'], extras: ['.detect-mode-options'] },
+    modify: { title: 'Rapikan', tools: ['M', 'TRIM', 'EXT', 'E'], extras: ['.cad-mode-options', '.erase-mode-options'] },
+    label: { title: 'Label', tools: ['T'], extras: [] }
+  };
+  let moved = [];
+  let currentGroup = '';
+  const click = id => { const el = document.getElementById(id); if (el) el.click(); };
+
+  function restoreMoved(){
+    for (const m of moved.splice(0).reverse()) {
+      if (m.next && m.next.parentNode === m.parent) m.parent.insertBefore(m.el, m.next);
+      else m.parent.appendChild(m.el);
+    }
+  }
+  function hideBackdropIfIdle(){
+    if (!sheet.classList.contains('open') && !side.classList.contains('side-sheet-open')) backdrop.classList.remove('open');
+  }
+  function closeToolSheet(){
+    if (!sheet.classList.contains('open')) return;
+    sheet.classList.remove('open');
+    currentGroup = '';
+    restoreMoved();
+    hideBackdropIfIdle();
+  }
+  function openToolSheet(key){
+    const g = groups[key];
+    if (!g) return;
+    closeSideSheet();
+    if (sheet.classList.contains('open')) {
+      const same = currentGroup === key;
+      closeToolSheet();
+      if (same) return;
+    }
+    sheetBody.replaceChildren();
+    moved = [];
+    for (const id of g.tools) {
+      const orig = document.querySelector('#toolDrawer [data-tool="' + id + '"]');
+      const row = orig && orig.closest('.tool-row');
+      if (!row) continue;
+      const clone = row.cloneNode(true);
+      const b = clone.querySelector('button[data-tool]');
+      b.onclick = () => { orig.click(); closeToolSheet(); };
+      sheetBody.appendChild(clone);
+    }
+    for (const sel of g.extras) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      moved.push({ el, parent: el.parentNode, next: el.nextSibling });
+      sheetBody.appendChild(el);
+    }
+    sheetTitle.textContent = g.title;
+    currentGroup = key;
+    backdrop.classList.add('open');
+    sheet.classList.add('open');
+  }
+  function openSideSheet(){
+    closeToolSheet();
+    side.classList.add('side-sheet-open');
+    side.scrollTop = 0;
+    backdrop.classList.add('open');
+  }
+  function closeSideSheet(){
+    if (!side.classList.contains('side-sheet-open')) return;
+    side.classList.remove('side-sheet-open');
+    hideBackdropIfIdle();
+  }
+  nav.addEventListener('click', e => {
+    const btn = e.target.closest('[data-mnav]');
+    if (!btn) return;
+    e.stopPropagation();
+    const action = btn.dataset.mnav;
+    if (action === 'file') {
+      closeToolSheet();
+      closeSideSheet();
+      click('btnFileMenu');
+      return;
+    }
+    if (action === 'settings') {
+      if (side.classList.contains('side-sheet-open')) closeSideSheet();
+      else openSideSheet();
+      return;
+    }
+    if (groups[action]) openToolSheet(action);
+  });
+  document.getElementById('toolSheetClose').onclick = closeToolSheet;
+  document.getElementById('btnSideSheetClose').onclick = closeSideSheet;
+  backdrop.addEventListener('click', () => { closeToolSheet(); closeSideSheet(); });
+  const pickCal = document.getElementById('btnPickCal');
+  if (pickCal) pickCal.onclick = () => {
+    const cal = document.querySelector('#toolDrawer [data-tool="cal"]');
+    if (cal) cal.click();
+    closeSideSheet();
+  };
+})();
+</script>
 
 </body>
 </html>
