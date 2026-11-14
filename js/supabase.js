@@ -180,6 +180,7 @@ async function updateAuthState(session){
       currentProfile = profile;
       const displayName = profile?.nama || currentUser.email.split('@')[0];
       $('userName').textContent = displayName;
+      $('userName').title = displayName;
       $('userEmail').textContent = currentUser.email;
       $('userAvatar').textContent = displayName.charAt(0).toUpperCase();
       const adminEl = $('adminLink');
