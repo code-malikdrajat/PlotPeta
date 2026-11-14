@@ -7,9 +7,9 @@
   const close = document.getElementById('modalClose');
   if (!modal || !title || !body || !close) return;
 
-  // ISI DUA NILAI INI sebelum dipublikasikan (identitas pengendali data wajib jelas bagi pengguna).
-  const PP_PENGELOLA = '[ISI: nama pengelola / penyelenggara PlotPeta]';
-  const PP_EMAIL = '[ISI: email kontak pelindungan data]';
+  // Identitas pengendali data (wajib jelas bagi pengguna).
+  const PP_PENGELOLA = 'malikdrajat (pengembang PlotPeta)';
+  const PP_EMAIL = 'plotpeta.web.id@gmail.com';
   const PP_UPDATED = '23 Oktober 2026';
   const ul = 'style="padding-left:18px;margin:6px 0"';
 
