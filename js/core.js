@@ -889,7 +889,7 @@ function draw(){
     ctx.stroke();
     ctx.setLineDash([]);
   });
-  // Teks AI ber-box: ukuran mengikuti tinggi tulisan di layar, diputar sesuai angle.
+  // Teks AI ber-box: ukuran mengikuti tinggi tulisan di layar, selalu horizontal.
   const labelBg='rgba(255,255,255,.72)';
   const labelParts=(t,isAI)=>{
     if(typeof aiLabelParts==='function')return aiLabelParts(t,isAI);
@@ -905,10 +905,9 @@ function draw(){
     const fam='"Plus Jakarta Sans", system-ui, sans-serif';
     const lh=f*1.15;
     const off=twoLine?lh/2:0;
-    const ang=(Number(t.angle)||0)*Math.PI/180;
     ctx.save();
     ctx.translate(s[0],s[1]);
-    ctx.rotate(ang);
+    // Semua label AI selalu horizontal agar seragam; sudut deteksi tidak dipakai.
     ocrLabel(label,0,-off,{color,font:'bold '+f.toFixed(1)+'px '+fam,background:labelBg});
     if(twoLine)ocrLabel(t.su,0,off,{color,font:(f*0.92).toFixed(1)+'px '+fam,background:labelBg});
     ocrSymbol(0,0,{kind:'diamond',size:3.5,color});
